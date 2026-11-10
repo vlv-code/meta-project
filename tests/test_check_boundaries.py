@@ -315,6 +315,33 @@ class TestBoundaryGateCLI(unittest.TestCase):
             self.assertIn("installed successfully", res.stdout.lower())
 
 
+class TestArchitectureDrift(unittest.TestCase):
+    """Tests for check_architecture_drift function."""
+
+    def test_drift_detected_when_code_modified_without_architecture(self):
+        files = ["src/api/routes.py", "src/services/billing.py"]
+        has_drift, drift_files = check_boundaries.check_architecture_drift(files)
+        self.assertTrue(has_drift)
+        self.assertEqual(len(drift_files), 2)
+        self.assertIn("src/api/routes.py", drift_files)
+
+    def test_drift_suppressed_when_architecture_included(self):
+        files = ["src/api/routes.py", ".agents/project_knowledge/architecture.md"]
+        has_drift, drift_files = check_boundaries.check_architecture_drift(files)
+        self.assertFalse(has_drift)
+        self.assertEqual(len(drift_files), 0)
+
+    def test_drift_suppressed_for_non_code_files(self):
+        files = ["docs/readme.md", "tests/test_unit.py", ".agents/project_knowledge/tasks.md"]
+        has_drift, drift_files = check_boundaries.check_architecture_drift(files)
+        self.assertFalse(has_drift)
+        self.assertEqual(len(drift_files), 0)
+
+    def test_drift_detected_for_skills_framework_code(self):
+        files = ["skills/my-new-skill/SKILL.md"]
+        has_drift, drift_files = check_boundaries.check_architecture_drift(files)
+        self.assertTrue(has_drift)
+        self.assertIn("skills/my-new-skill/SKILL.md", drift_files)
 
 
 if __name__ == "__main__":

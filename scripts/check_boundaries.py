@@ -239,6 +239,57 @@ def audit_tree(
     return passed, unmapped, counts
 
 
+def check_architecture_drift(files: List[str]) -> Tuple[bool, List[str]]:
+    """
+    Check if functional code files were modified without a corresponding update to architecture.md.
+    Returns (has_drift, list_of_functional_code_files).
+
+    Suppressed if:
+    - No functional code files were touched.
+    - An architecture slice ('architecture.md' or '.agents/project_knowledge/architecture.md') is among files.
+    """
+    normalized_files = [f.strip().replace("\\", "/") for f in files if f.strip()]
+    if not normalized_files:
+        return False, []
+
+    # Check if architecture file is among the modified files
+    has_arch_update = any(
+        f == "architecture.md" or f.endswith("/architecture.md")
+        for f in normalized_files
+    )
+    if has_arch_update:
+        return False, []
+
+    # Noise suppression: non-code directories and files to ignore
+    ignored_prefixes = (
+        "tests/", "test/", "docs/", ".agents/", ".github/", ".idea/", ".vscode/"
+    )
+    ignored_extensions = (
+        ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".ini", ".log", ".lock",
+        ".svg", ".png", ".jpg", ".jpeg", ".ico", ".css"
+    )
+    code_extensions = (
+        ".py", ".ts", ".js", ".tsx", ".jsx", ".go", ".rs", ".java", ".c", ".cpp",
+        ".h", ".hpp", ".cs", ".kt", ".swift", ".rb", ".php"
+    )
+
+    code_files: List[str] = []
+    for f in normalized_files:
+        is_ignored_dir = any(f.startswith(p) for p in ignored_prefixes)
+        # Exception: skills/ and scripts/ represent functional framework code
+        is_framework_code = f.startswith("skills/") or f.startswith("scripts/")
+
+        if is_ignored_dir and not is_framework_code:
+            continue
+
+        ext = Path(f).suffix.lower()
+        if ext in code_extensions or is_framework_code or f.startswith("src/") or f.startswith("app/") or f.startswith("lib/"):
+            if not f.endswith(ignored_extensions) or is_framework_code:
+                code_files.append(f)
+
+    has_drift = len(code_files) > 0
+    return has_drift, code_files
+
 
 def get_git_modified_files(diff_target: Optional[str] = None, staged_only: bool = False) -> List[str]:
     """Extract list of changed files from git."""
@@ -417,6 +468,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     passed, violations = evaluate_files(files, zones, allow_red_zone=args.allow_red_zone)
+
+    has_drift, drift_files = check_architecture_drift(files)
+    if has_drift:
+        sys.stdout.write(
+            "\n[!] [ARCHITECTURE DRIFT WARNING]: Functional code modified without updating architecture.md:\n"
+        )
+        for df in drift_files:
+            sys.stdout.write(f"   * {df}\n")
+        sys.stdout.write("   Suggested action: Invoke 'sync-architecture' if components, entrypoints, or data flows were modified.\n\n")
 
     if passed:
         sys.stdout.write(f"Boundary Gate: Checked {len(files)} files. All files conform to allowed boundaries.\n")
