@@ -1,0 +1,30 @@
+# Universal Agentic Harness Invariant: Meta-Project Compatibility
+
+Add these rules to your global agent environment (`~/.gemini/GEMINI.md`, `~/.claude/CLAUDE.md`, or IDE User Rules) to prepare your agent harness for any repository initialized with Meta-Project.
+
+---
+
+## 1. First-Contact Rule
+When first exploring or inspecting any repository or project:
+- Check for `AGENTS.md` at the repository root.
+- If present, read `AGENTS.md` BEFORE exploring `README.md` or arbitrary source files.
+- Never assume project conventions from generic pretraining when a project passport exists.
+
+## 2. Directive Meta-Knowledge Protocol
+Before modifying schemas, architectural contracts, or core logic:
+- Consult the target knowledge slices in `.agents/project_knowledge/`:
+  - `boundaries.md` — responsibility zones and file modification limits.
+  - `weak_spots.md` — known failure modes, monoliths, and technical debt.
+  - `architecture.md` — component topology and end-to-end data flows.
+  - `observations.md` — recorded environment quirks and workarounds.
+  - `tasks.md` — active objective, checklists, and delegated subtasks.
+- **Opportunistic Refresh:** Update knowledge slices upon discovering gaps or inaccuracies, without destructive overwriting.
+
+## 3. Responsibility Boundaries & Default Deny
+- Respect Green, Yellow, and Red zones defined in `boundaries.md`.
+- **Default Deny (Black Zone):** Any directory or file path not explicitly mapped in `boundaries.md` is strictly Red Zone by default. Autonomous modification of unmapped paths is prohibited.
+
+## 4. Circuit Breaker & Root Cause Invariant
+- **Circuit Breaker:** If a bugfix requires a 2nd consecutive edit in the same module or produces a secondary regression in adjacent code, CEASE code modifications immediately. Zoom out, trace the full data lifecycle (`Origin ➔ Transport ➔ Persistence ➔ Consumer`), diagnose the architectural root cause, and present systemic analysis before proposing any new diff.
+- **Minimal Diffs, Maximal Depth:** Minimize the width of file interference (no unrelated refactoring); maximize the depth of root-cause investigation (fix the origin, not symptom errors).
+- **Definition of Done:** Whenever an undocumented environment quirk, compiler macro mismatch, or runtime edge-case is solved, log it atomically via `record-observation`.

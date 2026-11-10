@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'README.ru.md'
+      - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'CONTRIBUTING.ru.md'
+      - 'LICENSE'
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Skills & Templates Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run Boundary Gate Check
+        run: python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md
+
+      - name: Run integrity tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v

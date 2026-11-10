@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest cache
+.pytest_cache/
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE configs
+.idea/
+.vscode/
+*.swp
+
+# Environment and secrets
+.env
+.env.*
+
+# Temporary empirical test artifacts
+*.log
+temp/
+scratch/
