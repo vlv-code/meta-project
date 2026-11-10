@@ -15,6 +15,9 @@
   - `skills/manage-meta-project/` — formation, audit, and orchestration of specialized agent roles.
   - `skills/decommission-meta-project/` — non-destructive decommissioning, resizing, and archiving of agent roles.
   - `skills/ground-meta-project/` — emergency grounding, runaway edit halt, and context recalibration.
+  - `skills/scan-meta-project/` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
+  - `skills/tune-meta-project/` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
+  - `skills/update-meta-project/` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
   - `skills/record-observation/` — standardized logging of quirks and solutions into `observations.md`.
   - `skills/sync-architecture/` — structural analysis and generation of the architectural slice.
 - **Automation Scripts (`scripts/`):**

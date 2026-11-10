@@ -43,7 +43,10 @@ This skill ensures disciplined, standardized addition of entries to the project 
 5. **Registry size control (Compaction Protocol):**  
    If the number of rows in the table exceeds 20–30, invoke the automated compaction utility:
    ```bash
+   # In target repositories:
+   python .agents/scripts/compact_memory.py --max-observations 20 --keep-observations 10
+   # Or in meta-project repository:
    python scripts/compact_memory.py --max-observations 20 --keep-observations 10
    ```
    This automatically rotates older records into `.agents/project_knowledge/archive/observations_YYYYMM.md`, keeping the primary file lightweight and preventing context rot.
-   *(If `scripts/compact_memory.py` is not present, manually archive older resolved records into `.agents/project_knowledge/archive/observations_YYYYMM.md`)*.
+   *(If `compact_memory.py` is not present in `.agents/scripts/` or `scripts/`, manually archive older resolved records into `.agents/project_knowledge/archive/observations_YYYYMM.md`)*.

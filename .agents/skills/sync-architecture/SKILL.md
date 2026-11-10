@@ -29,10 +29,11 @@ This skill performs a black-box structural analysis of the repository and produc
 3. **Identify components and relationships:**  
    Define 3–5 core project subsystems, their roles, and interaction patterns (HTTP REST, gRPC, events, direct function calls).
 
-4. **Update `architecture.md`:**  
-   Write the result to `.agents/project_knowledge/architecture.md`, preserving the canonical section structure:
+4. **Update `architecture.md` (with Local Adaptation Preservation):**  
+   Before overwriting `.agents/project_knowledge/architecture.md`, read the existing file and extract all local adaptation blocks marked with `<!-- local_repo_data:TAG -->...<!-- /local_repo_data:TAG -->` or `# local_repo_data:TAG...# /local_repo_data:TAG`.
+   Write the result to `.agents/project_knowledge/architecture.md`, preserving the canonical section structure and seamlessly restoring any extracted `local_repo_data` blocks into their respective sections:
    - High-level overview (stack, application type).
-   - Core components and data flows.
+   - Core components and data flows (preserving customized flows and single source of truth).
    - Data invariants and state management.
    - Architectural patterns.
 

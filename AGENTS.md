@@ -13,10 +13,11 @@
   *(Any decisions contradicting these principles are prohibited)*
 
 ## 2. Repository Meta-Map
-- Core Code & Skills: `skills/` (`init-meta-project`, `manage-meta-project`, `decommission-meta-project`, `ground-meta-project`, `record-observation`, `sync-architecture`)
+- Core Code & Skills: `skills/` (`init-meta-project`, `manage-meta-project`, `decommission-meta-project`, `ground-meta-project`, `scan-meta-project`, `tune-meta-project`, `update-meta-project`, `record-observation`, `sync-architecture`)
 - Canonical Templates: `templates/` (`templates/AGENTS.md`, `templates/project_knowledge/`, `templates/team/`)
 - CI/CD Configuration: `.github/workflows/ci.yml`
 - Integrity Tests: `tests/test_integrity.py`
+- Automation Scripts: `scripts/check_boundaries.py`, `scripts/compact_memory.py`, `scripts/sync_templates.py`
 - Documentation and Decisions: `docs/decisions_and_roadmap.md`, `README.md`, `CHANGELOG.md`
 
 ## 3. Directive Meta-Knowledge Protocol
@@ -45,6 +46,9 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `manage-meta-project` — scale-adaptive agent team orchestration and materialization.
 - `decommission-meta-project` — non-destructive decommissioning, resizing, and archiving of agent roles.
 - `ground-meta-project` — emergency grounding, runaway edit halt, and context recalibration.
+- `scan-meta-project` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
+- `tune-meta-project` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
+- `update-meta-project` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
 - `record-observation` — atomic logging of findings and quirks into `observations.md`.
 - `sync-architecture` — updating the component map and data flows in `architecture.md`.
 

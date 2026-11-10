@@ -349,7 +349,13 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 
 ## 4. Procedural Skills Registry
 ### Built-in meta-project skills:
+- `init-meta-project` — repository scaffolding and non-destructive initialization.
+- `manage-meta-project` — scale-adaptive agent team orchestration and materialization.
+- `decommission-meta-project` — non-destructive decommissioning, resizing, and archiving of agent roles.
 - `ground-meta-project` — emergency grounding, runaway edit halt, and context recalibration.
+- `scan-meta-project` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
+- `tune-meta-project` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
+- `update-meta-project` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
 - `record-observation` — atomic logging of findings and quirks into `observations.md`.
 - `sync-architecture` — updating the component map and data flows in `architecture.md`.
 

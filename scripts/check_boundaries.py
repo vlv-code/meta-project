@@ -283,7 +283,11 @@ def install_git_hook(repo_root: Path) -> Tuple[bool, str]:
         "# Meta-Project Boundary Gate Pre-Commit Hook\n"
         "# Automatically checks staged changes against responsibility zones in boundaries.md\n"
         "\n"
-        "python scripts/check_boundaries.py --staged\n"
+        "if [ -f .agents/scripts/check_boundaries.py ]; then\n"
+        "  python .agents/scripts/check_boundaries.py --staged\n"
+        "else\n"
+        "  python scripts/check_boundaries.py --staged\n"
+        "fi\n"
     )
 
     hook_file.write_text(hook_content, encoding="utf-8")
