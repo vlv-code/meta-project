@@ -37,9 +37,14 @@ meta-project/
 │   ├── init-meta-project/
 │   ├── manage-meta-project/
 │   ├── record-observation/
-│   └── sync-architecture/
+│   ├── scan-meta-project/
+│   ├── sync-architecture/
+│   ├── tune-meta-project/
+│   └── update-meta-project/
 ├── templates/                     # Эталонные шаблоны для развертывания
 │   ├── AGENTS.md
+│   ├── global/
+│   │   └── AGENTS.md
 │   ├── project_knowledge/
 │   │   ├── architecture.md
 │   │   ├── boundaries.md
