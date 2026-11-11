@@ -4,7 +4,7 @@
 > **Active Development & Experimental Status (Alpha)**
 > Meta-Project is currently under rapid iterative development and empirical testing. Specifications, boundary rules, CLI utilities, and skill formats may evolve based on real-world findings.
 > 
-> 💡 **Community Help Wanted:** We welcome testing on diverse repositories, feedback, bug reports, and pull requests! See [CONTRIBUTING.md](CONTRIBUTING.md).
+> 💡 **Community Help Wanted:** We welcome testing on diverse repositories, feedback, bug reports, and pull requests! See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ---
 
@@ -44,6 +44,6 @@ Meta-Project is a context organization framework and separation-of-concerns arch
 ---
 
 ## 📦 What's Changed
-- Full transition to English canonical specifications with a bilingual public facade ([README.md](README.md) / [README.ru.md](README.ru.md)).
+- Full transition to English canonical specifications with a bilingual public facade ([README.md](../README.md) / [README.ru.md](../README.ru.md)).
 - CI/CD workflow matrix testing across Python 3.10–3.13 in GitHub Actions.
-- Complete changelog details in [CHANGELOG.md](CHANGELOG.md).
+- Complete changelog details in [CHANGELOG.md](../CHANGELOG.md).

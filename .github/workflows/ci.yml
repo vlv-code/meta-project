@@ -40,7 +40,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run Boundary Gate Check
-        run: python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md
+        run: python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree
 
       - name: Run integrity tests
         run: python -m unittest discover -s tests -p "test_*.py" -v

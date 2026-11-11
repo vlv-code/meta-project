@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.10+ (pure standard library: `unittest`, `pathlib`, `re`), Markdown, YAML frontmatter.
 
-**Spec:** [`docs/decisions_and_roadmap.md`](docs/decisions_and_roadmap.md#L136-L245) (Section 5: "Инцидент с полиглотным монорепозиторием (Polyglot Monorepo Incident) и системные уроки для фреймворка")
+**Spec:** [`docs/decisions_and_roadmap.md`](../../decisions_and_roadmap.md#L136-L245) (Section 5: "Инцидент с полиглотным монорепозиторием (Polyglot Monorepo Incident) и системные уроки для фреймворка")
 
 ## Global Constraints
 - **Zero External Dependencies:** Runtime utilities, validation scripts, and tests must run exclusively on the Python standard library.

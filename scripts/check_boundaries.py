@@ -452,7 +452,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 f"The following {len(unmapped)} of {total} file(s) are not covered by boundaries.md:\n"
             )
             for f in unmapped:
-                sys.stderr.write(f"  ❌ {f}\n")
+                sys.stderr.write(f"  [X] {f}\n")
             sys.stderr.write("\nRemedy: Update boundaries.md to assign these paths to Green, Yellow, or Red zone.\n")
             return 1
 
@@ -484,16 +484,16 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Print violations report
     sys.stderr.write("\n===========================================================\n")
-    sys.stderr.write("🛑 BOUNDARY GATE FAILURE: Zone Violations Detected\n")
+    sys.stderr.write("[FAILURE] BOUNDARY GATE FAILURE: Zone Violations Detected\n")
     sys.stderr.write("===========================================================\n\n")
 
     for v in violations:
         if v["zone"] == "black":
-            sys.stderr.write(f"❌ [DEFAULT DENY / UNMAPPED] {v['file']}\n")
+            sys.stderr.write(f"[X] [DEFAULT DENY / UNMAPPED] {v['file']}\n")
             sys.stderr.write(f"   Reason: {v['reason']}\n")
             sys.stderr.write("   Remedy: Perform Opportunistic Refresh of boundaries.md to assign this path to a zone.\n\n")
         elif v["zone"] == "red":
-            sys.stderr.write(f"🚨 [RED ZONE VIOLATION] {v['file']}\n")
+            sys.stderr.write(f"[!] [RED ZONE VIOLATION] {v['file']}\n")
             sys.stderr.write(f"   Reason: {v['reason']}\n")
             sys.stderr.write("   Remedy: Modifications to Red Zone require user confirmation or --allow-red-zone override.\n\n")
 

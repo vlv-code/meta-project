@@ -30,6 +30,7 @@ Before starting work, every agent MUST review the active task list and, if neces
 - [x] [agent-dev-lead @ 2026-11-10 15:15] Step 18: Core robustness and automation sprint (zero-depth glob fix, AGENTS.md boundary protection, tree-wide audit mode --audit-tree, intelligent compaction with [pin] protection, automated template synchronizer scripts/sync_templates.py, init-meta-project scripts scaffolding, --install-hook pre-commit installer; 47/47 tests pass) [COMPLETED]
 - [x] [agent-dev-lead @ 2026-11-10 18:48] Step 19: Tri-skill lifecycle sprint (scan-meta-project with --shallow/--deep, tune-meta-project with friction tracing & <=3 North Stars limit, update-meta-project with dual-tier source & local_repo_data preservation; dual-path check_boundaries hook fix, sync-architecture pre-flight preservation; 47/47 tests pass, 100% boundary coverage) [COMPLETED]
 - [x] [agent-dev-lead @ 2026-11-10 19:10] Step 20: Definition of Done & Architecture Drift Detector sprint (Silent Pre-Close Checklist codified in system prompts, check_architecture_drift non-blocking warning in scripts/check_boundaries.py with 4 unit tests, templates synchronized, 51/51 unit tests pass) [COMPLETED]
+- [x] [agent-dev-lead @ 2026-11-11 09:05] Step 21: Post-audit remediation (fixed relative doc links in docs/, purged Unicode emojis in check_boundaries.py stderr for Windows cp1251 safety, added --audit-tree to CI workflow, added templates/global/AGENTS.md to architecture.md; 51/51 tests pass, 100% boundary coverage) [COMPLETED]
 
 
 ---

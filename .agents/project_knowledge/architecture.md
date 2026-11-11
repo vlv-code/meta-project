@@ -8,6 +8,7 @@
 ## 2. Key Components and Data Flows
 - **Templates (`templates/`):**
   - `templates/AGENTS.md` — canonical project passport with North Stars and opportunistic refresh protocol.
+  - `templates/global/AGENTS.md` — global user-level passport template for `~/.gemini/AGENTS.md` or home directory environments.
   - `templates/project_knowledge/` — meta-knowledge slices (`architecture.md`, `boundaries.md`, `weak_spots.md`, `observations.md`, `tasks.md`).
   - `templates/team/` — role profile templates (`profile.md`), private notes (`notes.md`), and system prompts (`system_prompt.md`).
 - **Procedural Skills (`skills/`):**
