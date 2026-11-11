@@ -20,7 +20,6 @@ The skill operates in two modes:
 * The user requests: "scan-meta-project", "scan meta project", "инспекция мета-знаний", "чекни покрытие", "audit meta-knowledge", "check boundaries coverage", "найди слепые зоны", "verify slices".
 * Pre-release verification, PR reviews, or resuming development after extensive changes made outside the agentic session.
 * Automatically invoked by `init-meta-project` at the conclusion of initialization.
-* Primary designated role: `agent-quality-guardian` (in Compact Trio topology) or `agent-meta-guardian` (in expanded role topology), or direct invocation by user.
 
 ---
 

@@ -174,6 +174,10 @@ class TestTemplatesIntegrity(unittest.TestCase):
             re.search(r"Target State Audit|Аудит состояния объекта", content, re.IGNORECASE),
             "system_prompt.md template must define Target State Audit rule"
         )
+        self.assertTrue(
+            re.search(r"Role Identity Invariance|Identity Invariance", content, re.IGNORECASE),
+            "system_prompt.md template must define Role Identity Invariance rule"
+        )
 
     def test_architecture_data_flow_section(self):
         """Verify architecture template contains Data Flow section."""
