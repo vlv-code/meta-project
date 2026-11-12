@@ -223,6 +223,7 @@ description: >-
 ```
 
 ### Template: `observations.md`
+<!-- TEMPLATE:BEGIN observations.md -->
 ```markdown
 # Agent Observations Base
 
@@ -235,8 +236,10 @@ Entries are logged strictly via the `record-observation` skill in a concise tabl
 | :--- | :--- | :--- | :--- | :--- |
 | 2026-11-05 | [init] | example/init | Example registry entry | Solution provided for demonstration |
 ```
+<!-- TEMPLATE:END observations.md -->
 
 ### Template: `boundaries.md`
+<!-- TEMPLATE:BEGIN boundaries.md -->
 ```markdown
 # Responsibility Zones and Change Boundaries
 
@@ -284,8 +287,10 @@ Critical areas of the project. Any modification requires mandatory prior confirm
 ## Default Deny (Black Zone / Unmapped Paths Invariant)
 Any directory or file path not explicitly listed in Green, Yellow, or Red zones above is strictly classified as **Red Zone by Default**. Autonomous modifications to unmapped paths are prohibited. Prior to touching unmapped code, the agent MUST consult the user and perform an *Opportunistic Refresh* of `boundaries.md` to map the path to its appropriate zone.
 ```
+<!-- TEMPLATE:END boundaries.md -->
 
 ### Template: `weak_spots.md`
+<!-- TEMPLATE:BEGIN weak_spots.md -->
 ```markdown
 # Weak Spots, Risks, and Technical Debt
 
@@ -304,8 +309,10 @@ Registry of fragile areas, known bugs, and constraints of the repository. Agents
 - *(Example)* Missing request idempotency locks in transaction processor.
 - *(Example)* Hardcoded configuration parameters in report generation module.
 ```
+<!-- TEMPLATE:END weak_spots.md -->
 
 ### Template: `AGENTS.md`
+<!-- TEMPLATE:BEGIN AGENTS.md -->
 ```markdown
 # Project Passport: {{PROJECT_NAME}}
 
@@ -370,3 +377,4 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
 5. When encountering hidden environment quirks, record the fact via `record-observation`.
 ```
+<!-- TEMPLATE:END AGENTS.md -->

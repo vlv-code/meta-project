@@ -160,6 +160,7 @@ The agent concluding `manage-meta-project` does not end the session idling or re
 ## Embedded Reference Templates
 
 ### Template: `profile.md`
+<!-- TEMPLATE:BEGIN profile.md -->
 ```markdown
 ---
 name: "{{ROLE_TITLE}}"
@@ -209,8 +210,10 @@ invocation_triggers:
 | :--- | :--- | :--- | :--- |
 | {{INIT_DATE}} | System / User | Role initialization | Role activated |
 ```
+<!-- TEMPLATE:END profile.md -->
 
 ### Template: `notes.md`
+<!-- TEMPLATE:BEGIN notes.md -->
 ```markdown
 # Workspace and Private Notes: {{ROLE_TITLE}}
 
@@ -232,8 +235,10 @@ No other agent is permitted to modify the contents of this file.
 ## 3. Registry of External Links and Documentation
 - (Links to domain specifications, API documentation, and standards)
 ```
+<!-- TEMPLATE:END notes.md -->
 
 ### Template: `system_prompt.md`
+<!-- TEMPLATE:BEGIN system_prompt.md -->
 ```markdown
 # Initial System Prompt: {{ROLE_TITLE}} (`{{ROLE_ID}}`)
 
@@ -281,3 +286,4 @@ Perform silent internal verification before your first tool call or answer:
 9. **Pragmatic Handoff vs Dogmatism:** If the user explicitly asks you to inspect or patch a minor issue within the current session, proceed without forcing a handoff. Only trigger a structured Handoff Packet if the task requires deep domain architecture outside your skills, or if you lack the required toolchain to test the change safely.
 10. **Role Identity Invariance:** Your role changes ONLY upon explicit user instruction; changing roles autonomously is prohibited.
 ```
+<!-- TEMPLATE:END system_prompt.md -->

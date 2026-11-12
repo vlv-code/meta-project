@@ -31,35 +31,34 @@ EMBEDDED_TARGETS: Dict[str, Dict[str, str]] = {
 
 def replace_embedded_template(
     text: str, tmpl_name: str, new_template_content: str
-) -> Tuple[str, bool]:
+) -> Tuple[str, bool, Optional[str]]:
     """
-    Locates an embedded template block following:
-      ### Template: `tmpl_name`
-      ```markdown
+    Locates an embedded template block between:
+      <!-- TEMPLATE:BEGIN tmpl_name -->
       ...
-      ```
-    and replaces its inner body with new_template_content.
-    Returns (updated_text, modified).
+      <!-- TEMPLATE:END tmpl_name -->
+    and replaces its inner body with new_template_content wrapped in a fenced block.
+    Returns (updated_text, modified, error_message).
     """
-    pattern = (
-        rf"(###\s*Template:\s*`?{re.escape(tmpl_name)}`?\s*\n+```(?:[a-zA-Z0-9_\-]+)?\n)"
-        rf"(.*?)"
-        rf"(^```)"
-    )
-    match = re.search(pattern, text, flags=re.DOTALL | re.MULTILINE)
-    if not match:
-        return text, False
+    begin_marker = f"<!-- TEMPLATE:BEGIN {tmpl_name} -->"
+    end_marker = f"<!-- TEMPLATE:END {tmpl_name} -->"
 
-    header = match.group(1)
-    old_body = match.group(2)
-    footer = match.group(3)
+    begin_idx = text.find(begin_marker)
+    end_idx = text.find(end_marker)
 
-    clean_new_body = new_template_content.rstrip() + "\n"
-    if old_body.strip() == clean_new_body.strip():
-        return text, False
+    if begin_idx == -1 or end_idx == -1 or end_idx < begin_idx:
+        return text, False, f"Missing template block: sentinel markers '{begin_marker}' ... '{end_marker}' not found"
 
-    new_text = text[:match.start()] + header + clean_new_body + footer + text[match.end():]
-    return new_text, True
+    inner_start = begin_idx + len(begin_marker)
+    old_inner = text[inner_start:end_idx]
+
+    formatted_new_inner = f"\n```markdown\n{new_template_content.rstrip()}\n```\n"
+
+    if old_inner.strip() == formatted_new_inner.strip():
+        return text, False, None
+
+    new_text = text[:inner_start] + formatted_new_inner + text[end_idx:]
+    return new_text, True, None
 
 
 def sync_embedded_templates(
@@ -85,10 +84,12 @@ def sync_embedded_templates(
                 continue
 
             canonical_content = tmpl_path.read_text(encoding="utf-8")
-            updated, modified = replace_embedded_template(
+            updated, modified, err = replace_embedded_template(
                 content, tmpl_name, canonical_content
             )
-            if modified:
+            if err:
+                drift_messages.append(f"Error in {target_skill_rel}: {err}")
+            elif modified:
                 drift_messages.append(
                     f"Drift: Embedded template '{tmpl_name}' in {target_skill_rel} diverges from {tmpl_rel}"
                 )

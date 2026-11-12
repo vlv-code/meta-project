@@ -23,14 +23,18 @@ SAMPLE_SKILL_WITH_EMBEDDED = """# Sample Skill
 ## Embedded Reference Templates
 
 ### Template: `sample.md`
+<!-- TEMPLATE:BEGIN sample.md -->
 ```markdown
 Old outdated content
 ```
+<!-- TEMPLATE:END sample.md -->
 
 ### Template: other.md
+<!-- TEMPLATE:BEGIN other.md -->
 ```markdown
 Other content
 ```
+<!-- TEMPLATE:END other.md -->
 """
 
 
@@ -43,9 +47,10 @@ class TestTemplateInjection(unittest.TestCase):
 
     def test_replace_embedded_template_with_backticks(self):
         new_content = "# Fresh Canonical Template\nNew content here."
-        updated, modified = sync_templates.replace_embedded_template(
+        updated, modified, err = sync_templates.replace_embedded_template(
             SAMPLE_SKILL_WITH_EMBEDDED, "sample.md", new_content
         )
+        self.assertIsNone(err)
         self.assertTrue(modified)
         self.assertIn("# Fresh Canonical Template", updated)
         self.assertNotIn("Old outdated content", updated)
@@ -54,17 +59,50 @@ class TestTemplateInjection(unittest.TestCase):
 
     def test_replace_embedded_template_without_backticks(self):
         new_content = "Replacement for other"
-        updated, modified = sync_templates.replace_embedded_template(
+        updated, modified, err = sync_templates.replace_embedded_template(
             SAMPLE_SKILL_WITH_EMBEDDED, "other.md", new_content
         )
+        self.assertIsNone(err)
         self.assertTrue(modified)
         self.assertIn("Replacement for other", updated)
         self.assertIn("Old outdated content", updated)
 
+    def test_missing_template_sentinel_raises_drift_error(self):
+        """Verify that when a required template block is missing, drift is detected with exit code 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            skill_dir = root / "skills" / "init-meta-project"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text("# Corrupted Skill\nNo templates here.\n", encoding="utf-8")
+
+            tmpl_dir = root / "templates" / "project_knowledge"
+            tmpl_dir.mkdir(parents=True, exist_ok=True)
+            (tmpl_dir / "boundaries.md").write_text("# Canonical Boundaries\n", encoding="utf-8")
+
+            in_sync, drift_msgs = sync_templates.sync_embedded_templates(root, write=False)
+            self.assertFalse(in_sync)
+            self.assertTrue(any("Missing template block" in msg for msg in drift_msgs))
+
+    def test_nested_fenced_backticks_replacement(self):
+        """Verify template replacement handles inner triple backtick code blocks properly."""
+        tmpl_content = "# Title\n\n```python\nprint('hello')\n```\n"
+        skill_text = (
+            "Header\n\n"
+            "<!-- TEMPLATE:BEGIN test.md -->\n"
+            "```markdown\nOld content\n```\n"
+            "<!-- TEMPLATE:END test.md -->\n\nFooter\n"
+        )
+        updated, modified, err = sync_templates.replace_embedded_template(skill_text, "test.md", tmpl_content)
+        self.assertIsNone(err)
+        self.assertTrue(modified)
+        self.assertIn("print('hello')", updated)
+        self.assertIn("<!-- TEMPLATE:END test.md -->", updated)
+
     def test_replace_no_op_when_identical(self):
-        updated, modified = sync_templates.replace_embedded_template(
+        updated, modified, err = sync_templates.replace_embedded_template(
             SAMPLE_SKILL_WITH_EMBEDDED, "other.md", "Other content\n"
         )
+        self.assertIsNone(err)
         self.assertFalse(modified)
         self.assertEqual(updated, SAMPLE_SKILL_WITH_EMBEDDED)
 
@@ -97,7 +135,7 @@ class TestSyncTemplatesCLI(unittest.TestCase):
 
             # Create skills/
             (tmppath / "skills" / "init-meta-project").mkdir(parents=True)
-            skill_text = """# Init Skill\n### Template: `boundaries.md`\n```markdown\nOLD BOUNDARIES V1\n```\n"""
+            skill_text = """# Init Skill\n### Template: `boundaries.md`\n<!-- TEMPLATE:BEGIN boundaries.md -->\n```markdown\nOLD BOUNDARIES V1\n```\n<!-- TEMPLATE:END boundaries.md -->\n"""
             (tmppath / "skills" / "init-meta-project" / "SKILL.md").write_text(
                 skill_text, encoding="utf-8"
             )
