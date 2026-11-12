@@ -3,6 +3,7 @@ Unit tests for scripts/compact_memory.py (Context Rot Shield & Memory Compactor)
 Verifies observation table rotation, task completion archiving, dry-run mode, and archive file creation.
 """
 
+from datetime import datetime
 from pathlib import Path
 import sys
 import tempfile
@@ -210,6 +211,47 @@ class TestCompactMemoryCLI(unittest.TestCase):
         new_obs = self.obs_file.read_text(encoding="utf-8")
         self.assertIn("comp6", new_obs)
         self.assertNotIn("comp1", new_obs)
+
+    def test_compaction_preserves_rows_with_date_and_dash_substrings(self):
+        """Verify that rows containing 'Date' or '---' in text are not discarded when appending to existing archive."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            obs_file = tmp_path / "observations.md"
+            archive_dir = tmp_path / "archive"
+            archive_dir.mkdir(parents=True, exist_ok=True)
+
+            current_month = datetime.now().strftime("%Y%m")
+            archive_file = archive_dir / f"observations_{current_month}.md"
+            archive_file.write_text(
+                f"# Archived Observations ({current_month})\n\n---\n\n"
+                "| Date | Category | Component | Issue | Solution |\n"
+                "|---|---|---|---|---|\n"
+                "| 2026-11-01 | [ci] | ci.yml | Existing item | Old fix |\n",
+                encoding="utf-8",
+            )
+
+            rows = [
+                "| Date | Category | Component | Issue | Solution |",
+                "|---|---|---|---|---|",
+                "| 2026-11-02 | [runtime] | date_parser.py | Invalid Date format returned | Use ISO Date format |",
+                "| 2026-11-03 | [git] | deploy.sh | Missing --- separator in header | Added --- separator |",
+            ]
+            for i in range(4, 26):
+                rows.append(f"| 2026-11-{i:02d} | [general] | module_{i}.py | Issue {i} | Fix {i} |")
+
+            obs_file.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+            ret = compact_memory.main([
+                "--observations", str(obs_file),
+                "--archive-dir", str(archive_dir),
+                "--max-observations", "20",
+                "--keep-observations", "10",
+            ])
+            self.assertEqual(ret, 0)
+
+            archive_content = archive_file.read_text(encoding="utf-8")
+            self.assertIn("Invalid Date format returned", archive_content, "Row with 'Date' in text was lost!")
+            self.assertIn("Missing --- separator in header", archive_content, "Row with '---' in text was lost!")
 
 
 if __name__ == "__main__":

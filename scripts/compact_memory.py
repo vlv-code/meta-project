@@ -208,12 +208,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 archive_dir.mkdir(parents=True, exist_ok=True)
                 if archive_obs_file.is_file():
                     existing = archive_obs_file.read_text(encoding="utf-8")
-                    # Append rows without duplicate header
-                    rows_only = "\n".join(
-                        line for line in archive_chunk.splitlines()
-                        if line.startswith("|") and not ("Date" in line or "Дата" in line or "---" in line)
-                    )
-                    archive_obs_file.write_text(existing.rstrip() + "\n" + rows_only + "\n", encoding="utf-8")
+                    chunk_lines = [line for line in archive_chunk.splitlines() if line.strip()]
+                    data_rows_to_append = chunk_lines[2:] if len(chunk_lines) >= 2 else []
+                    rows_only = "\n".join(data_rows_to_append)
+                    if rows_only:
+                        archive_obs_file.write_text(existing.rstrip() + "\n" + rows_only + "\n", encoding="utf-8")
                 else:
                     header = f"# Archived Observations ({current_month})\n\n---\n\n"
                     archive_obs_file.write_text(header + archive_chunk, encoding="utf-8")
