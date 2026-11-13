@@ -68,3 +68,4 @@ invocation_triggers:
 | 2026-11-13 09:57 | User | Audit CI & configure base diff evaluation in GitHub Actions | Completed: updated ci.yml with full history checkout, diff step, and template check |
 | 2026-11-12 | Phase P0 Git & CI Closeout | SUCCESS | Git tree clean, conventional commits verified |
 | 2026-11-13 | User | Step 37 (P1.0): Git Hygiene & conventional commit for architectural calibration | Completed: committed P1.0 calibration (docs, templates, skills, .agents) |
+| 2026-11-13 17:35 | User | Step 40 (P1.1): Git Hygiene & conventional commit for record_obs.py | Completed: committed record_obs.py, test suite, skill mirrors, and AGENTS.md |

@@ -19,17 +19,19 @@
   - `skills/scan-meta-project/` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
   - `skills/tune-meta-project/` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
   - `skills/update-meta-project/` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
-  - `skills/record-observation/` — standardized logging of quirks and solutions into `observations.md`.
+  - `skills/record-observation/` — standardized logging of quirks and solutions into `observations.md` via `record_obs.py`.
   - `skills/sync-architecture/` — structural analysis and generation of the architectural slice.
 - **Automation Scripts (`scripts/`):**
   - `scripts/check_boundaries.py` — zero-dependency CLI enforcing Default Deny and responsibility zones via Git diff (supports `--audit-tree` for 100% path coverage, `--diff` for base revision comparison, and `--install-hook` for safe pre-commit chaining).
   - `scripts/compact_memory.py` — memory compaction utility rotating oversized observation tables and completed tasks into `.agents/project_knowledge/archive/`, permanently preserving `[pin]` invariant entries.
   - `scripts/sync_templates.py` — zero-dependency template injection and skill parity synchronizer (`--check` and `--write`).
+  - `scripts/record_obs.py` — zero-dependency CLI utility appending validated, escaped observation rows to `observations.md` with cross-platform file locking (`msvcrt` / `fcntl`).
 - **Verification Layer (`tests/`):**
   - `tests/test_integrity.py` — YAML frontmatter validation, mandatory procedural sections, CI configuration, and canonical template checks.
   - `tests/test_check_boundaries.py` — unit tests for boundary gate parser, zone classification engine, and CLI exit codes.
   - `tests/test_compact_memory.py` — unit tests for observation row rotation, task checklist archiving, and dry-run execution.
   - `tests/test_sync_templates.py` — unit tests for template injection, embedded backtick handling, and parity validation.
+  - `tests/test_record_obs.py` — unit and adversarial tests for observation entry validation, pipe escaping, and file locking.
 - **CI/CD Layer (`.github/workflows/`):**
   - `ci.yml` — matrix testing across Python 3.10, 3.11, 3.12, and 3.13 with automated Boundary Gate verification step in GitHub Actions.
 

@@ -21,26 +21,32 @@ This skill ensures disciplined, standardized addition of entries to the project 
 
 ## Execution steps
 
-1. **Check file presence:**  
-   Verify that `.agents/project_knowledge/observations.md` exists in the current repository. If missing, first create it using the 5-column table template (`Date`, `Category`, `Component / Path`, `Observation / Issue`, `Solution / Workaround`).
+1. **Check for duplicates:**  
+   Read the recent entries of `.agents/project_knowledge/observations.md`. Ensure that a similar observation has not already been logged. If an entry already exists, do not create duplicate rows.
 
-2. **Check for duplicates:**  
-   Read the last 20 lines of `.agents/project_knowledge/observations.md`. Ensure that a similar observation has not already been logged. If an entry already exists but needs clarification, update the existing line.
+2. **Execute standardized CLI utility (`record_obs.py`):**  
+   Record the finding atomically using the zero-dependency CLI utility:
+   ```bash
+   # In meta-project repository:
+   python scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>"
+   # In target repositories (via installed helper):
+   python .agents/scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>"
+   ```
+   * **Parameters:**
+     * `--category`: One of the canonical categories: `boundaries`, `ci`, `decommission`, `incident`, `orchestration`, `runtime`, `git`, `init`, `testing`, `architecture`.
+     * `--path`: Component, script, or configuration path.
+     * `--issue`: Brief summary of the bug or quirk (pipes `|` and newlines are safely escaped automatically).
+     * `--solution`: Practical workaround or fix.
+     * `--pin`: Optional flag for permanent invariants that must never be rotated by `compact_memory.py` (adds `[pin]` suffix, e.g. `[ci][pin]`).
+     * `--obs-file`: Optional custom path (defaults to `.agents/project_knowledge/observations.md`).
 
-3. **Format entry:**  
-   Format the observation strictly as a single Markdown table line:
+3. **Fallback manual entry (only if CLI script unavailable):**  
+   Format the observation strictly as a single Markdown table line with escaped pipes `\|`:
    ```markdown
    | YYYY-MM-DD | [<category>] | <Path_or_component> | <Brief issue summary/fact> | <Solution or workaround> |
    ```
-   * Date: current date in ISO format (e.g., `2026-11-07`).
-   * Category: one of the standardized tags: `[build]`, `[runtime]`, `[deps]`, `[db]`, `[api]`, `[test]`, `[env]`, `[ci]`, `[boundaries]`, `[orchestration]`, `[decommission]`, `[incident]`, `[init]`, or an explicit project domain tag (e.g. `[theme]`).
-   * Permanent Invariant Tag `[pin]`: For fundamental architectural rules or environment invariants that must never be rotated into archive by `compact_memory.py`, append `[pin]` to the Category tag (e.g. `[env][pin]` or `[boundaries][pin]`). Pinned rows are permanently preserved in the primary table during compaction.
-   * Conciseness: problem summary and solution must fit in a single sentence without line breaks.
 
-4. **Atomic write:**  
-   Append the row to the end of the table in `.agents/project_knowledge/observations.md`.
-
-5. **Registry size control (Compaction Protocol):**  
+4. **Registry size control (Compaction Protocol):**  
    If the number of rows in the table exceeds 20–30, invoke the automated compaction utility:
    ```bash
    # In target repositories:

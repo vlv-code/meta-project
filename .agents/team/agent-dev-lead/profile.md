@@ -75,3 +75,4 @@ invocation_triggers:
 | 2026-11-13 10:20 | User | Step 31 (P0.4): Commit SHAs & branch diff target verification in check_boundaries.py | Verified git diff -z --name-only revision handling, added --diff alias to CLI, added test_cli_diff_against_head_exits_clean, 57/57 tests pass |
 | 2026-11-12 | Phase P0 Implementation | SUCCESS | All 4 P0 tasks implemented and verified |
 | 2026-11-13 | Phase P1.0 Implementation | SUCCESS | Calibrated North Stars, ADR #18–#19, Tier 0 Duo, Adversarial TDD, telemetry limits; 0 drift, 57/57 tests pass |
+| 2026-11-13 | Phase P1.1 Implementation | SUCCESS | Developed scripts/record_obs.py with category validation & file locking, 5 unit/adversarial tests pass, updated skill, 62/62 tests pass |
