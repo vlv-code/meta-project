@@ -146,6 +146,13 @@ class TestBoundaryGateClassification(unittest.TestCase):
         zone_red, _ = check_boundaries.classify_path("tests/test_integrity.py", custom_zones)
         self.assertEqual(zone_red, "red")
 
+    def test_non_ascii_and_spaces_path_classification(self):
+        # Paths with spaces and Cyrillic/Unicode characters should match correctly
+        zone, _ = check_boundaries.classify_path("docs/НЕ ОБРАБОТАННЫЙ meta-project.md", self.zones)
+        self.assertEqual(zone, "green")
+        zone_nested, _ = check_boundaries.classify_path("docs/some folder with spaces/note.md", self.zones)
+        self.assertEqual(zone_nested, "green")
+
 
 
 class TestBoundaryGateEvaluation(unittest.TestCase):
@@ -313,6 +320,29 @@ class TestBoundaryGateCLI(unittest.TestCase):
             res = subprocess.run(cmd, capture_output=True, text=True)
             self.assertEqual(res.returncode, 0)
             self.assertIn("installed successfully", res.stdout.lower())
+
+    def test_install_hook_chains_with_existing_pre_commit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            hooks_dir = tmppath / ".git" / "hooks"
+            hooks_dir.mkdir(parents=True)
+            existing_hook = hooks_dir / "pre-commit"
+            original_content = "#!/bin/sh\npytest tests/\n"
+            existing_hook.write_text(original_content, encoding="utf-8")
+
+            # First run: should chain without erasing existing content
+            ok, msg = check_boundaries.install_git_hook(tmppath)
+            self.assertTrue(ok)
+            content = existing_hook.read_text(encoding="utf-8")
+            self.assertIn("pytest tests/", content)
+            self.assertIn("check_boundaries.py --staged", content)
+
+            # Second run: idempotent, should not duplicate
+            ok2, msg2 = check_boundaries.install_git_hook(tmppath)
+            self.assertTrue(ok2)
+            content_after = existing_hook.read_text(encoding="utf-8")
+            self.assertEqual(content, content_after)
+            self.assertEqual(content_after.count("# Meta-Project Boundary Gate Pre-Commit Hook"), 1)
 
 
 class TestArchitectureDrift(unittest.TestCase):

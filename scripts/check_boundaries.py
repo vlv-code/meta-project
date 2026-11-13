@@ -205,14 +205,18 @@ def audit_tree(
 
     try:
         res = subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
             cwd=str(repo_root),
             capture_output=True,
-            text=True,
             check=False,
         )
-        if res.returncode == 0 and res.stdout.strip():
-            tracked_files = [l.strip().replace("\\", "/") for l in res.stdout.splitlines() if l.strip()]
+        if res.returncode == 0 and res.stdout:
+            raw_entries = res.stdout.split(b"\0")
+            tracked_files = [
+                entry.decode("utf-8", errors="replace").replace("\\", "/")
+                for entry in raw_entries
+                if entry
+            ]
     except Exception:
         tracked_files = []
 
@@ -292,32 +296,43 @@ def check_architecture_drift(files: List[str]) -> Tuple[bool, List[str]]:
 
 
 def get_git_modified_files(diff_target: Optional[str] = None, staged_only: bool = False) -> List[str]:
-    """Extract list of changed files from git."""
-    cmd = ["git", "diff", "--name-only"]
+    """Extract list of changed files from git using NUL-separated output."""
+    cmd = ["git", "diff", "-z", "--name-only"]
     if staged_only:
         cmd.append("--cached")
     elif diff_target:
         cmd.append(diff_target)
 
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    res = subprocess.run(cmd, capture_output=True, check=False)
     if res.returncode != 0:
-        # Fallback to git status --porcelain
+        # Fallback to git status --porcelain -z
         status_res = subprocess.run(
-            ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
+            ["git", "status", "--porcelain", "-z"], capture_output=True, check=False
         )
         files = []
-        for line in status_res.stdout.splitlines():
-            if len(line) > 3:
-                files.append(line[3:].strip())
+        raw_items = status_res.stdout.split(b"\0")
+        for item in raw_items:
+            if not item:
+                continue
+            text = item.decode("utf-8", errors="replace")
+            # In porcelain -z, entries are "XY filename" (status is 2 chars + space)
+            if len(text) > 3:
+                files.append(text[3:].replace("\\", "/"))
         return files
 
-    return [line.strip() for line in res.stdout.splitlines() if line.strip()]
+    raw_items = res.stdout.split(b"\0")
+    return [
+        item.decode("utf-8", errors="replace").replace("\\", "/")
+        for item in raw_items
+        if item
+    ]
 
 
 def install_git_hook(repo_root: Path) -> Tuple[bool, str]:
     """
     Installs a local git pre-commit hook in .git/hooks/pre-commit
     that invokes `python scripts/check_boundaries.py --staged`.
+    Safely chains with existing hooks without overwriting.
     Returns (success, message).
     """
     repo_root = Path(repo_root).resolve()
@@ -329,19 +344,25 @@ def install_git_hook(repo_root: Path) -> Tuple[bool, str]:
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook_file = hooks_dir / "pre-commit"
 
-    hook_content = (
-        "#!/usr/bin/env sh\n"
-        "# Meta-Project Boundary Gate Pre-Commit Hook\n"
+    chain_block = (
+        "\n# Meta-Project Boundary Gate Pre-Commit Hook\n"
         "# Automatically checks staged changes against responsibility zones in boundaries.md\n"
-        "\n"
         "if [ -f .agents/scripts/check_boundaries.py ]; then\n"
-        "  python .agents/scripts/check_boundaries.py --staged\n"
+        "  python .agents/scripts/check_boundaries.py --staged || exit 1\n"
         "else\n"
-        "  python scripts/check_boundaries.py --staged\n"
+        "  python scripts/check_boundaries.py --staged || exit 1\n"
         "fi\n"
     )
 
-    hook_file.write_text(hook_content, encoding="utf-8")
+    if hook_file.is_file():
+        existing_content = hook_file.read_text(encoding="utf-8")
+        if "check_boundaries.py --staged" in existing_content:
+            return True, f"Pre-commit hook installed successfully (already configured) at {hook_file}"
+        new_content = existing_content.rstrip() + "\n" + chain_block
+    else:
+        new_content = "#!/usr/bin/env sh\n" + chain_block
+
+    hook_file.write_text(new_content, encoding="utf-8")
     try:
         hook_file.chmod(hook_file.stat().st_mode | 0o111)
     except Exception:
