@@ -22,7 +22,7 @@
   - `skills/record-observation/` — standardized logging of quirks and solutions into `observations.md`.
   - `skills/sync-architecture/` — structural analysis and generation of the architectural slice.
 - **Automation Scripts (`scripts/`):**
-  - `scripts/check_boundaries.py` — zero-dependency CLI enforcing Default Deny and responsibility zones via Git diff (supports `--audit-tree` for 100% path coverage and `--install-hook` for pre-commit configuration).
+  - `scripts/check_boundaries.py` — zero-dependency CLI enforcing Default Deny and responsibility zones via Git diff (supports `--audit-tree` for 100% path coverage, `--diff` for base revision comparison, and `--install-hook` for safe pre-commit chaining).
   - `scripts/compact_memory.py` — memory compaction utility rotating oversized observation tables and completed tasks into `.agents/project_knowledge/archive/`, permanently preserving `[pin]` invariant entries.
   - `scripts/sync_templates.py` — zero-dependency template injection and skill parity synchronizer (`--check` and `--write`).
 - **Verification Layer (`tests/`):**

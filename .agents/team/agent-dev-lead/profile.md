@@ -66,3 +66,7 @@ invocation_triggers:
 | 2026-11-10 19:39 | User | Grounding & memory compaction | Completed: compacted tasks.md into archive/tasks_archive.md, purged caches |
 | 2026-11-10 19:10 | User | Step 20: Definition of Done & Architecture Drift Detector | Completed: Silent Pre-Close Checklist in prompts, check_architecture_drift with 4 unit tests, 51/51 tests pass |
 | 2026-11-11 09:05 | User | Step 21: Post-audit remediation | Completed: doc relative links, check_boundaries stderr ascii, ci.yml --audit-tree, architecture.md sync |
+| 2026-11-12 22:52 | User | Step 28 (P0.2): Sentinels in sync_templates.py & embedded template wrapping | Completed via TDD: 2 new unit tests, <!-- TEMPLATE:BEGIN/END --> sentinels, 0 drift, 55/55 tests pass |
+| 2026-11-13 00:35 | User | Step 29 (P0.3): Safe Chain Execution in install_git_hook() | Completed via TDD: test_install_hook_chains_with_existing_pre_commit, safe append with || exit 1, idempotency verified, 56/56 tests pass |
+| 2026-11-13 10:20 | User | Step 31 (P0.4): Commit SHAs & branch diff target verification in check_boundaries.py | Verified git diff -z --name-only revision handling, added --diff alias to CLI, added test_cli_diff_against_head_exits_clean, 57/57 tests pass |
+| 2026-11-12 | Phase P0 Implementation | SUCCESS | All 4 P0 tasks implemented and verified |
