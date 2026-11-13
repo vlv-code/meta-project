@@ -28,3 +28,7 @@ Before modifying schemas, architectural contracts, or core logic:
 - **Circuit Breaker:** If a bugfix requires a 2nd consecutive edit in the same module or produces a secondary regression in adjacent code, CEASE code modifications immediately. Zoom out, trace the full data lifecycle (`Origin ➔ Transport ➔ Persistence ➔ Consumer`), diagnose the architectural root cause, and present systemic analysis before proposing any new diff.
 - **Minimal Diffs, Maximal Depth:** Minimize the width of file interference (no unrelated refactoring); maximize the depth of root-cause investigation (fix the origin, not symptom errors).
 - **Definition of Done:** Whenever an undocumented environment quirk, compiler macro mismatch, or runtime edge-case is solved, log it atomically via `record-observation`.
+
+## 5. Tooling & Testing Invariants
+- **Default Closed Tooling:** Core framework and agents operate in a zero-dependency closed loop by default. External tools and third-party dependencies are permitted ONLY when explicitly declared (opt-in) in project specification or requested by user. Operational liabilities for third-party tools belong to the project/operator.
+- **Adversarial TDD:** Never accept trivial green tests. Any test-driven development must include negative and adversarial boundary checks (confirming failure on missing implementation) before transitioning to green.

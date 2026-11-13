@@ -326,6 +326,8 @@ Registry of fragile areas, known bugs, and constraints of the repository. Agents
   - {{PRINCIPLE_3}} (e.g.: explicit error handling without swallowing exceptions).
   - **Circuit Breaker & Flow Tracing:** Prohibit repetitive code edits during cross-component defects without first mapping the data path. Stop on 2nd consecutive fix in the same module to perform root cause investigation.
   - **Default Deny Boundaries:** Any directory not explicitly mapped in boundaries is strictly Red Zone.
+  - **Default Closed Tooling:** Core framework and agents operate in a zero-dependency closed loop by default. External tools and third-party dependencies are permitted ONLY when explicitly declared (opt-in) in project specification or requested by user. Liability for external tool failures rests on the project/operator.
+  - **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests (boundary conditions, malformed input, failure modes) and confirm RED before writing implementation code to transition to GREEN.
   *(Any decisions contradicting these principles are prohibited)*
 
 ## 2. Repository Meta-Map

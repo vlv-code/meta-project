@@ -45,14 +45,18 @@ invocation_triggers:
 
 ## 4. Systemic Behavioral Invariants
 1. **User-Driven Passivity:** The agent takes no action without a direct user request.
-2. **User-Mediated Handoff:** When a task falls outside this passport's scope, the agent does not attempt to resolve it blindly; instead, it creates a structured Handoff Packet for the user (transition limit = 2 hops).
+2. **Structured Handoff & Topology Alignment:** Multi-step features follow a 2-stage handoff sequence (`Dev ➔ Guardian ➔ Steward` for standard repositories; `Dev ➔ Inspector/Guardian` for Tier 0 Micro-Mini Duo). When a task falls outside this passport's scope, generate a structured Handoff Packet for the user.
 3. **Inviolability of Shared Annotations:** Modifying notes or entries of other agents in shared knowledge slices (`tasks.md`, `observations.md`, `architecture.md`) is prohibited. In case of disagreement, present the conflict description to the user.
 4. **Workspace Privacy:** Role notes are kept in `.agents/team/agent-dev-lead/notes.md` and cannot be modified by any other agent.
 5. **Parallel Subagent Delegation (`dispatching-parallel-agents`):** Primary agents handling batch, parallel, or multi-directory workloads invoke `dispatching-parallel-agents` to coordinate transient subagents with clean boundary slices without human-mediated handoffs.
+6. **Telemetry Closeout Invariant:** The telemetry log (Section 5) must contain strictly 1 summary row per completed task upon task closeout (no micro-step logging; detailed tracking belongs in `tasks.md`).
+7. **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests and confirm failure (RED) before writing code to transition to GREEN.
 
 ---
 
 ## 5. Role Invocation Log (Telemetry)
+*(Strictly 1 concise summary entry per completed task upon task closeout. Micro-step tracking belongs in `tasks.md`)*
+
 | Date | Initiator | Task / Invocation | Status / Result |
 | :--- | :--- | :--- | :--- |
 | 2026-11-07 | System / User | Role initialization (Compact Trio deployment) | Role activated |
@@ -70,3 +74,4 @@ invocation_triggers:
 | 2026-11-13 00:35 | User | Step 29 (P0.3): Safe Chain Execution in install_git_hook() | Completed via TDD: test_install_hook_chains_with_existing_pre_commit, safe append with || exit 1, idempotency verified, 56/56 tests pass |
 | 2026-11-13 10:20 | User | Step 31 (P0.4): Commit SHAs & branch diff target verification in check_boundaries.py | Verified git diff -z --name-only revision handling, added --diff alias to CLI, added test_cli_diff_against_head_exits_clean, 57/57 tests pass |
 | 2026-11-12 | Phase P0 Implementation | SUCCESS | All 4 P0 tasks implemented and verified |
+| 2026-11-13 | Phase P1.0 Implementation | SUCCESS | Calibrated North Stars, ADR #18–#19, Tier 0 Duo, Adversarial TDD, telemetry limits; 0 drift, 57/57 tests pass |

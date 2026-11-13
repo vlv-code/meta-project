@@ -3,7 +3,7 @@
 ## 1. High-Level System Overview
 - **Project Type:** Specification, templates, and agentic context & knowledge framework (Agentic Context & Knowledge Framework).
 - **Core Stack:** Python 3.10+ (stdlib `unittest`), Markdown, GitHub Actions CI.
-- **Architectural Principle:** Zero runtime dependencies. All validation checks and templates operate autonomously using standard library Python.
+- **Architectural Principle:** Zero runtime dependencies & Default Closed Tooling. All validation checks and templates operate autonomously using standard library Python; third-party tools require explicit opt-in.
 
 ## 2. Key Components and Data Flows
 - **Templates (`templates/`):**
@@ -13,7 +13,7 @@
   - `templates/team/` — role profile templates (`profile.md`), private notes (`notes.md`), and system prompts (`system_prompt.md`).
 - **Procedural Skills (`skills/`):**
   - `skills/init-meta-project/` — two-pass initialization and audit of agent environment in any repository.
-  - `skills/manage-meta-project/` — formation, audit, and orchestration of specialized agent roles.
+  - `skills/manage-meta-project/` — formation, audit, and scale-adaptive orchestration of specialized agent roles (Tier 0 Duo, Tier 1 Compact Trio, Tier 2+ granular teams).
   - `skills/decommission-meta-project/` — non-destructive decommissioning, resizing, and archiving of agent roles.
   - `skills/ground-meta-project/` — emergency grounding, runaway edit halt, and context recalibration.
   - `skills/scan-meta-project/` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
@@ -45,6 +45,7 @@ Every multi-tier feature or modification touching agent orchestration, templates
 ```
 - **Primary Data Flow 1 (Scaffolding):** User prompt ➔ `init-meta-project` ➔ In-Memory Analysis ➔ Materialized `.agents/` + `AGENTS.md` ➔ `test_integrity.py` validation.
 - **Primary Data Flow 2 (Orchestration):** User request ➔ `agent-dev-lead` (fast-track) or decomposition ➔ domain role / subagent ➔ telemetry logging in `profile.md` + opportunistic refresh in `project_knowledge/`.
+- **Primary Data Flow 3 (Tier 0 Duo Execution):** User request ➔ `agent-dev-lead` (TDD with adversarial negative checks) ➔ `agent-quality-guardian` / `agent-inspector-guardian` (integrity, test suite, git hygiene, commit).
 - **Single Source of Truth:** `templates/` and canonical `skills/` in the repository root are authoritative; `.agents/team/` and `.agents/skills/` reflect active deployed instances.
 
 ## 5. Design Patterns

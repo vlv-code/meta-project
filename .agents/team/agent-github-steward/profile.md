@@ -67,3 +67,4 @@ invocation_triggers:
 | 2026-11-11 12:35 | User | Codify Role Identity Invariance & prevent role drift | Completed: verified 51/51 tests, pushed to origin/main |
 | 2026-11-13 09:57 | User | Audit CI & configure base diff evaluation in GitHub Actions | Completed: updated ci.yml with full history checkout, diff step, and template check |
 | 2026-11-12 | Phase P0 Git & CI Closeout | SUCCESS | Git tree clean, conventional commits verified |
+| 2026-11-13 | User | Step 37 (P1.0): Git Hygiene & conventional commit for architectural calibration | Completed: committed P1.0 calibration (docs, templates, skills, .agents) |
