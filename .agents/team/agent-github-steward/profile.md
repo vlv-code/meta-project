@@ -69,3 +69,4 @@ invocation_triggers:
 | 2026-11-12 | Phase P0 Git & CI Closeout | SUCCESS | Git tree clean, conventional commits verified |
 | 2026-11-13 | User | Step 37 (P1.0): Git Hygiene & conventional commit for architectural calibration | Completed: committed P1.0 calibration (docs, templates, skills, .agents) |
 | 2026-11-13 17:35 | User | Step 40 (P1.1): Git Hygiene & conventional commit for record_obs.py | Completed: committed record_obs.py, test suite, skill mirrors, and AGENTS.md |
+| 2026-11-13 21:45 | User | Step 42 (P1.2): Git Hygiene & conventional commit for Red Zone hardening | Completed: committed CODEOWNERS, boundaries hardening, test suite, and skill mirrors |

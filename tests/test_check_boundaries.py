@@ -38,6 +38,8 @@ SAMPLE_BOUNDARIES_MD = """# Responsibility Zones and Change Boundaries
 ---
 
 ## Red Zone (Prohibited Without Direct User Confirmation)
+- `scripts/check_boundaries.py` — core boundary enforcement CLI.
+- `*boundaries.md` — responsibility boundaries policy files.
 - `tests/test_integrity.py` — specification tests.
 - `.github/workflows/**` — CI/CD pipelines.
 - `.gitignore` — ignore rules.
@@ -117,6 +119,15 @@ class TestBoundaryGateClassification(unittest.TestCase):
         self.assertEqual(zone, "red")
 
         zone, reason = check_boundaries.classify_path("tests/test_integrity.py", self.zones)
+        self.assertEqual(zone, "red")
+
+        zone, reason = check_boundaries.classify_path("scripts/check_boundaries.py", self.zones)
+        self.assertEqual(zone, "red")
+
+        zone, reason = check_boundaries.classify_path(".agents/project_knowledge/boundaries.md", self.zones)
+        self.assertEqual(zone, "red")
+
+        zone, reason = check_boundaries.classify_path("templates/project_knowledge/boundaries.md", self.zones)
         self.assertEqual(zone, "red")
 
     def test_default_deny_black_zone(self):

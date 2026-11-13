@@ -15,7 +15,7 @@
 ## 2. Repository Meta-Map
 - Core Code & Skills: `skills/` (`init-meta-project`, `manage-meta-project`, `decommission-meta-project`, `ground-meta-project`, `scan-meta-project`, `tune-meta-project`, `update-meta-project`, `record-observation`, `sync-architecture`)
 - Canonical Templates: `templates/` (`templates/AGENTS.md`, `templates/project_knowledge/`, `templates/team/`)
-- CI/CD Configuration: `.github/workflows/ci.yml`
+- CI/CD & Ownership: `.github/workflows/ci.yml`, `.github/CODEOWNERS`
 - Integrity Tests: `tests/test_integrity.py`
 - Automation Scripts: `scripts/check_boundaries.py`, `scripts/compact_memory.py`, `scripts/sync_templates.py`, `scripts/record_obs.py`
 - Documentation and Decisions: `docs/decisions_and_roadmap.md`, `README.md`, `CHANGELOG.md`

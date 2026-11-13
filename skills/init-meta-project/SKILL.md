@@ -264,8 +264,8 @@ Areas requiring elevated caution and mandatory local test and linter execution p
 - `src/services/**`, `src/domain/**` — core business logic.
 - `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `requirements.txt` — project dependencies.
 - `src/schemas/**`, `src/models/**` — input/output validation schemas (Pydantic / Zod / DTO).
-- `scripts/**` — automation scripts and verification utilities.
-- `*formatting*`, `*render*`, `templates/**` — formatting modules, template engines, and markup escaping (parsing errors break message delivery).
+- `scripts/** (except scripts/check_boundaries.py)` — automation scripts and verification utilities.
+- `*formatting*`, `*render*`, `templates/** (except boundaries.md)` — formatting modules, template engines, and markup escaping (parsing errors break message delivery).
 - `keyboards.*`, `ui/**` — keyboard layouts and UI components.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 
@@ -274,11 +274,14 @@ Areas requiring elevated caution and mandatory local test and linter execution p
 ## Red Zone (Prohibited Without Direct User Confirmation)
 Critical areas of the project. Any modification requires mandatory prior confirmation from the user:
 - Architectural integrity and external contract tests: `*integrity*`, `*contract*`, `*schema*`, E2E/snapshot tests of public APIs and integrations.
+- `scripts/check_boundaries.py` — core security and boundary gate enforcement script.
+- `*boundaries.md` — responsibility boundaries and security policy definitions.
 - `migrations/**`, `alembic/**`, `liquibase/**` — database schema and migration files.
 - `data/**`, `*.db`, `*.sqlite*` — local database files and directories.
 - `.env*`, `config/secrets/**`, `*.pem`, `*.key` — configurations containing secrets and environment variables.
 - `Dockerfile*`, `docker-compose*.yml`, `k8s/**`, `helm/**` — containerization and deployment infrastructure.
 - `.github/workflows/**`, `.gitlab-ci.yml`, `Jenkinsfile` — CI/CD pipelines.
+- `.github/CODEOWNERS` — repository code ownership and pull request approval rules.
 - `src/auth/**`, `src/security/**`, `src/crypto/**` — authentication, authorization, sessions, tokens.
 - `src/billing/**`, `src/payments/**` — billing and financial transactions.
 

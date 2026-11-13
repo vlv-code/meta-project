@@ -32,12 +32,14 @@
   - `tests/test_compact_memory.py` — unit tests for observation row rotation, task checklist archiving, and dry-run execution.
   - `tests/test_sync_templates.py` — unit tests for template injection, embedded backtick handling, and parity validation.
   - `tests/test_record_obs.py` — unit and adversarial tests for observation entry validation, pipe escaping, and file locking.
-- **CI/CD Layer (`.github/workflows/`):**
-  - `ci.yml` — matrix testing across Python 3.10, 3.11, 3.12, and 3.13 with automated Boundary Gate verification step in GitHub Actions.
+- **CI/CD Layer (`.github/`):**
+  - `.github/workflows/ci.yml` — matrix testing across Python 3.10, 3.11, 3.12, and 3.13 with automated Boundary Gate verification step in GitHub Actions.
+  - `.github/CODEOWNERS` — branch protection and code ownership for Red Zone security gates and boundary policy files.
 
 ## 3. Data and State Invariants
 - **Specification Format:** Markdown with YAML frontmatter for skills; Markdown tables for observations; path glob patterns for responsibility zones.
 - **Contract Stability:** File names of knowledge slices and templates are fixed in integrity tests.
+- **Security Policy Invariant:** Security gate scripts (`scripts/check_boundaries.py`), boundary policy definitions (`*boundaries.md`), and CI/CD configurations are strictly enforced in Red Zone and guarded via `.github/CODEOWNERS`.
 
 ## 4. End-to-End Data Flows (Pre-Flight Flow Tracing)
 Every multi-tier feature or modification touching agent orchestration, templates, or skills must map the lifecycle across framework layers:

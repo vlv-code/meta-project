@@ -66,3 +66,4 @@ invocation_triggers:
 | 2026-11-12 | Phase P0 Audit & Weak Spots Update | SUCCESS | Verified 53+ tests, resolved P0 debt |
 | 2026-11-13 | User | Step 36 (P1.0): Verification of architectural invariants & templates | Passed: 57/57 tests OK, 0 template drift, 100% boundary coverage, gate cleared |
 | 2026-11-13 17:25 | User | Step 39 (P1.1): Audit of record_obs.py CLI & memory safety | Passed: 5/5 unit tests, live pipe escaping verified, 62/62 regression tests OK, 0 template drift, 100% boundary coverage |
+| 2026-11-13 21:35 | User | Step 41 (P1.2): Red Zone hardening & CODEOWNERS audit | Passed: 100% boundary coverage (8 Red Zone files), Red Zone violation block confirmed, 62/62 tests OK, 0 template drift |

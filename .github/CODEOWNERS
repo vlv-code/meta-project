@@ -1,0 +1,4 @@
+# Critical Security & Policy Enforcement
+/scripts/check_boundaries.py @maintainer
+*boundaries.md @maintainer
+.github/workflows/ @maintainer

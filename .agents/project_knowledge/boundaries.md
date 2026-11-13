@@ -18,10 +18,10 @@ Areas requiring elevated caution and mandatory local test execution (`python -m 
 - `AGENTS.md` — root project passport (requires careful verification and opportunistic refresh).
 - `tests/**` (auxiliary project tests). **Test emasculation protection invariant:** weakening `assert` checks or adjusting golden data to match broken code is strictly prohibited.
 - `skills/**` — procedural skills (`SKILL.md`) and their logic.
-- `templates/**` — meta-project templates (`AGENTS.md`, `project_knowledge/**`, `team/**`).
-- `scripts/**` — automation tools and boundary enforcement scripts.
+- `templates/** (except boundaries.md)` — meta-project templates (`AGENTS.md`, `project_knowledge/**`, `team/**`).
+- `scripts/** (except scripts/check_boundaries.py)` — automation tools and auxiliary scripts.
 - `.agents/skills/**` — local repository agent skills.
-- `.agents/project_knowledge/**` — meta-knowledge slices (updated via opportunistic refresh protocol).
+- `.agents/project_knowledge/** (except boundaries.md)` — meta-knowledge slices (updated via opportunistic refresh protocol).
 - `.agents/team/**` — active role passports, system prompts, and team archive.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 
@@ -29,8 +29,11 @@ Areas requiring elevated caution and mandatory local test execution (`python -m 
 
 ## Red Zone (Prohibited Without Direct User Confirmation)
 Critical areas of the project. Any modification requires mandatory prior confirmation from the user:
+- `scripts/check_boundaries.py` — core security and boundary gate enforcement script.
+- `*boundaries.md` — responsibility zones and change boundaries policy files.
 - `tests/test_integrity.py` — specification of architectural integrity and framework contracts (modifying checks is equivalent to altering platform specs).
 - `.github/workflows/**` — GitHub Actions CI/CD pipelines (`ci.yml`).
+- `.github/CODEOWNERS` — repository code ownership and pull request approval rules.
 - `LICENSE` — repository legal license (MIT).
 - `.gitignore` — global git ignore rules.
 
