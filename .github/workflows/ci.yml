@@ -31,8 +31,10 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13']
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with full history
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -41,6 +43,24 @@ jobs:
 
       - name: Run Boundary Gate Check
         run: python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree
+
+      - name: Evaluate Change Diff against Base Revision
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+          else
+            BEFORE_SHA="${{ github.event.before }}"
+            if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              BASE_REF="HEAD~1"
+            else
+              BASE_REF="$BEFORE_SHA"
+            fi
+          fi
+          echo "Evaluating changes against base commit: $BASE_REF"
+          python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --diff "$BASE_REF"
+
+      - name: Verify Template Parity
+        run: python scripts/sync_templates.py --check
 
       - name: Run integrity tests
         run: python -m unittest discover -s tests -p "test_*.py" -v

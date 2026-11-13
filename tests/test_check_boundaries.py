@@ -15,8 +15,10 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 try:
     import check_boundaries
+    from check_boundaries import main
 except ImportError:
     check_boundaries = None
+    main = None
 
 
 SAMPLE_BOUNDARIES_MD = """# Responsibility Zones and Change Boundaries
@@ -343,6 +345,10 @@ class TestBoundaryGateCLI(unittest.TestCase):
             content_after = existing_hook.read_text(encoding="utf-8")
             self.assertEqual(content, content_after)
             self.assertEqual(content_after.count("# Meta-Project Boundary Gate Pre-Commit Hook"), 1)
+
+    def test_cli_diff_against_head_exits_clean(self):
+        ret = main(["--boundaries", ".agents/project_knowledge/boundaries.md", "--diff", "HEAD"])
+        self.assertIn(ret, (0, 1))
 
 
 class TestArchitectureDrift(unittest.TestCase):

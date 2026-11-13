@@ -389,9 +389,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "--diff-target",
+        "--diff",
+        dest="diff_target",
         type=str,
         default=None,
-        help="Git diff comparison target (e.g. HEAD~1, origin/main)",
+        help="Git diff comparison target (e.g. HEAD~1, origin/main, commit SHA)",
     )
     parser.add_argument(
         "--staged",
