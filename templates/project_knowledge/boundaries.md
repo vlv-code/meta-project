@@ -25,6 +25,7 @@ Areas requiring elevated caution and mandatory local test and linter execution p
 - `*formatting*`, `*render*`, `templates/** (except boundaries.md)` — formatting modules, template engines, and markup escaping (parsing errors break message delivery).
 - `keyboards.*`, `ui/**` — keyboard layouts and UI components.
 - `.agents/*.json` — project registries and identity binding definitions.
+- `.agents/reports/**` — initialization and team management audit reports.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 
 ---

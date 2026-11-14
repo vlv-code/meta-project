@@ -70,6 +70,8 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
   `python scripts/compact_memory.py --dry-run`
 - **Atomic Observation Logging:**
   `python scripts/record_obs.py --category <cat> --component <path> --issue <text> --solution <text>`
+- **Initialization & Management Report Audit:**
+  `python scripts/manage_reports.py [init|manage|latest|verify]`
 
 ### Read-Only Exploration Mode
 When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:

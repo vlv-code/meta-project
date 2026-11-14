@@ -11,6 +11,7 @@
   - `templates/global/AGENTS.md` — global user-level passport template for `~/.gemini/AGENTS.md` or home directory environments.
   - `templates/project_knowledge/` — meta-knowledge slices (`architecture.md`, `boundaries.md`, `weak_spots.md`, `observations.md`, `tasks.md`).
   - `templates/team/` — role profile templates (`profile.md`), private notes (`notes.md`), and system prompts (`system_prompt.md`).
+  - `templates/reports/` — canonical report validation schemas (`init_report.json`, `manage_report.json`) for machine-readable audit trails.
 - **Procedural Skills (`skills/`):**
   - `skills/init-meta-project/` — two-pass initialization and audit of agent environment in any repository.
   - `skills/manage-meta-project/` — formation, audit, and scale-adaptive orchestration of specialized agent roles (Tier 0 Duo, Tier 1 Compact Trio, Tier 2+ granular teams).
@@ -26,16 +27,19 @@
   - `scripts/compact_memory.py` — memory compaction utility rotating oversized observation tables and completed tasks into `.agents/project_knowledge/archive/`, permanently preserving `[pin]` invariant entries with cross-platform file locking (`msvcrt` / `fcntl`) and index-based row retention.
   - `scripts/sync_templates.py` — zero-dependency template injection and skill parity synchronizer (`--check` and `--write`).
   - `scripts/record_obs.py` — zero-dependency CLI utility appending validated, escaped observation rows to `observations.md` with cross-platform file locking (`msvcrt` / `fcntl`) and qualified `--actor-id` attribution.
-  - `scripts/verify_identity.py` — zero-dependency CLI validator for multi-harness identity registry (`.agents/meta-project.json`) and role profile bindings (`--check` and `--actor`).
-  - `scripts/inspect_meta_project.py` — zero-dependency CLI survey utility evaluating repository state across 7 canonical states, detecting git worktrees, calculating 5-dimension Capability Matrix, and enforcing zero-write inspection.
+  - `scripts/verify_identity.py` — zero-dependency CLI validator for multi-harness identity registry (`.agents/meta-project.json`, schema 1.0.0 and 1.1.0), scenario configuration, and role profile bindings (`--check` and `--actor`).
+  - `scripts/inspect_meta_project.py` — zero-dependency CLI survey utility evaluating repository state across 7 canonical states, detecting git worktrees, calculating 5-dimension Capability Matrix, surfacing agreed scenario, discovering latest init reports, and enforcing zero-write inspection.
+  - `scripts/manage_reports.py` — zero-dependency CLI and library for creating, validating, and locating initialization (`init`) and management (`manage`) reports in `.agents/reports/<installation_id>/` with atomic file writes and `latest.json` pointer management.
 - **Verification Layer (`tests/`):**
   - `tests/test_integrity.py` — YAML frontmatter validation, mandatory procedural sections, CI configuration, and canonical template checks.
   - `tests/test_check_boundaries.py` — unit tests for boundary gate parser, zone classification engine, and CLI exit codes.
   - `tests/test_compact_memory.py` — unit tests for observation row rotation, task checklist archiving, and dry-run execution.
   - `tests/test_sync_templates.py` — unit tests for template injection, embedded backtick handling, and parity validation.
   - `tests/test_record_obs.py` — unit and adversarial tests for observation entry validation, pipe escaping, and file locking.
-  - `tests/test_verify_identity.py` — unit and adversarial tests for multi-harness identity registry, actor_id format, duplicate detection, and planned installation constraints.
-  - `tests/test_inspect_meta_project.py` — unit and adversarial tests for deterministic survey CLI, 7 canonical states, worktree handling, Capability Matrix, and zero-write invariant.
+  - `tests/test_verify_identity.py` — unit and adversarial tests for multi-harness identity registry, actor_id format, duplicate detection, schema 1.1.0 scenario validation, and planned installation constraints.
+  - `tests/test_inspect_meta_project.py` — unit and adversarial tests for deterministic survey CLI, 7 canonical states, worktree handling, Capability Matrix, agreed scenario extraction, latest report lookup, and zero-write invariant.
+  - `tests/test_manage_reports.py` — unit and adversarial tests for report schemas, validation, latest pointer, and atomic writes.
+  - `tests/test_report_and_manage_cycle.py` — acceptance test suite verifying scenario agreement persistence, init report contract, zero-write invariant under --read-only, foreign report rejection, awaiting_decision/blocked fail-closed halt, scenario-driven topology adaptation, multi-harness binding preservation, and staleness detection.
 - **CI/CD Layer (`.github/`):**
   - `.github/workflows/ci.yml` — matrix testing across Python 3.10, 3.11, 3.12, and 3.13 with automated Boundary Gate verification step in GitHub Actions.
   - `.github/CODEOWNERS` — branch protection and code ownership for Red Zone security gates and boundary policy files.
@@ -54,6 +58,7 @@ Every multi-tier feature or modification touching agent orchestration, templates
 - **Primary Data Flow 1 (Scaffolding):** User prompt ➔ `init-meta-project` ➔ In-Memory Analysis ➔ Materialized `.agents/` + `AGENTS.md` ➔ `test_integrity.py` validation.
 - **Primary Data Flow 2 (Orchestration):** User request ➔ `agent-dev-lead` (fast-track) or decomposition ➔ domain role / subagent ➔ telemetry logging in `profile.md` + opportunistic refresh in `project_knowledge/`.
 - **Primary Data Flow 3 (Tier 0 Duo Execution):** User request ➔ `agent-dev-lead` (TDD with adversarial negative checks) ➔ `agent-quality-guardian` / `agent-inspector-guardian` (integrity, test suite, git hygiene, commit).
+- **Primary Data Flow 4 (Scenario Agreement & Report Handoff):** User prompt ➔ `init-meta-project` Survey (Zero-Write) ➔ Explicit User Scenario Agreement ➔ `.agents/meta-project.json` (Scenario & Identity) + `.agents/reports/<installation_id>/init/<init_run_id>.json` (via `scripts/manage_reports.py`) ➔ `manage-meta-project` Report Intake & Staleness Check ➔ Topology Resolution & Team Materialization ➔ `.agents/reports/<installation_id>/manage/<manage_run_id>.json`.
 - **Single Source of Truth:** `templates/` and canonical `skills/` in the repository root are authoritative; `.agents/team/` and `.agents/skills/` reflect active deployed instances.
 
 ## 5. Design Patterns

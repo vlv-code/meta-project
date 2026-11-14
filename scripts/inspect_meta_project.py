@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.0", "1"}
+SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1", "1"}
 CANONICAL_ACTIONS = {
     "NONE": "scaffold_clean",
     "FOREIGN_RULES": "preserve_and_merge",
@@ -137,6 +137,7 @@ def inspect_repository(
     project_id: Optional[str] = None
     installations: Dict[str, Any] = {}
     roles: Dict[str, Any] = {}
+    scenario: Optional[Dict[str, Any]] = None
     registry_corrupted = False
 
     if registry_file.is_file():
@@ -150,6 +151,7 @@ def inspect_repository(
                 project_id = registry_data.get("project_id")
                 installations = registry_data.get("installations", {})
                 roles = registry_data.get("roles", {})
+                scenario = registry_data.get("scenario")
         except Exception:
             registry_corrupted = True
 
@@ -289,6 +291,50 @@ def inspect_repository(
         ),
     }
 
+    # 7. Check for latest init report
+    latest_init_report: Optional[Dict[str, Any]] = None
+    reports_base = agents_dir / "reports"
+    if reports_base.is_dir():
+        candidate_insts = [target_installation] if target_installation else list(installations.keys())
+        for c_inst in candidate_insts:
+            if not c_inst:
+                continue
+            init_dir = reports_base / c_inst / "init"
+            if init_dir.is_dir():
+                ptr_file = init_dir / "latest.json"
+                if ptr_file.is_file():
+                    try:
+                        ptr_data = json.loads(ptr_file.read_text(encoding="utf-8"))
+                        latest_init_report = {
+                            "run_id": ptr_data.get("run_id"),
+                            "status": ptr_data.get("status"),
+                            "created_at": ptr_data.get("created_at"),
+                            "path": ptr_data.get("path"),
+                            "installation_id": c_inst,
+                        }
+                        break
+                    except Exception:
+                        pass
+                else:
+                    report_files = sorted(
+                        [p for p in init_dir.glob("*.json") if p.name != "latest.json"],
+                        key=lambda p: p.name,
+                        reverse=True,
+                    )
+                    if report_files:
+                        try:
+                            rf_data = json.loads(report_files[0].read_text(encoding="utf-8"))
+                            latest_init_report = {
+                                "run_id": rf_data.get("run_id"),
+                                "status": rf_data.get("status"),
+                                "created_at": rf_data.get("created_at"),
+                                "path": str(report_files[0].resolve()).replace("\\", "/"),
+                                "installation_id": c_inst,
+                            }
+                            break
+                        except Exception:
+                            pass
+
     return {
         "inspection_version": "1.0.0",
         "repo_root": str(repo_root).replace("\\", "/"),
@@ -299,6 +345,8 @@ def inspect_repository(
         "recommended_action": CANONICAL_ACTIONS.get(state, "diagnose_and_repair"),
         "schema_version": schema_version,
         "project_id": project_id,
+        "scenario": scenario,
+        "latest_init_report": latest_init_report,
         "installations": installations,
         "capabilities": {
             "read_instructions": cap_read_instructions,
@@ -325,9 +373,18 @@ def format_human_report(report: Dict[str, Any]) -> str:
         f"Recommended Action: {report['recommended_action']}",
         f"Registry Schema:    {report.get('schema_version') or 'None'}",
         f"Project ID:         {report.get('project_id') or 'Unset'}",
+    ]
+    if report.get("scenario"):
+        sc = report["scenario"]
+        lines.append(f"Agreed Scenario:    {sc.get('profile', 'Unset')} (model: {sc.get('collaboration_model', 'unspecified')})")
+    if report.get("latest_init_report"):
+        ir = report["latest_init_report"]
+        lines.append(f"Latest Init Report: {ir.get('run_id')} (status: {ir.get('status')})")
+
+    lines.extend([
         "",
         "Capability Matrix:",
-    ]
+    ])
     for cap, info in report["capabilities"].items():
         status_marker = "[OK]" if info["status"] == "available" else "[--]"
         lines.append(f"  {status_marker} {cap:<18}: {info['status']} ({info['detail']})")

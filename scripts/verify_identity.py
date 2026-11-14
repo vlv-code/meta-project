@@ -16,6 +16,75 @@ from typing import Any, Dict, List, Optional, Tuple
 
 DEFAULT_REGISTRY_REL = Path(".agents/meta-project.json")
 
+VALID_SCENARIO_PROFILES = {
+    "active_development",
+    "maintenance",
+    "research",
+    "audit",
+    "documentation",
+}
+VALID_DEPLOYMENT_MODES = {"shared_repo", "local_overlay", "hybrid"}
+VALID_COLLABORATION_MODELS = {"solo", "duo", "triad", "specialized_swarm"}
+VALID_VERIFICATION_POLICIES = {
+    "self_check",
+    "duo_peer_review",
+    "strict_independent",
+}
+VALID_DELEGATION_LEVELS = {"strictly_manual", "controlled", "autonomous"}
+
+
+def validate_scenario_section(scenario: Any) -> List[str]:
+    """Validates structure and enums of the optional scenario section."""
+    errors: List[str] = []
+    if scenario is None:
+        return errors
+
+    if not isinstance(scenario, dict):
+        return ["Field 'scenario' must be a dictionary in registry"]
+
+    profile = scenario.get("profile")
+    if not profile:
+        errors.append("Field 'scenario' missing required key 'profile'")
+    elif profile not in VALID_SCENARIO_PROFILES:
+        errors.append(
+            f"Invalid scenario profile '{profile}'. Allowed: {sorted(list(VALID_SCENARIO_PROFILES))}"
+        )
+
+    dep_mode = scenario.get("deployment_mode")
+    if dep_mode and dep_mode not in VALID_DEPLOYMENT_MODES:
+        errors.append(
+            f"Invalid scenario deployment_mode '{dep_mode}'. Allowed: {sorted(list(VALID_DEPLOYMENT_MODES))}"
+        )
+
+    collab = scenario.get("collaboration_model")
+    if collab and collab not in VALID_COLLABORATION_MODELS:
+        errors.append(
+            f"Invalid scenario collaboration_model '{collab}'. Allowed: {sorted(list(VALID_COLLABORATION_MODELS))}"
+        )
+
+    verif = scenario.get("verification_policy")
+    if verif and verif not in VALID_VERIFICATION_POLICIES:
+        errors.append(
+            f"Invalid scenario verification_policy '{verif}'. Allowed: {sorted(list(VALID_VERIFICATION_POLICIES))}"
+        )
+
+    deleg = scenario.get("delegation_level")
+    if deleg and deleg not in VALID_DELEGATION_LEVELS:
+        errors.append(
+            f"Invalid scenario delegation_level '{deleg}'. Allowed: {sorted(list(VALID_DELEGATION_LEVELS))}"
+        )
+
+    constraints = scenario.get("constraints")
+    if constraints is not None and not isinstance(constraints, list):
+        errors.append("Scenario 'constraints' must be a list")
+
+    unresolved = scenario.get("unresolved_questions")
+    if unresolved is not None and not isinstance(unresolved, list):
+        errors.append("Scenario 'unresolved_questions' must be a list")
+
+    return errors
+
+
 
 def parse_yaml_frontmatter(content: str) -> Dict[str, str]:
     """Extracts key-value string pairs from YAML frontmatter between --- markers."""
@@ -76,6 +145,8 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
     roles: Dict[str, Any] = registry.get("roles", {})
     if not isinstance(roles, dict) or not roles:
         errors.append("Missing or invalid 'roles' dictionary in registry")
+
+    errors.extend(validate_scenario_section(registry.get("scenario")))
 
     seen_actor_ids: Dict[str, str] = {}
 

@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "report_type": "manage",
+  "project_id": "vlv-code/meta-project",
+  "installation_id": "ag-main",
+  "harness_id": "antigravity",
+  "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+  "run_id": "20261115T005500Z-e5f6g7h8",
+  "init_run_id": "20261115T005300Z-a1b2c3d4",
+  "created_at": "2026-11-15T00:55:00Z",
+  "status": "completed",
+  "git_state": {
+    "commit_sha": "37d864b9fcb697daaa79cc7adea7f6c6d9b4e42a",
+    "branch": "main",
+    "is_clean": true,
+    "modified_files": []
+  },
+  "scenario": {
+    "profile": "active_development",
+    "collaboration_model": "triad",
+    "verification_policy": "strict_independent"
+  },
+  "roles": {
+    "preserved": [
+      "agent-dev-lead",
+      "agent-quality-guardian",
+      "agent-github-steward"
+    ],
+    "created": [],
+    "adapted": [],
+    "archived": []
+  },
+  "bindings": {
+    "agent-dev-lead": {
+      "ag-main": {
+        "status": "active",
+        "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+        "profile_path": ".agents/team/agent-dev-lead/profile.md"
+      }
+    },
+    "agent-quality-guardian": {
+      "ag-main": {
+        "status": "active",
+        "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian",
+        "profile_path": ".agents/team/agent-quality-guardian/profile.md"
+      }
+    },
+    "agent-github-steward": {
+      "ag-main": {
+        "status": "active",
+        "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-github-steward",
+        "profile_path": ".agents/team/agent-github-steward/profile.md"
+      }
+    }
+  },
+  "effective_capabilities": {
+    "team_readiness": "ready",
+    "verification_gate": "enforced",
+    "manual_steps_required": false
+  },
+  "checks": [
+    {
+      "name": "verify_identity",
+      "command": "python scripts/verify_identity.py --check",
+      "status": "pass",
+      "output_summary": "All roles in sync"
+    }
+  ],
+  "remaining_manual_actions": []
+}

@@ -21,10 +21,24 @@ The skill analyzes repository structure, identifies required specializations (Gi
 
 ## Execution steps
 
-### Phase 1: Rapid Repository Scan (Marker Inspection)
+### Phase 1: Pre-Flight Report Intake & Rapid Repository Scan
 
-Before defining roles, the agent must inspect key project markers:
-0. **Deterministic Repository Survey:** Run `python scripts/inspect_meta_project.py --json` (or inspect via stdlib). Verify repository state (`HEALTHY_REGISTERED` or `HEALTHY_NEW_HARNESS`) and check `capabilities['roles']`. If the repository is in `PARTIAL_CORRUPTED` or `NONE`, recommend running `init-meta-project` first before configuring roles.
+Before defining or modifying roles, the agent must inspect initialization results and repository markers:
+
+0. **Deterministic Repository Survey & Init Report Intake:**
+   - Execute deterministic survey:
+     ```bash
+     python scripts/inspect_meta_project.py --json
+     ```
+   - Ingest latest initialization report for the target installation:
+     ```bash
+     python scripts/manage_reports.py latest --installation <installation_id> --type init --json
+     ```
+   - **Report Intake & Staleness Verification:**
+     - Validate schema version compatibility, matching `project_id` and target `installation_id`.
+     - **Fail-Closed Block:** If the init report is missing, or its status is `awaiting_decision` or `blocked`, **HALT**. Do not plan or deploy the team; report the pending decisions or blockers to the user.
+     - **Staleness Protocol:** If the git commit in the report differs from current `HEAD`, execute a limited re-survey (`python scripts/inspect_meta_project.py --json`) to verify that boundaries, stacks, and registry remain valid. Do NOT wipe the existing team or force a full re-initialization due to normal commits.
+     - Read the agreed `scenario` block from the report or `.agents/meta-project.json`.
 1. **Hosting and CI Infrastructure:** Presence of `.github/` directory, workflows, pull request templates, issue templates.
 2. **Licenses and Open Source Governance:** Presence of `LICENSE`, copyrights, `CONTRIBUTING.md`, dependency manifests.
 3. **Containerization and Orchestration:** `Dockerfile`, `docker-compose*.yml`, `k8s/`, `helm/`.
@@ -36,27 +50,27 @@ Before defining roles, the agent must inspect key project markers:
 
 ---
 
-### Phase 2: Scale-Adaptive Sizing & Open Competency Matrix
+### Phase 2: Scenario-Driven Team Topology Planning & Sizing
 
-Before proposing roles, the agent must evaluate the repository scale and synthesize a minimally sufficient team.
+Team composition is determined by the agreed **`scenario`** and technology stack (codebase LOC is a secondary sizing guideline):
 
-#### 1. Repository Sizing & Role Synthesis
-The agent estimates codebase volume (LOC, folder depth, technological diversity):
-* **Tier 0: Micro-Mini Repository (<3–5k lines, solo developer or utility script):**
-  Deploy **2 combined roles** (Micro-Mini Duo) to eliminate handoff fatigue while preserving an independent external quality and git gate:
-  1. `agent-dev-lead`: Combines intake analysis, task decomposition, and code implementation (`agent-intake-dispatcher` + `agent-general-worker`).
-  2. `agent-quality-guardian` (or `agent-inspector-guardian`): Combines passport/knowledge integrity, test suite verification, git hygiene, conventional commits, and release auditing (`agent-meta-guardian` + `agent-qa-engineer` + `agent-github-steward`).
-  *Execution workflow:* 2-stage handoff (`Developer ➔ Inspector/Guardian`).
-* **Tier 1: Micro / Small Repository (5k–10k lines, solo developer, 1–2 primary stacks):**
-  Synthesize **3 combined roles** by bundling competency blocks from the matrix into unified profiles.
-  * *Canonical Compact Trio:*
-    1. `agent-dev-lead`: Combines intake analysis, task decomposition, and general code implementation (`agent-intake-dispatcher` + `agent-general-worker`).
-    2. `agent-quality-guardian`: Combines passport/knowledge integrity, unit test suites, and dead code auditing (`agent-meta-guardian` + `agent-qa-engineer` + `agent-deep-auditor`).
-    3. `agent-github-steward`: Git hygiene, conventional commits, Code-to-README truth parity, and CI/CD.
-* **Medium Repository (10k–50k lines, small team, several services):**
-  Deploy 3–5 dedicated roles tailored to key components.
-* **Large / Enterprise Repository (>50k lines, monorepos, microservices):**
-  Deploy 6+ granular roles with strict isolation of concerns.
+#### 1. Scenario-to-Topology Mapping
+- **`documentation` or `research` profile:**
+  Deploy a **Solo Executor** (`agent-general-worker` or standalone role) with documentation/research stack skills to prevent unnecessary multi-agent handoff overhead.
+- **`maintenance` or compact repository (<3–5k lines, Tier 0):**
+  Deploy the **Micro-Mini Duo** (`agent-dev-lead` + `agent-quality-guardian` / `agent-inspector-guardian`) for streamlined 2-stage handoff (`Developer ➔ Inspector/Guardian`).
+- **`active_development` with `strict_independent` verification:**
+  Deploy the **Canonical Compact Trio** (`agent-dev-lead` + `agent-quality-guardian` + `agent-github-steward`) ensuring distinct separation of development, quality verification, and release/CI governance.
+- **Microservices / Multi-stack / Enterprise (>50k lines or polyglot):**
+  Deploy a **Specialized Team** (3–6+ roles) tailored to isolated subsystems.
+
+#### 2. Action Differentiation (The 5 Operations)
+When orchestrating the team, `manage-meta-project` must distinguish and explicitly report:
+1. **Preserve existing team:** If active roles match the scenario and target installation, perform a no-op (zero churn).
+2. **Adjust duties:** Update system prompts or boundary assignments without destroying private notes (`notes.md`).
+3. **Add missing role:** Scaffold only newly required role profiles.
+4. **Connect existing roles to new harness:** Add bindings in `.agents/meta-project.json` for new harness installation without duplicating profiles or overwriting active bindings.
+5. **Archive unused role:** Move obsolete roles to `.agents/team/archive/<role_id>/` strictly after verifying that NO other installation references them.
 
 * **Polyglot Stack Isolation Rule (No Toxic Bundles):** Strictly forbid bundling secondary compiled or specialized stacks (C/C++, Rust, Go, native GUI) into `agent-general-worker` without dedicated skills. When a polyglot stack is detected, either synthesize a dedicated role (e.g. `agent-native-desktop` with native compilers and toolchains) or explicitly map the native directories to Red Zone with a mandatory Handoff trigger.
 * **Mandatory Dispatcher Rule (No Multi-Role Chaos):** When deploying 3 or more specialized roles, deploying an intake dispatcher (`agent-intake-dispatcher` or an integrated dispatcher in `agent-dev-lead`) is strictly mandatory. Forbid leaving the user with an unrouted bundle of multiple isolated roles without a single point of entry.
@@ -134,7 +148,34 @@ After user confirmation, perform the production write:
 
 ---
 
-### Phase 6: Team Rules of Engagement
+---
+
+### Phase 6: Manage Report Generation and Hand-off Verification
+
+Upon applying changes, the agent records the management execution report:
+
+1. **Generate Manage Report File via stdlib Engine:**
+   ```bash
+   python scripts/manage_reports.py manage --action create \
+     --installation <installation_id> \
+     --harness <harness_id> \
+     --actor <actor_id> \
+     --init-run-id <init_run_id> \
+     --status <completed|awaiting_decision|blocked> \
+     --data-file <data_json>
+   ```
+   The report is written atomically to:
+   `.agents/reports/<installation_id>/manage/<manage_run_id>.json`
+   linking back to the source `init_run_id`.
+
+2. **Crucial Invariants of Team Orchestration:**
+   - **Profile Created ≠ Loaded by Harness:** Creating `.agents/team/<role_id>/profile.md` does not mean the role is actively loaded or recognized by the agent harness.
+   - **Execution Role Invariance:** Completing `manage-meta-project` does NOT change the active agent's qualified identity (`actor_id`). The agent retains its qualified role identity (e.g., `agent-dev-lead`) and reports completion without mutating its session identity.
+   - Output a concise human summary displaying preserved, created, and adapted roles, bindings, and remaining manual steps.
+
+---
+
+### Phase 7: Team Rules of Engagement
 
 Every team agent must adhere to core coordination principles:
 1. **User-Driven Passivity:** Agents never perform background actions without explicit user instructions.
@@ -154,16 +195,6 @@ Every team agent must adhere to core coordination principles:
 8. **Circuit Breaker (Stop-Work on 2nd Iteration):** If a bugfix requires a 2nd consecutive edit in the same module or produces a secondary regression in adjacent code, cease writing code. Zoom out, trace the full data lifecycle from origin to consumer, identify the architectural root cause, and present systemic analysis before proposing any new diff.
 9. **Target State Audit:** Before modifying non-trivial modules in Yellow or Red zones, determine: Single Source of Truth (authoritative state owner), Persistence & Cache (disk, memory, `%APPDATA%`, registry and invalidation), and Contract Duplication (mirrored logic across languages/clients).
 10. **Toolchain Handoff Tripwire:** If an error originates from an unspecialized toolchain (e.g., MinGW, cross-compiler, WiX, Docker, kernel build pipelines) belonging to another role, do not attempt heuristic patching — immediately emit a structured Handoff Packet.
-
----
-
-### Phase 7: Session Role Adoption (agent-meta-guardian)
-
-The agent concluding `manage-meta-project` does not end the session idling or require the user to open a new chat. It seamlessly transitions into the persistent guardian role:
-1. Reads generated `.agents/team/agent-meta-guardian/system_prompt.md`.
-2. Records team deployment and duty activation in the `.agents/team/agent-meta-guardian/profile.md` telemetry table.
-3. Informs the user:
-   "Team deployment complete. Current session transitioned to `agent-meta-guardian` (passport integrity oversight, role telemetry, knowledge slice audit). Ready for coordination: *'verify meta-project structure'*, *'audit passport'*, *'audit team roles'*. Prompt files for other roles are saved in `.agents/team/*/system_prompt.md`."
 
 ---
 

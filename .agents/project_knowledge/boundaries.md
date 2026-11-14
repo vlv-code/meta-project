@@ -24,6 +24,7 @@ Areas requiring elevated caution and mandatory local test execution (`python -m 
 - `.agents/project_knowledge/** (except boundaries.md)` — meta-knowledge slices (updated via opportunistic refresh protocol).
 - `.agents/team/**` — active role passports, system prompts, and team archive.
 - `.agents/*.json` — project registries and identity binding definitions.
+- `.agents/reports/**` — initialization and team management audit reports.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 
 ---
