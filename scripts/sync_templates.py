@@ -147,11 +147,59 @@ def sync_skill_mirroring(
     return in_sync, drift_messages
 
 
-def run_sync(repo_root: Path, write: bool = False) -> Tuple[bool, List[str]]:
+def sync_global_skills(
+    repo_root: Path, global_dir: Path, write: bool = False
+) -> Tuple[bool, List[str]]:
+    """
+    Ensures that every canonical skill in skills/*/SKILL.md has an identical copy in global_dir/*/SKILL.md.
+    Returns (in_sync, list_of_drift_messages).
+    """
+    drift_messages: List[str] = []
+    skills_dir = repo_root / "skills"
+
+    if not skills_dir.is_dir() or not global_dir.is_dir():
+        return True, []
+
+    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+        skill_name = skill_file.parent.name
+        target_skill_dir = global_dir / skill_name
+        target_file = target_skill_dir / "SKILL.md"
+
+        if not target_file.is_file():
+            drift_messages.append(
+                f"Global Drift: Missing global skill at {target_file}"
+            )
+            if write:
+                target_skill_dir.mkdir(parents=True, exist_ok=True)
+                target_file.write_text(
+                    skill_file.read_text(encoding="utf-8"), encoding="utf-8"
+                )
+            continue
+
+        canonical_text = skill_file.read_text(encoding="utf-8")
+        current_text = target_file.read_text(encoding="utf-8")
+
+        if canonical_text != current_text:
+            drift_messages.append(
+                f"Global Drift: Global skill '{skill_name}' diverges from canonical skills/{skill_name}/SKILL.md"
+            )
+            if write:
+                target_file.write_text(canonical_text, encoding="utf-8")
+
+    in_sync = len(drift_messages) == 0
+    return in_sync, drift_messages
+
+
+def run_sync(
+    repo_root: Path,
+    write: bool = False,
+    global_dir: Optional[Path] = None,
+) -> Tuple[bool, List[str]]:
     """
     Executes full synchronization pass:
       1. Embed canonical templates into skills/.
       2. Mirror skills/ into .agents/skills/.
+      3. (Optional) Mirror skills/ into global_dir.
     """
     all_drifts: List[str] = []
 
@@ -160,6 +208,12 @@ def run_sync(repo_root: Path, write: bool = False) -> Tuple[bool, List[str]]:
 
     mir_ok, mir_drifts = sync_skill_mirroring(repo_root, write=write)
     all_drifts.extend(mir_drifts)
+
+    if global_dir:
+        glob_ok, glob_drifts = sync_global_skills(
+            repo_root, global_dir=global_dir, write=write
+        )
+        all_drifts.extend(glob_drifts)
 
     in_sync = len(all_drifts) == 0
     return in_sync, all_drifts
@@ -185,6 +239,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="Repository root directory (default: current working directory)",
     )
+    parser.add_argument(
+        "--global-skills",
+        nargs="?",
+        const=str(Path.home() / ".gemini" / "config" / "skills"),
+        default=None,
+        help="Optional path to global harness skills directory (default: ~/.gemini/config/skills) to check or update parity.",
+    )
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -199,16 +260,42 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
+    global_dir = Path(args.global_skills).resolve() if args.global_skills else None
 
-    in_sync, drifts = run_sync(repo_root, write=args.write)
+    in_sync, drifts = run_sync(repo_root, write=args.write, global_dir=global_dir)
 
     if args.write:
-        if in_sync:
-            sys.stdout.write("Template Synchronizer: All templates and mirrored skills are already up to date.\n")
-        else:
-            sys.stdout.write(f"Template Synchronizer: Successfully synchronized {len(drifts)} item(s):\n")
-            for d in drifts:
+        # Audit §9: unrecoverable errors (missing canonical templates/skills,
+        # missing embedded blocks) must yield a non-zero exit — never a
+        # success message — and --write must re-verify its own result.
+        fatal = [d for d in drifts if d.startswith("Missing") or d.startswith("Error")]
+        fixed = [d for d in drifts if d not in fatal]
+
+        unresolved: List[str] = []
+        if fixed and not fatal:
+            recheck_ok, recheck_drifts = run_sync(
+                repo_root, write=False, global_dir=global_dir
+            )
+            if not recheck_ok:
+                unresolved = recheck_drifts
+
+        if fatal or unresolved:
+            for d in fatal:
+                sys.stderr.write(f"  [FAIL] {d}\n")
+            for d in unresolved:
+                sys.stderr.write(f"  [FAIL] unresolved after --write: {d}\n")
+            sys.stderr.write(
+                "Template Synchronizer: FAILED — unrecoverable errors remain; "
+                "synchronization is not clean.\n"
+            )
+            return 1
+
+        if fixed:
+            sys.stdout.write(f"Template Synchronizer: Successfully synchronized {len(fixed)} item(s):\n")
+            for d in fixed:
                 sys.stdout.write(f"  [OK] {d}\n")
+        else:
+            sys.stdout.write("Template Synchronizer: All templates and mirrored skills are already up to date.\n")
         return 0
 
     if args.check:

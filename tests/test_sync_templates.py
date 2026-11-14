@@ -253,6 +253,39 @@ class TestSyncTemplatesCLI(unittest.TestCase):
             res_check2 = subprocess.run(cmd, capture_output=True, text=True)
             self.assertEqual(res_check2.returncode, 0)
 
+    def test_sync_global_skills_option(self):
+        """Verify that sync_global_skills checks and synchronizes external global skills directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            skills_dir = tmppath / "skills" / "test-skill"
+            skills_dir.mkdir(parents=True)
+            (skills_dir / "SKILL.md").write_text("# Test Skill\nCanonical content\n", encoding="utf-8")
+
+            global_dir = tmppath / "global_skills"
+            global_skill = global_dir / "test-skill"
+            global_skill.mkdir(parents=True)
+            (global_skill / "SKILL.md").write_text("# Test Skill\nOutdated content\n", encoding="utf-8")
+
+            # Check without write -> detects drift
+            in_sync, drifts = sync_templates.sync_global_skills(tmppath, global_dir, write=False)
+            self.assertFalse(in_sync)
+            self.assertEqual(len(drifts), 1)
+            self.assertIn("Global skill 'test-skill' diverges", drifts[0])
+
+            # Write -> synchronizes global skill
+            in_sync_w, drifts_w = sync_templates.sync_global_skills(tmppath, global_dir, write=True)
+            self.assertFalse(in_sync_w)
+            self.assertEqual(
+                (global_skill / "SKILL.md").read_text(encoding="utf-8"),
+                "# Test Skill\nCanonical content\n",
+            )
+
+            # Check again -> passes with 0 drift
+            in_sync_after, drifts_after = sync_templates.sync_global_skills(tmppath, global_dir, write=False)
+            self.assertTrue(in_sync_after)
+            self.assertEqual(len(drifts_after), 0)
+
+
 
 if __name__ == "__main__":
     unittest.main()
