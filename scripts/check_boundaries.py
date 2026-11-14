@@ -15,6 +15,11 @@ import sys
 from typing import Dict, List, Optional, Set, Tuple
 
 
+class BoundaryGateError(RuntimeError):
+    """Raised when a git query fails; the gate must fail closed, never
+    silently degrade into an empty 'Clean' result (audit §2)."""
+
+
 def glob_to_regex(pat: str) -> re.Pattern:
     """
     Compile a file path glob pattern into a regex pattern.
@@ -295,80 +300,224 @@ def check_architecture_drift(files: List[str]) -> Tuple[bool, List[str]]:
     return has_drift, code_files
 
 
-def get_git_modified_files(diff_target: Optional[str] = None, staged_only: bool = False) -> List[str]:
-    """Extract list of changed files from git using NUL-separated output."""
-    cmd = ["git", "diff", "-z", "--name-only"]
-    if staged_only:
-        cmd.append("--cached")
-    elif diff_target:
-        cmd.append(diff_target)
+def get_git_modified_files(
+    diff_target: Optional[str] = None,
+    staged_only: bool = False,
+    repo_root: Optional[Path] = None,
+) -> List[str]:
+    """
+    Extract list of changed files from git using NUL-separated output.
 
-    res = subprocess.run(cmd, capture_output=True, check=False)
+    Fail-closed contract (audit §2):
+    - Renames are broken into BOTH old and new paths via --no-renames, so a
+      Red Zone file renamed into a Green Zone location is still checked.
+    - An explicit --diff-target / --staged query that fails (unresolvable
+      revision, git error) raises BoundaryGateError instead of silently
+      falling back to a possibly-empty working-tree status.
+    - The default mode (no target, no staging filter) inspects uncommitted
+      working-tree state via `git status --porcelain -z`, preserving the
+      original paths of renames (bare NUL record after an R/C entry).
+      A failing status query (e.g. not a git repository) also raises
+      BoundaryGateError — never a successful empty 'Clean'.
+    - All git invocations run inside repo_root when provided.
+    """
+    cwd = str(repo_root) if repo_root is not None else None
+
+    if diff_target or staged_only:
+        cmd = ["git", "diff", "-z", "--name-only", "--no-renames"]
+        if staged_only:
+            cmd.append("--cached")
+        if diff_target:
+            cmd.append(diff_target)
+        res = subprocess.run(cmd, capture_output=True, check=False, cwd=cwd)
+        if res.returncode != 0:
+            stderr_text = res.stderr.decode("utf-8", errors="replace").strip()
+            raise BoundaryGateError(
+                f"git diff failed (revision "
+                f"'{diff_target or '--cached'}' unavailable or git error); "
+                f"failing closed: {stderr_text}"
+            )
+        return [
+            item.decode("utf-8", errors="replace").replace("\\", "/")
+            for item in res.stdout.split(b"\0")
+            if item
+        ]
+
+    # Default mode: uncommitted working-tree changes (staged + unstaged +
+    # untracked) with rename old-paths preserved.
+    res = subprocess.run(
+        ["git", "status", "--porcelain", "-z"],
+        capture_output=True,
+        check=False,
+        cwd=cwd,
+    )
     if res.returncode != 0:
-        # Fallback to git status --porcelain -z
-        status_res = subprocess.run(
-            ["git", "status", "--porcelain", "-z"], capture_output=True, check=False
+        stderr_text = res.stderr.decode("utf-8", errors="replace").strip()
+        raise BoundaryGateError(
+            f"git status failed (not a git repository or git error); "
+            f"failing closed: {stderr_text}"
         )
-        files = []
-        raw_items = status_res.stdout.split(b"\0")
-        for item in raw_items:
-            if not item:
-                continue
-            text = item.decode("utf-8", errors="replace")
-            # In porcelain -z, entries are "XY filename" (status is 2 chars + space)
-            if len(text) > 3:
-                files.append(text[3:].replace("\\", "/"))
-        return files
 
-    raw_items = res.stdout.split(b"\0")
-    return [
-        item.decode("utf-8", errors="replace").replace("\\", "/")
-        for item in raw_items
-        if item
-    ]
+    files: List[str] = []
+    expects_old_path = False
+    for entry in res.stdout.split(b"\0"):
+        if not entry:
+            continue
+        text = entry.decode("utf-8", errors="replace")
+        if expects_old_path:
+            # Bare NUL record following an R/C entry: original path.
+            files.append(text.replace("\\", "/"))
+            expects_old_path = False
+        elif len(text) > 3 and text[2] == " ":
+            files.append(text[3:].replace("\\", "/"))
+            if text[0] in ("R", "C"):
+                expects_old_path = True
+    return files
+
+
+EXTERNAL_HOOK_MANAGER_MARKERS = ("husky", "lefthook", "pre-commit.com")
+
+DISPATCHER_TEMPLATE = """#!/usr/bin/env sh
+# Meta-Project Boundary Gate Pre-Commit Hook (dispatcher)
+# Runs any preserved legacy hook as a SEPARATE process (its exit 0 must not
+# terminate this dispatcher; its non-zero exit preserves the denial), then
+# enforces: check_boundaries.py --staged
+LEGACY_HOOK="$(dirname -- "$0")/pre-commit.legacy-meta"
+if [ -f "$LEGACY_HOOK" ]; then
+  if [ -x "$LEGACY_HOOK" ]; then
+    "$LEGACY_HOOK"
+  else
+    sh "$LEGACY_HOOK"
+  fi
+  legacy_rc=$?
+  if [ "$legacy_rc" -ne 0 ]; then
+    exit "$legacy_rc"
+  fi
+fi
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -f "$ROOT/scripts/check_boundaries.py" ]; then
+  python "$ROOT/scripts/check_boundaries.py" --staged
+  exit $?
+elif [ -f "$ROOT/.agents/scripts/check_boundaries.py" ]; then
+  # Legacy pre-relocation deployment of the boundary gate.
+  python "$ROOT/.agents/scripts/check_boundaries.py" --staged
+  exit $?
+fi
+exit 0
+"""
+
+
+def _detect_external_manager(hook_content: str) -> Optional[str]:
+    """Returns the name of an external hook manager detected in an existing
+    hook, or None (audit §8: conflicts must be reported explicitly)."""
+    lowered = hook_content.lower()
+    for marker in EXTERNAL_HOOK_MANAGER_MARKERS:
+        if marker in lowered:
+            return marker
+    return None
+
+
+def _resolve_hooks_dir(repo_root: Path) -> Tuple[Optional[Path], Optional[str]]:
+    """
+    Resolves the effective git hooks directory for repo_root, honoring
+    core.hooksPath and linked worktrees (audit §8). Returns (hooks_dir, err).
+    """
+    repo_root = Path(repo_root).resolve()
+
+    # Explicit core.hooksPath configuration wins.
+    try:
+        res = subprocess.run(
+            ["git", "config", "core.hooksPath"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            configured = Path(res.stdout.strip())
+            hooks_dir = configured if configured.is_absolute() else repo_root / configured
+            return hooks_dir, None
+    except Exception:
+        pass
+
+    dot_git = repo_root / ".git"
+    if dot_git.is_file():
+        # Linked worktree: .git file contains 'gitdir: <main>/.git/worktrees/<n>'
+        try:
+            content = dot_git.read_text(encoding="utf-8").strip()
+            gitdir = Path(content.split("gitdir:", 1)[1].strip())
+            if not gitdir.is_absolute():
+                gitdir = (repo_root / gitdir).resolve()
+            common_dir = gitdir.parent.parent  # <main>/.git
+            if common_dir.name == ".git" and common_dir.is_dir():
+                return common_dir / "hooks", None
+            return gitdir / "hooks", None
+        except Exception as exc:
+            return None, f"Failed to resolve worktree git dir: {exc}"
+    if dot_git.is_dir():
+        return dot_git / "hooks", None
+    return None, f"Not a git repository: '{dot_git}' does not exist"
 
 
 def install_git_hook(repo_root: Path) -> Tuple[bool, str]:
     """
-    Installs a local git pre-commit hook in .git/hooks/pre-commit
-    that invokes `python scripts/check_boundaries.py --staged`.
-    Safely chains with existing hooks without overwriting.
+    Installs a dispatcher pre-commit hook that:
+    - preserves an existing hook as 'pre-commit.legacy-meta' and runs it as a
+      separate process with its own interpreter (exit 0 does not stop the
+      gate; non-zero preserves the denial);
+    - then enforces `python <repo>/scripts/check_boundaries.py --staged`;
+    - supports linked worktrees and core.hooksPath;
+    - refuses with an explicit conflict message when an external hook manager
+      (husky/lefthook/pre-commit) owns the existing hook.
+    Idempotent: reinstalling over the dispatcher is a no-op.
     Returns (success, message).
     """
     repo_root = Path(repo_root).resolve()
-    git_dir = repo_root / ".git"
-    if not git_dir.is_dir():
-        return False, f"Not a git repository: '{git_dir}' does not exist"
+    hooks_dir, err = _resolve_hooks_dir(repo_root)
+    if hooks_dir is None:
+        return False, err
 
-    hooks_dir = git_dir / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook_file = hooks_dir / "pre-commit"
-
-    chain_block = (
-        "\n# Meta-Project Boundary Gate Pre-Commit Hook\n"
-        "# Automatically checks staged changes against responsibility zones in boundaries.md\n"
-        "if [ -f .agents/scripts/check_boundaries.py ]; then\n"
-        "  python .agents/scripts/check_boundaries.py --staged || exit 1\n"
-        "else\n"
-        "  python scripts/check_boundaries.py --staged || exit 1\n"
-        "fi\n"
-    )
+    legacy_file = hooks_dir / "pre-commit.legacy-meta"
 
     if hook_file.is_file():
         existing_content = hook_file.read_text(encoding="utf-8")
-        if "check_boundaries.py --staged" in existing_content:
-            return True, f"Pre-commit hook installed successfully (already configured) at {hook_file}"
-        new_content = existing_content.rstrip() + "\n" + chain_block
-    else:
-        new_content = "#!/usr/bin/env sh\n" + chain_block
+        if "Meta-Project Boundary Gate Pre-Commit Hook" in existing_content:
+            return True, (
+                f"Pre-commit hook installed successfully (already configured) at {hook_file}"
+            )
+        manager = _detect_external_manager(existing_content)
+        if manager:
+            return False, (
+                f"Hook conflict: existing pre-commit at {hook_file} appears to be "
+                f"managed by an external hook manager ('{manager}'). Refusing to "
+                f"take ownership; integrate the boundary gate manually."
+            )
+        if legacy_file.exists():
+            return False, (
+                f"Refusing to install: legacy companion {legacy_file} already "
+                f"exists; resolve it manually to avoid losing preserved hook content."
+            )
+        # Non-destructive preservation: move the existing hook aside, byte-for-byte.
+        hook_file.replace(legacy_file)
+        try:
+            legacy_file.chmod(legacy_file.stat().st_mode | 0o111)
+        except Exception:
+            pass
 
-    hook_file.write_text(new_content, encoding="utf-8")
+    hook_file.write_text(DISPATCHER_TEMPLATE, encoding="utf-8")
     try:
         hook_file.chmod(hook_file.stat().st_mode | 0o111)
     except Exception:
         pass
 
-    return True, f"Pre-commit hook installed successfully at {hook_file}"
+    preserved = (
+        f" (preserved existing hook as {legacy_file.name})"
+        if legacy_file.is_file()
+        else ""
+    )
+    return True, f"Pre-commit hook installed successfully at {hook_file}{preserved}"
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -424,9 +573,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
+    # Authoritative repository root for all modes and git operations (audit §2:
+    # --repo-root must define the repository for every git invocation).
+    repo_root = Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
+
     # Mode 0: Install pre-commit hook
     if args.install_hook:
-        repo_root = Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
         ok, msg = install_git_hook(repo_root)
         if ok:
             sys.stdout.write(f"[BOUNDARY GATE] {msg}\n")
@@ -442,8 +594,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         boundaries_path = Path(args.boundaries)
     else:
         for candidate in [
-            Path(".agents/project_knowledge/boundaries.md"),
-            Path("templates/project_knowledge/boundaries.md"),
+            repo_root / ".agents" / "project_knowledge" / "boundaries.md",
+            repo_root / "templates" / "project_knowledge" / "boundaries.md",
         ]:
             if candidate.is_file():
                 boundaries_path = candidate
@@ -484,7 +636,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         files = args.files
 
     else:
-        files = get_git_modified_files(diff_target=args.diff_target, staged_only=args.staged)
+        try:
+            files = get_git_modified_files(
+                diff_target=args.diff_target,
+                staged_only=args.staged,
+                repo_root=repo_root,
+            )
+        except BoundaryGateError as exc:
+            sys.stderr.write(f"[BOUNDARY GATE ERROR] {exc}\n")
+            return 1
 
     if not files:
         sys.stdout.write("Boundary Gate: No modified files detected. Clean.\n")

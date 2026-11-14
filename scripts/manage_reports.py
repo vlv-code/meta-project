@@ -9,6 +9,7 @@ JSON reports in .agents/reports/<installation_id>/{init,manage}/.
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,9 +18,53 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
+try:
+    from scripts.verify_identity import (
+        evaluate_actor_admission,
+        load_registry,
+        resolve_actor_binding,
+    )
+except ImportError:  # direct script execution: python scripts/manage_reports.py
+    try:
+        from verify_identity import (
+            evaluate_actor_admission,
+            load_registry,
+            resolve_actor_binding,
+        )
+    except ImportError:
+        evaluate_actor_admission = None
+        load_registry = None
+        resolve_actor_binding = None
+
 SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.0", "1"}
 VALID_REPORT_TYPES = {"init", "manage"}
 VALID_REPORT_STATUSES = {"completed", "awaiting_decision", "blocked"}
+
+# Essential decision inputs fingerprinted into every report (audit §5
+# freshness). Reports and runtime logs are intentionally excluded.
+ESSENTIAL_INPUT_PATHS = (
+    ".agents/meta-project.json",
+    ".agents/project_knowledge/boundaries.md",
+    "AGENTS.md",
+)
+
+
+def collect_input_fingerprints(repo_root: Path) -> Dict[str, Optional[str]]:
+    """SHA-256 fingerprints of essential inputs; None marks a missing file."""
+    fingerprints: Dict[str, Optional[str]] = {}
+    for rel in ESSENTIAL_INPUT_PATHS:
+        path = Path(repo_root) / rel
+        if path.is_file():
+            try:
+                digest = hashlib.sha256(
+                    path.read_bytes()
+                ).hexdigest()
+            except OSError:
+                digest = None
+            fingerprints[rel] = digest
+        else:
+            fingerprints[rel] = None
+    return fingerprints
 
 VALID_SCENARIO_PROFILES = {
     "active_development",
@@ -171,6 +216,34 @@ def validate_report(
                 errors.append(
                     f"Invalid scenario profile: '{profile}'. Allowed: {sorted(list(VALID_SCENARIO_PROFILES))}"
                 )
+            # A completed report must carry a real agreement (audit §5): no
+            # empty scenarios, no unresolved mandatory questions, no failed
+            # mandatory checks hidden behind status 'completed'.
+            if status == "completed":
+                if not profile:
+                    errors.append(
+                        "Completed init report must carry an agreed scenario "
+                        "('scenario.profile' missing or empty)"
+                    )
+                unresolved = scenario.get("unresolved_questions")
+                if isinstance(unresolved, list) and unresolved:
+                    errors.append(
+                        "Completed init report must not contain unresolved "
+                        "scenario questions"
+                    )
+
+        if status == "completed" and isinstance(data.get("checks"), list):
+            failed_required = [
+                c.get("name", "<unnamed>")
+                for c in data["checks"]
+                if isinstance(c, dict)
+                and c.get("status") in ("fail", "failed", "error")
+            ]
+            if failed_required:
+                errors.append(
+                    "Completed init report contains failed checks: "
+                    + ", ".join(failed_required)
+                )
 
         readiness = data.get("next_step_readiness")
         if not isinstance(readiness, dict):
@@ -211,17 +284,27 @@ def save_report(
 ) -> Path:
     """
     Atomically write report to disk and update latest.json pointer.
-    Raises ValueError if data is invalid.
+    Raises ValueError if data is invalid, the run_id is unsafe, or the run
+    already exists (audit §5: existing runs must never be overwritten).
     """
     errors = validate_report(report_data, expected_type=report_type)
     if errors:
         raise ValueError(f"Cannot save invalid report: {'; '.join(errors)}")
 
+    run_id = str(report_data["run_id"])
+    # Path safety (audit §5): identifiers must not escape the report dir.
+    if not run_id or run_id != Path(run_id).name or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise ValueError(f"Unsafe run_id refused: {run_id!r}")
+
     target_dir = get_report_dir(repo_root, installation_id, report_type)
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    run_id = report_data["run_id"]
     target_file = target_dir / f"{run_id}.json"
+    if target_file.exists():
+        raise ValueError(
+            f"Refusing to overwrite existing run: {target_file} "
+            "(each attempt must use a unique run_id)"
+        )
     temp_file = target_dir / f".tmp_{run_id}_{uuid.uuid4().hex[:6]}.json"
 
     # 1. Atomic write of full report
@@ -231,7 +314,8 @@ def save_report(
 
     temp_file.replace(target_file)
 
-    # 2. Atomic write of latest pointer
+    # 2. Atomic write of latest pointer (relative path so a repository copy
+    # resolves its OWN reports; audit §5 cross-contamination fix).
     latest_pointer_file = target_dir / "latest.json"
     temp_latest = target_dir / f".tmp_latest_{uuid.uuid4().hex[:6]}.json"
     pointer_data = {
@@ -240,7 +324,7 @@ def save_report(
         "created_at": report_data.get("created_at"),
         "report_type": report_type,
         "installation_id": installation_id,
-        "path": str(target_file.resolve()).replace("\\", "/"),
+        "path": target_file.name,
     }
     with open(temp_latest, "w", encoding="utf-8") as f:
         json.dump(pointer_data, f, indent=2, ensure_ascii=False)
@@ -250,16 +334,39 @@ def save_report(
     return target_file
 
 
+def _load_valid_report(path: Path, expected_type: str) -> Optional[Dict[str, Any]]:
+    """Load a report file and return it when structurally valid, else None."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return None
+    if validate_report(data, expected_type=expected_type):
+        return None
+    return data
+
+
 def find_latest_report(
     repo_root: Path, installation_id: str, report_type: str
 ) -> Tuple[Optional[Path], Optional[Dict[str, Any]]]:
     """
-    Find and load the latest valid report for given installation and type.
-    Returns (Path, Dict) or (None, None).
+    Find the LATEST ATTEMPT for given installation and type (audit §5):
+    'latest' includes blocked or corrupted attempts and is never silently
+    substituted with an older valid report. Pointer paths are resolved
+    relative to the report directory (repository-copy isolation).
+    Returns (path, data) for a valid latest attempt, (path, None) when the
+    latest attempt is corrupted/foreign, or (None, None) when absent.
     """
     target_dir = get_report_dir(repo_root, installation_id, report_type)
     if not target_dir.exists():
         return None, None
+
+    def _belongs(data: Optional[Dict[str, Any]]) -> bool:
+        return (
+            data is not None
+            and data.get("installation_id") == installation_id
+            and data.get("report_type") == report_type
+        )
 
     # Check latest.json first
     latest_pointer = target_dir / "latest.json"
@@ -267,29 +374,37 @@ def find_latest_report(
         try:
             with open(latest_pointer, "r", encoding="utf-8") as f:
                 ptr = json.load(f)
-            report_path = Path(ptr.get("path", ""))
-            if report_path.exists():
-                with open(report_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if not validate_report(data, expected_type=report_type):
-                    return report_path, data
         except Exception:
-            pass
+            ptr = None
+        if ptr:
+            raw = str(ptr.get("path", ""))
+            cand = Path(raw)
+            if not cand.is_absolute():
+                cand = target_dir / raw
+            # Containment: pointer must resolve inside the report directory.
+            try:
+                cand.resolve().relative_to(target_dir.resolve())
+            except (ValueError, OSError):
+                cand = None
+            if cand is not None and cand.is_file():
+                data = _load_valid_report(cand, report_type)
+                if _belongs(data):
+                    return cand, data
+                # Surface the latest attempt as corrupted/foreign instead of
+                # hiding it behind an older valid report.
+                return cand, None
 
-    # Fallback: scan all JSON files sorted descending
+    # No usable pointer: newest attempt by deterministic run_id name order.
     candidates = sorted(
         [p for p in target_dir.glob("*.json") if p.name != "latest.json"],
         key=lambda p: p.name,
         reverse=True,
     )
     for cand in candidates:
-        try:
-            with open(cand, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if not validate_report(data, expected_type=report_type):
-                return cand, data
-        except Exception:
-            continue
+        data = _load_valid_report(cand, report_type)
+        if _belongs(data):
+            return cand, data
+        return cand, None  # newest attempt is unreadable: surface it
 
     return None, None
 
@@ -328,6 +443,7 @@ def create_init_report(
         "created_at": now_iso,
         "status": status,
         "git_state": git_state,
+        "input_fingerprints": collect_input_fingerprints(repo_root),
         "references": {
             "registry": ".agents/meta-project.json",
             "passport": "AGENTS.md",
@@ -386,6 +502,7 @@ def create_manage_report(
         "created_at": now_iso,
         "status": status,
         "git_state": git_state,
+        "input_fingerprints": collect_input_fingerprints(repo_root),
         "scenario": scenario,
         "roles": roles,
         "bindings": bindings,
@@ -455,7 +572,9 @@ def check_report_staleness(
     repo_root: Path, report_data: Dict[str, Any]
 ) -> Tuple[bool, Dict[str, Any]]:
     """
-    Evaluate if report's recorded git commit differs from the repository's current HEAD.
+    Evaluate report freshness (audit §5): a report is stale when the commit
+    SHA moved OR when any essential input (registry, boundaries, passport)
+    drifted from its recorded fingerprint — including uncommitted changes.
     Returns (is_stale, details).
     """
     current_git = get_git_state(repo_root)
@@ -463,22 +582,189 @@ def check_report_staleness(
     report_git = report_data.get("git_state", {})
     report_sha = report_git.get("commit_sha", "unknown")
 
-    is_stale = False
+    reasons: List[str] = []
     if (
         current_sha != "unknown"
         and report_sha != "unknown"
         and current_sha != report_sha
     ):
-        is_stale = True
+        reasons.append(
+            f"commit moved: report {report_sha[:8]} != HEAD {current_sha[:8]}"
+        )
 
+    fingerprints = report_data.get("input_fingerprints")
+    if isinstance(fingerprints, dict) and fingerprints:
+        current_fps = collect_input_fingerprints(repo_root)
+        for rel in sorted(fingerprints):
+            if current_fps.get(rel) != fingerprints.get(rel):
+                reasons.append(f"essential input changed since report: {rel}")
+    elif current_sha != "unknown":
+        # Report predates fingerprinting: freshness of essential inputs is
+        # unverifiable; treat dirty essential inputs as stale.
+        dirty = [
+            rel
+            for rel in ESSENTIAL_INPUT_PATHS
+            if rel in current_git.get("modified_files", [])
+        ]
+        if dirty:
+            reasons.append(
+                "essential inputs have uncommitted changes while the report "
+                "carries no fingerprints: " + ", ".join(dirty)
+            )
+
+    is_stale = bool(reasons)
     details = {
         "is_stale": is_stale,
+        "reasons": reasons,
         "current_commit": current_sha,
         "report_commit": report_sha,
         "current_branch": current_git.get("branch", "unknown"),
         "report_branch": report_git.get("branch", "unknown"),
     }
     return is_stale, details
+
+
+def evaluate_manage_intake(
+    repo_root: Path,
+    installation_id: str,
+    harness_id: str,
+    actor_id: str,
+    report_path: Path,
+) -> List[str]:
+    """
+    Intake admission for the init -> manage contract (audit §5).
+
+    Separates two mechanisms: format validation (is the report a correct
+    document?) and intake admission (may THIS document authorize a manage
+    operation in THIS project/installation?). A blocked report can be a
+    correct document and must still be refused.
+
+    Returns a list of intake errors; an empty list admits the operation.
+    """
+    repo_root = Path(repo_root)
+    report_path = Path(report_path)
+    errors: List[str] = []
+
+    # 1. The report file must exist and parse (structured diagnostics).
+    if not report_path.is_file():
+        return [f"Intake rejected: report file not found: {report_path}"]
+    try:
+        with open(report_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        return [f"Intake rejected: report file is corrupted (JSON parse error): {exc}"]
+    if not isinstance(data, dict):
+        return ["Intake rejected: report content must be a JSON object"]
+
+    # 2. Format validation (fail-closed on structurally invalid documents).
+    format_errors = validate_report(data, expected_type="init")
+    if format_errors:
+        return [f"Intake rejected: invalid init report: {e}" for e in format_errors]
+
+    # 3. Project identity comes from the local registry, never from a
+    # hardcoded default; explicit mismatch is refused.
+    if load_registry is None:
+        return ["Intake rejected: identity engine unavailable in this environment"]
+    registry, reg_err = load_registry(repo_root)
+    if registry is None:
+        return [f"Intake rejected: local registry unavailable: {reg_err}"]
+    registry_project = registry.get("project_id")
+    if data.get("project_id") != registry_project:
+        errors.append(
+            f"Intake rejected: report project_id '{data.get('project_id')}' does "
+            f"not match local registry project_id '{registry_project}'"
+        )
+
+    # 4. Installation and harness must match the local registry and report.
+    inst_info = (registry.get("installations") or {}).get(installation_id)
+    if not isinstance(inst_info, dict):
+        errors.append(
+            f"Intake rejected: installation '{installation_id}' is not "
+            f"registered in the local registry"
+        )
+    else:
+        if inst_info.get("harness_id") != harness_id:
+            errors.append(
+                f"Intake rejected: harness '{harness_id}' does not match "
+                f"installation '{installation_id}' harness_id "
+                f"'{inst_info.get('harness_id')}'"
+            )
+        if inst_info.get("status") != "active":
+            errors.append(
+                f"Intake rejected: installation '{installation_id}' status is "
+                f"'{inst_info.get('status')}', not 'active'"
+            )
+    if data.get("installation_id") != installation_id:
+        errors.append(
+            f"Intake rejected: report installation_id "
+            f"'{data.get('installation_id')}' != target '{installation_id}'"
+        )
+    if data.get("harness_id") != harness_id:
+        errors.append(
+            f"Intake rejected: report harness_id "
+            f"'{data.get('harness_id')}' != target '{harness_id}'"
+        )
+
+    # 5. Actor admission: the initiator must be a registered, ACTIVE identity.
+    if resolve_actor_binding is not None and evaluate_actor_admission is not None:
+        found, binding = resolve_actor_binding(repo_root, actor_id)
+        if not found:
+            errors.append(
+                f"Intake rejected: actor_id '{actor_id}' not found in registry"
+            )
+        else:
+            denial = evaluate_actor_admission(registry, binding)
+            if denial:
+                errors.append(f"Intake rejected: {denial}")
+    else:
+        errors.append("Intake rejected: identity engine unavailable")
+
+    # 6. Status & readiness: only a completed, ready initialization
+    # authorizes manage; blocked/awaiting reports are decision ledgers.
+    status = data.get("status")
+    if status != "completed":
+        errors.append(
+            f"Intake rejected: init report status is '{status}'; only "
+            f"'completed' authorizes manage operations"
+        )
+    else:
+        readiness = data.get("next_step_readiness")
+        if not isinstance(readiness, dict) or readiness.get("ready_for_manage") is not True:
+            errors.append(
+                "Intake rejected: next_step_readiness.ready_for_manage is not "
+                "true for a completed report"
+            )
+
+    # 7. Freshness: essential inputs must match the report's fingerprints
+    # (uncommitted changes to registry/boundaries/passport make it stale).
+    is_stale, stale_details = check_report_staleness(repo_root, data)
+    if is_stale:
+        reasons = "; ".join(stale_details.get("reasons") or ["inputs changed"])
+        errors.append(f"Intake rejected: stale report ({reasons})")
+
+    return errors
+
+
+def _resolve_project_id(
+    repo_root: Path, explicit: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Project identity resolution (audit §5): explicit argument wins, otherwise
+    the local registry is the source of truth. The hardcoded default
+    'vlv-code/meta-project' is removed — foreign projects must never be
+    silently stamped with another project's identity.
+    Returns (project_id, error_message).
+    """
+    if explicit:
+        return explicit, None
+    if load_registry is not None:
+        registry, _ = load_registry(Path(repo_root))
+        if isinstance(registry, dict) and registry.get("project_id"):
+            return registry["project_id"], None
+    return None, (
+        "--project-id is required when no local registry "
+        "(.agents/meta-project.json) defines the project identity"
+    )
 
 
 def build_cli_parser() -> argparse.ArgumentParser:
@@ -504,7 +790,9 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--harness", help="Harness ID (e.g. antigravity)")
     p_init.add_argument("--actor", help="Qualified actor_id")
     p_init.add_argument(
-        "--project-id", default="vlv-code/meta-project", help="Project ID"
+        "--project-id",
+        default=None,
+        help="Project ID (default: resolved from the local registry, never hardcoded)",
     )
     p_init.add_argument(
         "--status",
@@ -538,7 +826,9 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p_manage.add_argument("--harness", help="Harness ID (e.g. antigravity)")
     p_manage.add_argument("--actor", help="Qualified actor_id")
     p_manage.add_argument(
-        "--project-id", default="vlv-code/meta-project", help="Project ID"
+        "--project-id",
+        default=None,
+        help="Project ID (default: resolved from the local registry, never hardcoded)",
     )
     p_manage.add_argument(
         "--init-run-id", help="Reference to preceding init run ID"
@@ -653,6 +943,10 @@ def main() -> int:
                     "Error: --installation, --harness, and --actor are required for create action\n"
                 )
                 return 2
+            project_id, pid_err = _resolve_project_id(repo_root, args.project_id)
+            if pid_err:
+                sys.stderr.write(f"Error: {pid_err}\n")
+                return 2
 
             scenario = {}
             if args.scenario_file:
@@ -669,7 +963,7 @@ def main() -> int:
                 installation_id=args.installation,
                 harness_id=args.harness,
                 actor_id=args.actor,
-                project_id=args.project_id,
+                project_id=project_id,
                 status=args.status,
                 scenario=scenario or extra_data.get("scenario", {}),
                 environment=extra_data.get("environment"),
@@ -765,6 +1059,10 @@ def main() -> int:
                     "Error: --installation, --harness, --actor, and --init-run-id are required for manage create\n"
                 )
                 return 2
+            project_id, pid_err = _resolve_project_id(repo_root, args.project_id)
+            if pid_err:
+                sys.stderr.write(f"Error: {pid_err}\n")
+                return 2
 
             extra_data = {}
             if args.data_file:
@@ -776,7 +1074,7 @@ def main() -> int:
                 installation_id=args.installation,
                 harness_id=args.harness,
                 actor_id=args.actor,
-                project_id=args.project_id,
+                project_id=project_id,
                 init_run_id=args.init_run_id,
                 status=args.status,
                 scenario=extra_data.get("scenario", {}),
@@ -829,6 +1127,26 @@ def main() -> int:
         report_path, report_data = find_latest_report(
             repo_root, args.installation, args.type
         )
+        if report_path is not None and report_data is None:
+            # Latest attempt exists but is corrupted/foreign: surface it
+            # instead of silently hiding it behind an older valid report.
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "found": False,
+                            "corrupted_latest_attempt": str(report_path),
+                            "installation": args.installation,
+                            "type": args.type,
+                        }
+                    )
+                )
+            else:
+                print(
+                    f"[FAIL] Latest {args.type} attempt for installation "
+                    f"'{args.installation}' is corrupted or foreign: {report_path}"
+                )
+            return 1
         if not report_path or not report_data:
             if args.json:
                 print(
@@ -859,6 +1177,7 @@ def main() -> int:
                         "status": report_data.get("status"),
                         "created_at": report_data.get("created_at"),
                         "is_stale": is_stale,
+                        "staleness_reasons": stale_info.get("reasons", []),
                         "current_commit": stale_info.get("current_commit"),
                         "report_commit": stale_info.get("report_commit"),
                     }
@@ -870,9 +1189,11 @@ def main() -> int:
             print(f"  * Status:     {report_data.get('status')}")
             print(f"  * Created At: {report_data.get('created_at')}")
             if is_stale:
-                print(
-                    f"  * Staleness:  STALE (report commit {stale_info.get('report_commit')[:8]} != HEAD {stale_info.get('current_commit')[:8]})"
+                reasons = "; ".join(
+                    stale_info.get("reasons")
+                    or [f"commit {stale_info.get('report_commit')} != HEAD {stale_info.get('current_commit')}"]
                 )
+                print(f"  * Staleness:  STALE ({reasons})")
             else:
                 print("  * Staleness:  UP TO DATE (matches repository HEAD)")
         return 0

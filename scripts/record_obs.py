@@ -134,6 +134,61 @@ def format_row(
     return f"| {date_str} | {cat_tag} | {clean_path} | {clean_issue} | {clean_solution} |"
 
 
+def _insert_row_into_table(content: str, row: str) -> str:
+    """
+    Insert a data row INSIDE the observations table — directly after its last
+    data row and strictly before any subsequent text (audit §9: rows appended
+    past trailing sections/NOTEs fall outside the table and become invisible
+    to the compactor). When no canonical table exists, the header is created.
+    """
+    lines = content.splitlines()
+    sep_idx = None
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("|") and re.match(r"^\|\s*:?-+", stripped):
+            sep_idx = idx
+            break
+
+    if sep_idx is None:
+        return DEFAULT_HEADER + row + "\n"
+
+    # Find the end of the contiguous table region (blank line followed by a
+    # table row is treated as part of the table, mirroring the compactor).
+    end = sep_idx + 1
+    idx = sep_idx + 1
+    while idx < len(lines):
+        stripped = lines[idx].strip()
+        if stripped.startswith("|"):
+            end = idx + 1
+            idx += 1
+        elif stripped == "" and idx + 1 < len(lines) and lines[idx + 1].strip().startswith("|"):
+            idx += 1
+        else:
+            break
+
+    new_lines = lines[:end] + [row] + lines[end:]
+    return "\n".join(new_lines).rstrip() + "\n"
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Write text via temp file + atomic replace (audit §9: crash-safe)."""
+    import tempfile as _tempfile
+
+    fd, tmp_name = _tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as tmp_file:
+            tmp_file.write(text)
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
 def record_observation(
     category: str,
     path: str,
@@ -145,8 +200,14 @@ def record_observation(
     actor_id: Optional[str] = None,
 ) -> str:
     """
-    Validates, formats, and atomically appends an observation row to obs_file with file locking.
-    Returns the appended table row.
+    Validates, formats, and atomically inserts an observation row into the
+    obs_file table under a cross-platform file lock.
+
+    Documented duplicate suppression (audit §9): recording the exact same
+    event (same date, category, path, issue, solution, pin) is a no-op — the
+    identical row is returned without duplicating the entry. Distinct
+    incidents are never merged.
+    Returns the table row (inserted or already present).
     """
     target_date = date_str or datetime.date.today().isoformat()
     try:
@@ -174,14 +235,17 @@ def record_observation(
 
     with file_lock(lock_path, blocking=True):
         if not obs_path.exists() or obs_path.stat().st_size == 0:
-            content = DEFAULT_HEADER + f"{row}\n"
-            obs_path.write_text(content, encoding="utf-8")
+            _atomic_write_text(obs_path, DEFAULT_HEADER + row + "\n")
         else:
             existing_content = obs_path.read_text(encoding="utf-8")
-            if not existing_content.endswith("\n"):
-                existing_content += "\n"
-            updated_content = existing_content + f"{row}\n"
-            obs_path.write_text(updated_content, encoding="utf-8")
+            # Exact-duplicate suppression: identical row already recorded.
+            if any(
+                existing_line.strip() == row
+                for existing_line in existing_content.splitlines()
+            ):
+                return row
+            updated_content = _insert_row_into_table(existing_content, row)
+            _atomic_write_text(obs_path, updated_content)
 
     return row
 

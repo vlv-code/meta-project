@@ -55,6 +55,13 @@ from scripts.manage_reports import (
 from scripts.verify_identity import validate_scenario_section, validate_identity_registry
 from scripts.inspect_meta_project import inspect_repository
 
+try:
+    # Stage 5 intake engine: absent until the init -> manage contract is
+    # implemented. The foreign-report test below must FAIL while it is missing.
+    from scripts.manage_reports import evaluate_manage_intake
+except ImportError:
+    evaluate_manage_intake = None
+
 INSPECT_SCRIPT = REPO_ROOT / "scripts" / "inspect_meta_project.py"
 VERIFY_SCRIPT = REPO_ROOT / "scripts" / "verify_identity.py"
 REPORTS_SCRIPT = REPO_ROOT / "scripts" / "manage_reports.py"
@@ -232,7 +239,11 @@ class TestReportAndManageCycle(unittest.TestCase):
         self.assertIn("[OK]", res.stdout)
 
         # 3. Verify via scripts/inspect_meta_project.py
-        inspection = inspect_repository(self.root)
+        # (explicit runtime context: unknown context must yield
+        # CONTEXT_UNRESOLVED, never silent any-active resolution — audit §4)
+        inspection = inspect_repository(
+            self.root, target_harness="antigravity", target_installation="ag-main"
+        )
         self.assertEqual(inspection["state"], "HEALTHY_REGISTERED")
         surfaced_scenario = inspection.get("scenario")
         self.assertIsInstance(surfaced_scenario, dict)
@@ -366,9 +377,12 @@ class TestReportAndManageCycle(unittest.TestCase):
 
         pre_snapshot = self._snapshot_tree(self.root)
 
-        # Execute inspection with --read-only
+        # Execute inspection with --read-only (explicit runtime context —
+        # audit §4: unknown context yields CONTEXT_UNRESOLVED)
         proc = subprocess.run(
-            [sys.executable, str(INSPECT_SCRIPT), "--repo-root", str(self.root), "--read-only", "--json"],
+            [sys.executable, str(INSPECT_SCRIPT), "--repo-root", str(self.root),
+             "--read-only", "--json", "--harness", "antigravity",
+             "--installation", "ag-main"],
             capture_output=True,
             text=True,
         )
@@ -407,20 +421,31 @@ class TestReportAndManageCycle(unittest.TestCase):
         errs = validate_report(corrupted_type, expected_type="init")
         self.assertTrue(any("report_type" in err for err in errs))
 
-        # 3. Foreign project_id rejection simulation:
-        # If manage is targeting vlv-code/meta-project, an incoming report for other-org/other-project
-        # must be rejected during intake validation.
-        target_project_id = "vlv-code/meta-project"
+        # 3. Foreign project_id must be rejected by the REAL intake engine.
+        # Audit §1 fix: this expectation was previously self-implemented
+        # inside the test, which proved nothing about application behavior.
+        if evaluate_manage_intake is None:
+            self.fail(
+                "Stage 5 not implemented: intake engine "
+                "(scripts.manage_reports.evaluate_manage_intake) is absent"
+            )
+        foreign_file = self.root / "foreign_report.json"
         foreign_report = dict(valid_template)
         foreign_report["project_id"] = "other-org/malicious-project"
+        with open(foreign_file, "w", encoding="utf-8") as f:
+            json.dump(foreign_report, f)
 
-        intake_errors = []
-        if foreign_report["project_id"] != target_project_id:
-            intake_errors.append(
-                f"Foreign report rejected: project_id '{foreign_report['project_id']}' != expected '{target_project_id}'"
-            )
-        self.assertTrue(len(intake_errors) > 0)
-        self.assertIn("Foreign report rejected", intake_errors[0])
+        intake_errors = evaluate_manage_intake(
+            repo_root=self.root,
+            installation_id="ag-main",
+            harness_id="antigravity",
+            actor_id="vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+            report_path=foreign_file,
+        )
+        self.assertTrue(
+            any("project_id" in e for e in intake_errors),
+            f"foreign report admitted by intake engine: {intake_errors!r}",
+        )
 
         # 4. CLI verify subcommand exits with code 1 on corrupted report
         bad_file = self.root / "bad_report.json"

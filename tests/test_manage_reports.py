@@ -131,7 +131,11 @@ class TestManageReports(unittest.TestCase):
 
         self.assertEqual(pointer_data.get("run_id"), self.valid_init_data["run_id"])
         self.assertEqual(pointer_data.get("status"), self.valid_init_data["status"])
-        self.assertTrue(Path(pointer_data.get("path")).exists())
+        # Audit §5 contract: pointer stores a RELATIVE path resolvable inside
+        # the report directory (repository copies must read their OWN reports).
+        pointer_path = Path(pointer_data.get("path"))
+        self.assertFalse(pointer_path.is_absolute(), "pointer path must be relative")
+        self.assertTrue((latest_pointer.parent / pointer_path).exists())
 
     def test_corrupted_json_fails_closed(self):
         """Adversarial test: malformed JSON or invalid schema version fails gracefully."""

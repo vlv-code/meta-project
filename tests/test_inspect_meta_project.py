@@ -107,7 +107,7 @@ class TestInspectMetaProject(unittest.TestCase):
         team_dir.mkdir(parents=True)
         (team_dir / "profile.md").write_text(
             f"---\nrole_id: agent-dev-lead\nharness_id: {active_harness}\n"
-            f"installation_id: {active_installation}\nactor_id: test::{active_harness}::{active_installation}::agent-dev-lead\n---\n",
+            f"installation_id: {active_installation}\nactor_id: vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead\n---\n",
             encoding="utf-8",
         )
 
@@ -131,12 +131,12 @@ class TestInspectMetaProject(unittest.TestCase):
                     "description": "Dev Lead",
                     "bindings": {
                         active_installation: {
-                            "actor_id": f"test::{active_harness}::{active_installation}::agent-dev-lead",
+                            "actor_id": f"vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead",
                             "status": "active",
                             "profile_path": ".agents/team/agent-dev-lead/profile.md",
                         },
                         "zc-main": {
-                            "actor_id": "test::zcode::zc-main::agent-dev-lead",
+                            "actor_id": "vlv-code/test-project::zcode::zc-main::agent-dev-lead",
                             "status": "planned",
                             "profile_path": None,
                         },

@@ -10,7 +10,6 @@ on:
       - 'CHANGELOG.md'
       - 'CONTRIBUTING.md'
       - 'CONTRIBUTING.ru.md'
-      - 'LICENSE'
   pull_request:
     branches: [main]
 
@@ -41,23 +40,62 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run Boundary Gate Check
-        run: python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree
-
-      - name: Evaluate Change Diff against Base Revision
+      # ── Trusted-base boundary enforcement (audit §2) ────────────────────
+      # The checker code and the boundaries policy are ALWAYS taken from a
+      # trusted base revision, so policy changes inside a PR can never
+      # determine the admissibility of that same PR (no self-certification).
+      - name: Determine trusted base revision
+        id: trusted_base
         run: |
+          set -eu
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_REF="origin/${{ github.base_ref }}"
+            # Pin the merge-base of the PR head and its base branch tip:
+            # the PR cannot substitute or move its own comparison base.
+            BASE_SHA="$(git merge-base \
+              "${{ github.event.pull_request.head.sha }}" \
+              "origin/${{ github.base_ref }}")"
           else
-            BEFORE_SHA="${{ github.event.before }}"
-            if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-              BASE_REF="HEAD~1"
-            else
-              BASE_REF="$BEFORE_SHA"
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              # Zero/absent 'before' (branch creation or rewritten history):
+              # no trusted prior revision exists to diff against. Fail
+              # explicitly instead of substituting HEAD~1. Bootstrap: push
+              # one more commit to establish a verifiable base, or verify
+              # the change manually with maintainer review.
+              echo "::error::No trusted base revision available (zero github.event.before). Refusing to self-certify."
+              exit 1
             fi
+            BASE_SHA="$BEFORE"
           fi
-          echo "Evaluating changes against base commit: $BASE_REF"
-          python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --diff "$BASE_REF"
+          echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Trusted base revision: $BASE_SHA"
+
+      - name: Materialize trusted gate and policy from base revision
+        run: |
+          set -eu
+          BASE_SHA="${{ steps.trusted_base.outputs.sha }}"
+          mkdir -p /tmp/trusted_gate
+          git show "$BASE_SHA:scripts/check_boundaries.py" > /tmp/trusted_gate/check_boundaries.py
+          git show "$BASE_SHA:.agents/project_knowledge/boundaries.md" > /tmp/trusted_gate/boundaries.md
+          echo "Enforcing with gate and policy from trusted base $BASE_SHA"
+
+      - name: Boundary Gate audit-tree (trusted policy over incoming tree)
+        run: |
+          set -eu
+          python /tmp/trusted_gate/check_boundaries.py \
+            --boundaries /tmp/trusted_gate/boundaries.md \
+            --audit-tree \
+            --repo-root .
+
+      - name: Evaluate change diff against trusted base
+        run: |
+          set -eu
+          BASE_SHA="${{ steps.trusted_base.outputs.sha }}"
+          python /tmp/trusted_gate/check_boundaries.py \
+            --boundaries /tmp/trusted_gate/boundaries.md \
+            --diff "$BASE_SHA" \
+            --repo-root .
+      # ─────────────────────────────────────────────────────────────────────
 
       - name: Verify Template Parity
         run: python scripts/sync_templates.py --check

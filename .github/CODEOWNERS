@@ -1,4 +1,8 @@
 # Critical Security & Policy Enforcement
-/scripts/check_boundaries.py @maintainer
-*boundaries.md @maintainer
-.github/workflows/ @maintainer
+# NOTE: CODEOWNERS patterns only request reviews; they are NOT proof that
+# required reviews are enforced. Branch protection with required checks and
+# required review dismissal is configured in repository settings by the
+# owner (see audit §2 follow-up: branch protection verification report).
+/scripts/check_boundaries.py @vlv-code
+*boundaries.md @vlv-code
+.github/workflows/ @vlv-code

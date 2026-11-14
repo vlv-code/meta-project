@@ -32,6 +32,61 @@ VALID_VERIFICATION_POLICIES = {
 }
 VALID_DELEGATION_LEVELS = {"strictly_manual", "controlled", "autonomous"}
 
+# Supported registry schema major.minor pairs (patch component is ignored:
+# patch releases are backwards compatible).
+SUPPORTED_REGISTRY_SCHEMA_VERSIONS = ("1.0", "1.1")
+
+# Lifecycle states for installations and role bindings. Admission to perform
+# runtime actions additionally requires 'active' on BOTH the binding and its
+# installation (see evaluate_actor_admission).
+VALID_INSTALLATION_STATUSES = {"planned", "active", "disabled", "archived"}
+VALID_BINDING_STATUSES = {"planned", "active", "disabled", "archived"}
+
+
+def validate_schema_version(value: Any) -> List[str]:
+    """Validates the registry schema_version value (audit §3: the actually
+    supported version must be enforced, not mere field presence)."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ["Missing required field 'schema_version' in registry"]
+    parts = raw.split(".")
+    if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+        return [
+            f"Invalid schema_version '{raw}': expected '<major>.<minor>[.<patch>]'"
+            " with numeric components"
+        ]
+    major_minor = f"{parts[0]}.{parts[1]}"
+    if major_minor not in SUPPORTED_REGISTRY_SCHEMA_VERSIONS:
+        return [
+            f"Unsupported schema_version '{raw}'. Supported major.minor pairs: "
+            f"{list(SUPPORTED_REGISTRY_SCHEMA_VERSIONS)}"
+        ]
+    return []
+
+
+def evaluate_actor_admission(
+    registry: Dict[str, Any], binding: Dict[str, Any]
+) -> Optional[str]:
+    """
+    Separate admission control (audit §3): a located binding authorizes
+    runtime actions only when the binding AND its installation are 'active'.
+    Looking up a planned entry remains legitimate for inspection purposes;
+    this function decides whether the actor may ACT under that identity.
+    Returns None when admitted, otherwise a human-readable denial reason.
+    """
+    inst_id = binding.get("installation_id")
+    inst_info = (registry.get("installations") or {}).get(inst_id) or {}
+    binding_status = binding.get("status")
+    inst_status = inst_info.get("status")
+    if binding_status != "active" or inst_status != "active":
+        return (
+            f"Identity not admitted: binding status is '{binding_status}' "
+            f"and installation '{inst_id}' status is '{inst_status}'. Runtime "
+            f"authorization requires an 'active' binding on an 'active' "
+            f"installation (lookup succeeded; admission denied)."
+        )
+    return None
+
 
 def validate_scenario_section(scenario: Any) -> List[str]:
     """Validates structure and enums of the optional scenario section."""
@@ -130,21 +185,31 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
 
     assert registry is not None
 
-    schema_version = registry.get("schema_version")
-    if not schema_version:
-        errors.append("Missing required field 'schema_version' in registry")
+    # Structured diagnostics instead of tracebacks for malformed roots
+    # (audit §3: a non-object root must produce errors, never AttributeError).
+    if not isinstance(registry, dict):
+        return False, [
+            f"Registry root JSON must be an object (dict), "
+            f"got {type(registry).__name__}"
+        ]
+
+    errors.extend(validate_schema_version(registry.get("schema_version")))
 
     project_id = registry.get("project_id")
     if not project_id:
         errors.append("Missing required field 'project_id' in registry")
 
     installations: Dict[str, Any] = registry.get("installations", {})
-    if not isinstance(installations, dict) or not installations:
-        errors.append("Missing or invalid 'installations' dictionary in registry")
+    if not isinstance(installations, dict):
+        return False, ["Field 'installations' must be a dictionary in registry"]
+    if not installations:
+        errors.append("Missing 'installations' dictionary in registry")
 
+    # A correct initial registry without a deployed team is VALID (audit §3:
+    # validators must not force the creation of a fictitious role).
     roles: Dict[str, Any] = registry.get("roles", {})
-    if not isinstance(roles, dict) or not roles:
-        errors.append("Missing or invalid 'roles' dictionary in registry")
+    if not isinstance(roles, dict):
+        return False, ["Field 'roles' must be a dictionary in registry"]
 
     errors.extend(validate_scenario_section(registry.get("scenario")))
 
@@ -160,6 +225,11 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
             errors.append(f"Installation '{inst_id}' missing 'harness_id'")
         if not status:
             errors.append(f"Installation '{inst_id}' missing 'status'")
+        elif status not in VALID_INSTALLATION_STATUSES:
+            errors.append(
+                f"Installation '{inst_id}' has unsupported status '{status}'. "
+                f"Allowed: {sorted(VALID_INSTALLATION_STATUSES)}"
+            )
 
     for role_id, role_data in roles.items():
         if not isinstance(role_data, dict):
@@ -184,6 +254,12 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
                 errors.append(f"Binding '{role_id}.{inst_id}' missing 'actor_id'")
                 continue
 
+            if b_status is not None and b_status not in VALID_BINDING_STATUSES:
+                errors.append(
+                    f"Binding '{role_id}.{inst_id}' has unsupported status "
+                    f"'{b_status}'. Allowed: {sorted(VALID_BINDING_STATUSES)}"
+                )
+
             # Duplicate check
             existing_loc = seen_actor_ids.get(actor_id)
             if existing_loc:
@@ -195,6 +271,7 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
 
             # Format check: project_id::harness_id::installation_id::role_id
             parts = actor_id.split("::")
+            h_id: Optional[str] = None
             if len(parts) != 4:
                 errors.append(
                     f"Invalid actor_id format '{actor_id}'. Expected '<project_id>::<harness_id>::<installation_id>::<role_id>'"
@@ -226,6 +303,14 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
                     errors.append(
                         f"Binding '{role_id}.{inst_id}' cannot be 'active' while installation '{inst_id}' status is 'planned'"
                     )
+                # Harness substitution check (audit §3): the actor_id harness
+                # component must match the installation's harness_id.
+                inst_harness = inst_info.get("harness_id")
+                if h_id and inst_harness and h_id != inst_harness:
+                    errors.append(
+                        f"actor_id '{actor_id}' harness mismatch: harness component "
+                        f"'{h_id}' != installation '{inst_id}' harness_id '{inst_harness}'"
+                    )
 
             # Profile verification if path specified
             if profile_path_rel:
@@ -251,6 +336,11 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
                     if p_role_id and p_role_id != role_id:
                         errors.append(
                             f"Mismatch in {profile_path_rel}: profile role_id '{p_role_id}' != registry '{role_id}'"
+                        )
+                    if p_harness_id and h_id and p_harness_id != h_id:
+                        errors.append(
+                            f"Mismatch in {profile_path_rel}: profile harness_id "
+                            f"'{p_harness_id}' != binding harness '{h_id}'"
                         )
 
                     # Check for premature active assertion of planned installation
@@ -319,7 +409,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not found:
             sys.stderr.write(f"[ERROR] Unresolved identity: actor_id '{args.actor}' not found in registry.\n")
             return 1
-        sys.stdout.write(f"[OK] Identity resolved: {args.actor} -> role={binding['role_id']}, installation={binding['installation_id']}, status={binding.get('status')}\n")
+        # Admission control (audit §3): lookup success does not authorize
+        # runtime actions; the binding and its installation must be 'active'.
+        registry, _ = load_registry(root)
+        denial = evaluate_actor_admission(registry or {}, binding)
+        if denial:
+            sys.stderr.write(f"[ERROR] {denial}\n")
+            return 1
+        sys.stdout.write(f"[OK] Identity resolved and admitted: {args.actor} -> role={binding['role_id']}, installation={binding['installation_id']}, status={binding.get('status')}\n")
         return 0
 
     if args.check:

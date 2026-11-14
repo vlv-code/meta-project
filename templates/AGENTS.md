@@ -69,7 +69,7 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
 - **Memory Compaction Check:**
   `python scripts/compact_memory.py --dry-run`
 - **Atomic Observation Logging:**
-  `python scripts/record_obs.py --category <cat> --component <path> --issue <text> --solution <text>`
+  `python scripts/record_obs.py --category <cat> --path <path> --issue <text> --solution <text>`
 - **Initialization & Management Report Audit:**
   `python scripts/manage_reports.py [init|manage|latest|verify]`
 

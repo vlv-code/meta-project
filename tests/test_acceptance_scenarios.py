@@ -343,13 +343,19 @@ class TestAcceptanceScenarios(unittest.TestCase):
         self._create_healthy_metaproject()
         snapshot_before = self._snapshot_tree(self.root)
 
-        res = self._run_inspect(["--repo-root", str(self.root), "--read-only", "--json"])
+        res = self._run_inspect(
+            ["--repo-root", str(self.root), "--read-only", "--json",
+             "--harness", "antigravity", "--installation", "ag-main"]
+        )
         self.assertEqual(res.returncode, 0, f"Stderr: {res.stderr}")
         data = json.loads(res.stdout)
         self.assertEqual(data["state"], "HEALTHY_REGISTERED")
 
         # Also run in human-readable mode with --read-only
-        res_human = self._run_inspect(["--repo-root", str(self.root), "--read-only"])
+        res_human = self._run_inspect(
+            ["--repo-root", str(self.root), "--read-only",
+             "--harness", "antigravity", "--installation", "ag-main"]
+        )
         self.assertEqual(res_human.returncode, 0)
 
         snapshot_after = self._snapshot_tree(self.root)
@@ -421,7 +427,8 @@ class TestAcceptanceScenarios(unittest.TestCase):
 
         # Execute local fallback CLI commands directly in repository context
         proc_inspect = subprocess.run(
-            [sys.executable, str(INSPECT_SCRIPT), "--json"],
+            [sys.executable, str(INSPECT_SCRIPT), "--json",
+             "--harness", "antigravity", "--installation", "ag-main"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,

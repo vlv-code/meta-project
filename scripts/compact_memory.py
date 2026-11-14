@@ -64,13 +64,27 @@ def file_lock(target: Union[str, os.PathLike[str], Any], blocking: bool = True):
                     f.close()
 
 
+ARCHIVE_NOTICE_LINE = (
+    "> Historical observations compacted into `.agents/project_knowledge/archive/`."
+)
+_DATE_ROW_RE = re.compile(r"^\|\s*\d{4}-\d{2}-\d{2}\s*\|")
+
+
 def compact_observations(
     content: str, max_rows: int = 20, keep_rows: int = 10
 ) -> Tuple[bool, str, str]:
     """
     Compacts observations.md if data rows exceed max_rows.
     Retains header + newest keep_rows in the primary file.
-    Returns (compacted, new_primary_content, archive_chunk).
+
+    Audit §9 corrections applied:
+    - Orphaned data rows recorded past the table (after the archive NOTE or
+      trailing text) are re-homed INTO the table so they remain visible to
+      future compactions and are preserved in primary/archive.
+    - The archive NOTE block is never duplicated: repeated compactions
+      collapse to a single notice.
+    Returns (changed, new_primary_content, archive_chunk). `changed` is True
+    when the content needs persisting (compaction and/or re-homing).
     """
     lines = content.splitlines()
     header_idx = -1
@@ -104,36 +118,66 @@ def compact_observations(
             end_table_idx = idx
             break
 
+    pre_table = lines[:sep_idx + 1]
+    post_table = lines[end_table_idx:]
+
+    # Re-home orphaned data rows found beyond the table region (audit §9).
+    orphan_rows = [ln for ln in post_table if _DATE_ROW_RE.match(ln.strip())]
+    post_table = [ln for ln in post_table if not _DATE_ROW_RE.match(ln.strip())]
+    data_rows.extend(orphan_rows)
+
+    # Collapse duplicated archive NOTE blocks to at most zero here; a single
+    # fresh notice is re-added below when compaction has (or had) occurred.
+    had_notice = False
+    cleaned_post: List[str] = []
+    idx = 0
+    while idx < len(post_table):
+        if (
+            post_table[idx].strip() == "> [!NOTE]"
+            and idx + 1 < len(post_table)
+            and ARCHIVE_NOTICE_LINE in post_table[idx + 1]
+        ):
+            had_notice = True
+            idx += 2
+            continue
+        cleaned_post.append(post_table[idx])
+        idx += 1
+    post_table = cleaned_post
+
+    content_changed = bool(orphan_rows)
+
     if len(data_rows) <= max_rows:
-        return False, content, ""
+        if not content_changed:
+            return False, content, ""
+        new_primary_lines = pre_table + data_rows + [""] + post_table
+        if had_notice:
+            new_primary_lines += ["", "> [!NOTE]\n" + ARCHIVE_NOTICE_LINE + "\n"]
+        new_primary = "\n".join(new_primary_lines).rstrip() + "\n"
+        return True, new_primary, ""
 
     def is_pinned(r: str) -> bool:
         return "[pin]" in r.lower()
 
-    unpinned_indices = [idx for idx, r in enumerate(data_rows) if not is_pinned(r)]
+    unpinned_indices = [i for i, r in enumerate(data_rows) if not is_pinned(r)]
     if len(unpinned_indices) <= keep_rows:
-        return False, content, ""
+        if not content_changed:
+            return False, content, ""
+        new_primary_lines = pre_table + data_rows + [""] + post_table
+        if had_notice:
+            new_primary_lines += ["", "> [!NOTE]\n" + ARCHIVE_NOTICE_LINE + "\n"]
+        new_primary = "\n".join(new_primary_lines).rstrip() + "\n"
+        return True, new_primary, ""
 
     older_indices = set(unpinned_indices[:-keep_rows])
-    retained_rows = [r for idx, r in enumerate(data_rows) if idx not in older_indices]
-    older_rows = [data_rows[idx] for idx in unpinned_indices[:-keep_rows]]
+    retained_rows = [r for i, r in enumerate(data_rows) if i not in older_indices]
+    older_rows = [data_rows[i] for i in unpinned_indices[:-keep_rows]]
 
-    # Construct new primary content
-    pre_table = lines[:sep_idx + 1]
-    post_table = lines[end_table_idx:]
-
-    archive_notice = (
-        "> [!NOTE]\n"
-        "> Historical observations compacted into `.agents/project_knowledge/archive/`.\n"
-    )
-
+    archive_notice = "> [!NOTE]\n" + ARCHIVE_NOTICE_LINE + "\n"
     new_primary_lines = pre_table + retained_rows + [""] + [archive_notice] + post_table
     new_primary = "\n".join(new_primary_lines).rstrip() + "\n"
 
-    # Construct archive chunk
     table_header = [lines[header_idx], lines[sep_idx]]
-    archive_lines = table_header + older_rows
-    archive_chunk = "\n".join(archive_lines) + "\n"
+    archive_chunk = "\n".join(table_header + older_rows) + "\n"
 
     return True, new_primary, archive_chunk
 
@@ -241,61 +285,86 @@ def main(argv: Optional[List[str]] = None) -> int:
     compacted_any = False
 
     # 1. Compact observations
+    # Audit §9: --dry-run must be strictly read-only — not even a .lock file
+    # may be created; all writes and locks happen only in write mode.
     if obs_path.is_file():
-        lock_path = obs_path.with_name(f"{obs_path.name}.lock")
-        with file_lock(lock_path, blocking=True):
-            obs_content = obs_path.read_text(encoding="utf-8")
-            compacted, new_obs, archive_chunk = compact_observations(
-                obs_content, max_rows=args.max_observations, keep_rows=args.keep_observations
-            )
-            if compacted:
-                compacted_any = True
-                current_month = datetime.now().strftime("%Y%m")
-                archive_obs_file = archive_dir / f"observations_{current_month}.md"
-                sys.stdout.write(f"Observations: compacting older rows into {archive_obs_file}\n")
-                if not args.dry_run:
-                    archive_dir.mkdir(parents=True, exist_ok=True)
-                    if archive_obs_file.is_file():
-                        existing = archive_obs_file.read_text(encoding="utf-8")
-                        chunk_lines = [line for line in archive_chunk.splitlines() if line.strip()]
-                        data_rows_to_append = chunk_lines[2:] if len(chunk_lines) >= 2 else []
-                        rows_only = "\n".join(data_rows_to_append)
-                        if rows_only:
-                            archive_obs_file.write_text(existing.rstrip() + "\n" + rows_only + "\n", encoding="utf-8")
-                    else:
-                        header = f"# Archived Observations ({current_month})\n\n---\n\n"
-                        archive_obs_file.write_text(header + archive_chunk, encoding="utf-8")
-                    obs_path.write_text(new_obs, encoding="utf-8")
+        obs_content = obs_path.read_text(encoding="utf-8")
+        compacted, new_obs, archive_chunk = compact_observations(
+            obs_content, max_rows=args.max_observations, keep_rows=args.keep_observations
+        )
+        if compacted:
+            compacted_any = True
+            current_month = datetime.now().strftime("%Y%m")
+            archive_obs_file = archive_dir / f"observations_{current_month}.md"
+            if args.dry_run:
+                sys.stdout.write(
+                    f"Observations: [dry-run] would compact older rows into {archive_obs_file}\n"
+                )
             else:
-                sys.stdout.write("Observations: table within limits, no compaction needed.\n")
+                lock_path = obs_path.with_name(f"{obs_path.name}.lock")
+                with file_lock(lock_path, blocking=True):
+                    # Re-read under lock to avoid lost updates.
+                    obs_content = obs_path.read_text(encoding="utf-8")
+                    compacted, new_obs, archive_chunk = compact_observations(
+                        obs_content,
+                        max_rows=args.max_observations,
+                        keep_rows=args.keep_observations,
+                    )
+                    if compacted:
+                        archive_dir.mkdir(parents=True, exist_ok=True)
+                        if archive_obs_file.is_file():
+                            existing = archive_obs_file.read_text(encoding="utf-8")
+                            chunk_lines = [line for line in archive_chunk.splitlines() if line.strip()]
+                            data_rows_to_append = chunk_lines[2:] if len(chunk_lines) >= 2 else []
+                            rows_only = "\n".join(data_rows_to_append)
+                            if rows_only:
+                                archive_obs_file.write_text(existing.rstrip() + "\n" + rows_only + "\n", encoding="utf-8")
+                        else:
+                            header = f"# Archived Observations ({current_month})\n\n---\n\n"
+                            archive_obs_file.write_text(header + archive_chunk, encoding="utf-8")
+                        obs_path.write_text(new_obs, encoding="utf-8")
+                        sys.stdout.write(f"Observations: compacted older rows into {archive_obs_file}\n")
+        else:
+            sys.stdout.write("Observations: table within limits, no compaction needed.\n")
     else:
         sys.stdout.write(f"Observations: file '{obs_path}' not found, skipping.\n")
 
     # 2. Compact tasks
     if tasks_path.is_file():
-        lock_path = tasks_path.with_name(f"{tasks_path.name}.lock")
-        with file_lock(lock_path, blocking=True):
-            tasks_content = tasks_path.read_text(encoding="utf-8")
-            compacted, new_tasks, archive_chunk = compact_tasks(
-                tasks_content,
-                max_completed=args.max_completed_tasks,
-                keep_completed=args.keep_completed_tasks,
-            )
-            if compacted:
-                compacted_any = True
-                archive_tasks_file = archive_dir / "tasks_archive.md"
-                sys.stdout.write(f"Tasks: compacting completed tasks into {archive_tasks_file}\n")
-                if not args.dry_run:
-                    archive_dir.mkdir(parents=True, exist_ok=True)
-                    if archive_tasks_file.is_file():
-                        existing = archive_tasks_file.read_text(encoding="utf-8")
-                        archive_tasks_file.write_text(existing.rstrip() + "\n" + archive_chunk, encoding="utf-8")
-                    else:
-                        header = "# Archived Completed Tasks\n\n---\n\n"
-                        archive_tasks_file.write_text(header + archive_chunk, encoding="utf-8")
-                    tasks_path.write_text(new_tasks, encoding="utf-8")
+        tasks_content = tasks_path.read_text(encoding="utf-8")
+        compacted, new_tasks, archive_chunk = compact_tasks(
+            tasks_content,
+            max_completed=args.max_completed_tasks,
+            keep_completed=args.keep_completed_tasks,
+        )
+        if compacted:
+            compacted_any = True
+            archive_tasks_file = archive_dir / "tasks_archive.md"
+            if args.dry_run:
+                sys.stdout.write(
+                    f"Tasks: [dry-run] would compact completed tasks into {archive_tasks_file}\n"
+                )
             else:
-                sys.stdout.write("Tasks: completed tasks within limits, no compaction needed.\n")
+                lock_path = tasks_path.with_name(f"{tasks_path.name}.lock")
+                with file_lock(lock_path, blocking=True):
+                    tasks_content = tasks_path.read_text(encoding="utf-8")
+                    compacted, new_tasks, archive_chunk = compact_tasks(
+                        tasks_content,
+                        max_completed=args.max_completed_tasks,
+                        keep_completed=args.keep_completed_tasks,
+                    )
+                    if compacted:
+                        archive_dir.mkdir(parents=True, exist_ok=True)
+                        if archive_tasks_file.is_file():
+                            existing = archive_tasks_file.read_text(encoding="utf-8")
+                            archive_tasks_file.write_text(existing.rstrip() + "\n" + archive_chunk, encoding="utf-8")
+                        else:
+                            header = "# Archived Completed Tasks\n\n---\n\n"
+                            archive_tasks_file.write_text(header + archive_chunk, encoding="utf-8")
+                        tasks_path.write_text(new_tasks, encoding="utf-8")
+                        sys.stdout.write(f"Tasks: compacted completed tasks into {archive_tasks_file}\n")
+        else:
+            sys.stdout.write("Tasks: completed tasks within limits, no compaction needed.\n")
     else:
         sys.stdout.write(f"Tasks: file '{tasks_path}' not found, skipping.\n")
 

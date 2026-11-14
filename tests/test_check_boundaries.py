@@ -367,18 +367,28 @@ class TestBoundaryGateCLI(unittest.TestCase):
             original_content = "#!/bin/sh\npytest tests/\n"
             existing_hook.write_text(original_content, encoding="utf-8")
 
-            # First run: should chain without erasing existing content
+            # First run: dispatcher installed; existing hook preserved
+            # byte-for-byte as a legacy companion executed as a separate
+            # process (audit §8: no append-chaining).
             ok, msg = check_boundaries.install_git_hook(tmppath)
-            self.assertTrue(ok)
-            content = existing_hook.read_text(encoding="utf-8")
-            self.assertIn("pytest tests/", content)
-            self.assertIn("check_boundaries.py --staged", content)
+            self.assertTrue(ok, msg)
+            legacy_hook = hooks_dir / "pre-commit.legacy-meta"
+            self.assertTrue(legacy_hook.is_file())
+            self.assertEqual(
+                legacy_hook.read_text(encoding="utf-8"),
+                original_content,
+                "legacy hook content must be preserved byte-for-byte",
+            )
+            dispatcher_content = existing_hook.read_text(encoding="utf-8")
+            self.assertIn("# Meta-Project Boundary Gate Pre-Commit Hook", dispatcher_content)
+            self.assertIn("pre-commit.legacy-meta", dispatcher_content)
+            self.assertIn("check_boundaries.py --staged", dispatcher_content)
 
             # Second run: idempotent, should not duplicate
             ok2, msg2 = check_boundaries.install_git_hook(tmppath)
             self.assertTrue(ok2)
             content_after = existing_hook.read_text(encoding="utf-8")
-            self.assertEqual(content, content_after)
+            self.assertEqual(dispatcher_content, content_after)
             self.assertEqual(content_after.count("# Meta-Project Boundary Gate Pre-Commit Hook"), 1)
 
     def test_cli_diff_against_head_exits_clean(self):
