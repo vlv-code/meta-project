@@ -12,6 +12,7 @@ Registry of fragile areas, known bugs, and constraints of the repository. Agents
 - Running checks requires Python 3.10+ standard library (`unittest`, `pathlib`, `re`).
 - Zero-dependency principle: no third-party test runners or linters are used; test execution is performed via `python -m unittest discover -s tests -p "test_*.py" -v`.
 - 2 behavioral hook tests in `tests/test_audit_regressions.py` (§8: prior-hook `exit 0` chaining, failure propagation) require a POSIX shell (`bash`/`sh`); on hosts without one they are skipped, silently reducing Stage S8 RED coverage (Windows hosts usually resolve Git Bash; CI ubuntu-latest always has bash).
+- GitHub required status checks match check-run names exactly, and the `ci.yml` matrix expands the gate into `Validate Skills & Templates Integrity (3.10)`…`(3.13)`: requiring the plain job name alone gates nothing. Branch protection must require all four expanded names, or `ci.yml` must gain a stable aggregate job (roadmap §8.4, owner action; observed via `gh api .../commits/main/check-runs` 2026-11-15).
 
 ## 3. Deferred Technical Debt
 - Historical research documents in `docs/` (`decisions_and_roadmap.md`, `test_report_alpha_skill.md`, `temporary_overrides.md`) remain in Russian for historical provenance, whereas all active agent specifications, templates, and skills are 100% English canonical.
