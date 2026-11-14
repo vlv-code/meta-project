@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--alpha.1-orange.svg)](CHANGELOG.md)
-[![Tests: Passing](https://img.shields.io/badge/Tests-Passing-success.svg)](tests/)
+[![CI](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml/badge.svg)](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml)
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#поддержать-проект)
 
@@ -89,9 +89,9 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 
 ---
 
-## Обследование репозитория и 7 канонических состояний
+## Обследование репозитория и 8 канонических состояний
 
-Meta-Project включает детерминированный движок неразрушающего обследования (`scripts/inspect_meta_project.py`), работающий исключительно на стандартной библиотеке Python 3.10+. Он классифицирует любой репозиторий в одно из 7 канонических состояний и оценивает матрицу готовности по 5 измерениям (`read_instructions`, `local_checks`, `skills`, `roles`, `hooks`):
+Meta-Project включает детерминированный движок неразрушающего обследования (`scripts/inspect_meta_project.py`), работающий исключительно на стандартной библиотеке Python 3.10+. Он классифицирует любой репозиторий в одно из 8 канонических состояний и оценивает матрицу готовности по 5 измерениям (`read_instructions`, `local_checks`, `skills`, `roles`, `hooks`):
 
 | Код состояния | Каноническое состояние | Критерии и сигнатуры | Стратегия и действие |
 | :--- | :--- | :--- | :--- |
@@ -99,6 +99,7 @@ Meta-Project включает детерминированный движок н
 | `FOREIGN_RULES` | Чужие инструкции агентов | Обнаружены сторонние файлы (`.cursorrules`, `CLAUDE.md`, `.windsurfrules` или сторонний `AGENTS.md`). | **Сохранение и сосуществование:** Неразрушающее оборачивание без удаления чужих инструкций. |
 | `HEALTHY_REGISTERED` | Meta-Project исправен (активен) | Полный комплект (`AGENTS.md`, `.agents/meta-project.json`, `boundaries.md`, скрипты); текущий харнесс активен. | **Пропуск без изменений:** Нулевой diff, отсутствие блокировок, отчёт о готовности. |
 | `HEALTHY_NEW_HARNESS` | Подключение нового харнесса | Meta-Project исправен; целевой харнесс не зарегистрирован или имеет статус `planned`. | **Привязка харнесса:** Генерация привязок ролей и адаптера без затрагивания активных харнессов. |
+| `CONTEXT_UNRESOLVED` | Контекст выполнения не передан | Структура Meta-Project цела, но флаги `--harness`/`--installation` не переданы: статус регистрации вызывающей стороны невозможно определить без молчаливого выбора произвольной активной установки. | **Передать контекст выполнения:** Повторный запуск с `--harness` и `--installation` зарегистрированной установки. |
 | `LEGACY_UNREGISTERED` | Legacy-обвязка без реестра | Предыдущая структура Meta-Project без `.agents/meta-project.json` или движка идентичности. | **Модернизация:** Обновление заголовков таблиц, генерация реестра с сохранением истории. |
 | `PARTIAL_CORRUPTED` | Частичная или повреждённая | Отсутствуют критические компоненты (нет `boundaries.md`, повреждён JSON или скрипты). | **Диагностика и восстановление:** Точечный план восстановления без перезаписи исправных срезов. |
 | `INCOMPATIBLE_SCHEMA` | Несовместимая схема реестра | Реестр `.agents/meta-project.json` присутствует, но его версия несовместима с текущим тулингом. | **Только чтение:** Блокировка в режиме аудита, отказ от слепой записи до миграции схемы. |
@@ -106,8 +107,11 @@ Meta-Project включает детерминированный движок н
 Для запуска обследования репозитория без изменения файлов:
 ```bash
 python scripts/inspect_meta_project.py --read-only
+# -> CONTEXT_UNRESOLVED: структура цела, но контекст вызова неизвестен.
+# Передайте зарегистрированные харнесс и установку для определения статуса:
+python scripts/inspect_meta_project.py --harness zcode --installation zc-main --read-only
 # Или в машинно-читаемом формате JSON:
-python scripts/inspect_meta_project.py --json
+python scripts/inspect_meta_project.py --harness zcode --installation zc-main --json
 ```
 
 ---
@@ -130,7 +134,7 @@ python scripts/inspect_meta_project.py --json
   - `skills/record-observation/` — навык категоризированной записи наблюдений в `observations.md` с контролем дубликатов и триггерами компакции памяти.
   - `skills/sync-architecture/` — навык структурного анализа манифестов и актуализации карты компонентов.
 - **`scripts/`**:
-  - `scripts/inspect_meta_project.py` — детерминированный движок обследования на Python stdlib, выполняющий классификацию репозитория по 7 каноническим состояниям, проверку матрицы готовности и учёт git worktree (поддерживает `--json` и `--read-only`).
+  - `scripts/inspect_meta_project.py` — детерминированный движок обследования на Python stdlib, выполняющий классификацию репозитория по 8 каноническим состояниям, проверку матрицы готовности и учёт git worktree (поддерживает `--json`, `--read-only` и контекст выполнения `--harness`/`--installation`).
   - `scripts/check_boundaries.py` — автономный CLI гейта границ (Boundary Gate) на Python stdlib, обеспечивающий принудительный машинный контроль зон (Green/Yellow/Red) и инварианта Default Deny локально и в GitHub Actions CI (поддерживает `--audit-tree` для 100% покрытия дерева и `--install-hook` для настройки pre-commit).
   - `scripts/compact_memory.py` — утилита защиты контекста (Context Rot Shield), автоматически архивирующая разросшиеся таблицы наблюдений (>20 записей) и выполненные задачи в `.agents/project_knowledge/archive/`, с сохранением постоянных инвариантов `[pin]` и кроссплатформенной файловой блокировкой (`msvcrt`/`fcntl`).
   - `scripts/sync_templates.py` — утилита инъекции канонических шаблонов во встроенные скиллы и валидации 1-в-1 паритета навыков между `skills/` и `.agents/skills/` (режим `--check` для CI).

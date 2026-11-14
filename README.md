@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--alpha.1-orange.svg)](CHANGELOG.md)
-[![Tests: Passing](https://img.shields.io/badge/Tests-Passing-success.svg)](tests/)
+[![CI](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml/badge.svg)](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml)
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#support-the-project)
 
@@ -91,7 +91,7 @@ After initialization, the following standardized structure is created in any tar
 
 ## Repository Inspection & Canonical States
 
-Meta-Project features a deterministic, zero-write inspection engine (`scripts/inspect_meta_project.py`) using only the Python 3.10+ standard library. It classifies any repository into one of 7 canonical states and evaluates readiness across 5 capability dimensions (`read_instructions`, `local_checks`, `skills`, `roles`, `hooks`):
+Meta-Project features a deterministic, zero-write inspection engine (`scripts/inspect_meta_project.py`) using only the Python 3.10+ standard library. It classifies any repository into one of 8 canonical states and evaluates readiness across 5 capability dimensions (`read_instructions`, `local_checks`, `skills`, `roles`, `hooks`):
 
 | State Code | Canonical State | Criteria & Signatures | Action & Strategy |
 | :--- | :--- | :--- | :--- |
@@ -99,6 +99,7 @@ Meta-Project features a deterministic, zero-write inspection engine (`scripts/in
 | `FOREIGN_RULES` | Foreign agent rules | Foreign instructions found (`.cursorrules`, `CLAUDE.md`, `.windsurfrules`, or foreign `AGENTS.md`). | **Preserve & Merge:** Retain foreign files intact, establish coexistence wrapper. |
 | `HEALTHY_REGISTERED` | Meta-Project intact (active) | Meta-Project intact (`AGENTS.md`, `.agents/meta-project.json`, `boundaries.md`, scripts); current harness is active. | **Verify & Pass-Through:** No-op. Zero diff, zero locks, report ready status. |
 | `HEALTHY_NEW_HARNESS` | New harness onboarding | Meta-Project intact; target harness/installation is not registered or is registered as `planned`. | **Bind Harness:** Scaffold role bindings and installation adapter without disturbing active setups. |
+| `CONTEXT_UNRESOLVED` | Runtime context not provided | Meta-Project structure is intact, but no `--harness`/`--installation` was provided; the registered status of the caller cannot be determined without silently adopting an arbitrary active installation. | **Provide Runtime Context:** Re-run with `--harness` and `--installation` matching a registered installation. |
 | `LEGACY_UNREGISTERED` | Legacy setup without registry | Older Meta-Project structure without `.agents/meta-project.json` or identity engine. | **Legacy Adoption:** Upgrade table headers, generate `.agents/meta-project.json`, preserve historical logs. |
 | `PARTIAL_CORRUPTED` | Partial / corrupted setup | Missing critical files (e.g. `boundaries.md` absent, corrupted JSON, missing core scripts). | **Diagnose & Repair:** Report exact discrepancies; offer surgical repair plan without overwriting intact slices. |
 | `INCOMPATIBLE_SCHEMA` | Incompatible registry schema | `.agents/meta-project.json` present but `schema_version` is major-incompatible with current tooling. | **Read-Only Fallback:** Lock into read-only audit mode, report required schema migration. |
@@ -106,8 +107,11 @@ Meta-Project features a deterministic, zero-write inspection engine (`scripts/in
 To inspect your repository without modifying any files:
 ```bash
 python scripts/inspect_meta_project.py --read-only
+# -> CONTEXT_UNRESOLVED: the structure is healthy, but the caller context is unknown.
+# Provide a registered harness + installation to resolve the runtime status:
+python scripts/inspect_meta_project.py --harness zcode --installation zc-main --read-only
 # Or machine-readable JSON format:
-python scripts/inspect_meta_project.py --json
+python scripts/inspect_meta_project.py --harness zcode --installation zc-main --json
 ```
 
 ---
@@ -130,7 +134,7 @@ python scripts/inspect_meta_project.py --json
   - `skills/record-observation/` — Skill for categorized logging of observations into `observations.md` with duplicate suppression and compaction triggers.
   - `skills/sync-architecture/` — Skill for structural manifest analysis and component map synchronization.
 - **`scripts/`**:
-  - `scripts/inspect_meta_project.py` — Zero-dependency deterministic inspection engine evaluating the 7 canonical repository states, capability matrix, and worktree awareness (supports `--json` and `--read-only`).
+  - `scripts/inspect_meta_project.py` — Zero-dependency deterministic inspection engine evaluating the 8 canonical repository states, capability matrix, and worktree awareness (supports `--json`, `--read-only`, and `--harness`/`--installation` runtime context).
   - `scripts/check_boundaries.py` — Zero-dependency Boundary Gate CLI enforcing Green/Yellow/Red zones and Default Deny (Black Zone) on Git diffs locally and in GitHub Actions CI (supports `--audit-tree` for 100% path coverage and `--install-hook` for pre-commit installation).
   - `scripts/compact_memory.py` — Context Rot Shield utility automatically rotating oversized observation tables (>20 rows) and completed tasks into `.agents/project_knowledge/archive/`, retaining permanent `[pin]` invariants with cross-platform file locking (`msvcrt`/`fcntl`).
   - `scripts/sync_templates.py` — Zero-dependency utility synchronizing canonical templates into embedded skills and maintaining 1-to-1 parity between `skills/` and `.agents/skills/` (with `--check` mode for CI).
