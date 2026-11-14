@@ -1,6 +1,6 @@
-# Workspace and Private Notes: {{ROLE_TITLE}}
+# Workspace and Private Notes: {{ROLE_TITLE}} (`{{ACTOR_ID}}`)
 
-This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `{{ROLE_ID}}`.
+This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `{{ROLE_ID}}` (Actor: `{{ACTOR_ID}}`).
 No other agent is permitted to modify the contents of this file.
 
 ---

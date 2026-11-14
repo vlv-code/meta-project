@@ -1,6 +1,6 @@
-# Workspace and Private Notes: agent-quality-guardian (Quality & Meta-Architecture Guardian)
+# Workspace and Private Notes: agent-quality-guardian (Quality & Meta-Architecture Guardian) (`vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian`)
 
-This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `agent-quality-guardian`.
+This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `agent-quality-guardian` (Actor: `vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian`).
 No other agent is permitted to modify the contents of this file.
 
 ---

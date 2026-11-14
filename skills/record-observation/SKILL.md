@@ -28,15 +28,16 @@ This skill ensures disciplined, standardized addition of entries to the project 
    Record the finding atomically using the zero-dependency CLI utility:
    ```bash
    # In meta-project repository:
-   python scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>"
+   python scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>" --actor-id "<actor_id>"
    # In target repositories (via installed helper):
-   python .agents/scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>"
+   python .agents/scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>" --actor-id "<actor_id>"
    ```
    * **Parameters:**
      * `--category`: One of the canonical categories: `boundaries`, `ci`, `decommission`, `incident`, `orchestration`, `runtime`, `git`, `init`, `testing`, `architecture`.
      * `--path`: Component, script, or configuration path.
      * `--issue`: Brief summary of the bug or quirk (pipes `|` and newlines are safely escaped automatically).
      * `--solution`: Practical workaround or fix.
+     * `--actor-id`: Optional qualified actor identifier (e.g. `<project_id>::<harness_id>::<installation_id>::<role_id>`) for action attribution (inserts `[actor=<actor_id>]` into the issue field).
      * `--pin`: Optional flag for permanent invariants that must never be rotated by `compact_memory.py` (adds `[pin]` suffix, e.g. `[ci][pin]`).
      * `--obs-file`: Optional custom path (defaults to `.agents/project_knowledge/observations.md`).
 

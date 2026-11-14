@@ -77,17 +77,21 @@ If no structure exists, execute the standard two-pass algorithm:
    - .agents/skills/record-observation/SKILL.md
    - .agents/skills/sync-architecture/SKILL.md
    - .agents/skills/ground-meta-project/SKILL.md
-   Deploy zero-dependency boundary and compaction automation scripts to repository scripts/:
+   Deploy zero-dependency automation and runtime scripts to repository scripts/:
    - scripts/check_boundaries.py (Boundary Gate CLI)
    - scripts/compact_memory.py (Context Rot Shield & Memory Compactor)
+   - scripts/record_obs.py (Observation Logger CLI with cross-platform locking)
+   - scripts/verify_identity.py (Multi-Harness Identity Engine & Registry Validator)
 
-5. **Create initial knowledge slice drafts:**
+5. **Create initial knowledge slice drafts and registry:**
+   Write files in .agents/:
+   - .agents/meta-project.json (Multi-harness identity registry: active ag-main installation and planned zc-main migration target).
    Write files in .agents/project_knowledge/:
    - observations.md (5-column table with the first initialization row; use cross-platform command examples, e.g.: python -m pytest).
-   - oundaries.md (zones template with basic glob patterns: formatting in Yellow zone, data in Red).
+   - boundaries.md (zones template with basic glob patterns: formatting and .agents/*.json in Yellow zone, data and security gates in Red).
    - weak_spots.md (baseline risk registry structure).
-   - rchitecture.md (baseline architecture scaffold).
-   - 	asks.md (active objective, team checklist, and delegation registry).
+   - architecture.md (baseline architecture scaffold).
+   - tasks.md (active objective, team checklist, and delegation registry).
 #### Pass 2: Repository Deep-Dive, Principles & Shell Skills
 
 1. **Mandatory Core Inspection Checklist:**
@@ -267,6 +271,7 @@ Areas requiring elevated caution and mandatory local test and linter execution p
 - `scripts/** (except scripts/check_boundaries.py)` — automation scripts and verification utilities.
 - `*formatting*`, `*render*`, `templates/** (except boundaries.md)` — formatting modules, template engines, and markup escaping (parsing errors break message delivery).
 - `keyboards.*`, `ui/**` — keyboard layouts and UI components.
+- `.agents/*.json` — project registries and identity binding definitions.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 
 ---
@@ -357,7 +362,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
   - *What to update:* immediately and atomically record solved non-trivial bugs using the `record-observation` skill.
 - **Active Tasks (`.agents/project_knowledge/tasks.md`):**
   - *When to consult:* at the beginning of any session and upon completing subtasks.
-  - *What to update:* track execution progress, register new tasks and delegated steps with author and timestamp `[agent-id @ ISO_DATETIME]`.
+  - *What to update:* track execution progress, register new tasks and delegated steps with author and timestamp `[<actor_id> @ ISO_DATETIME]`.
 
 ## 4. Procedural Skills Registry
 ### Built-in meta-project skills:
@@ -381,5 +386,12 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 3. Apply stack skills from Section 4 to modify code and run tests.
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
 5. When encountering hidden environment quirks, record the fact via `record-observation`.
+
+## 6. Project Agent Team & Multi-Harness Identity
+Project roles and multi-harness bindings are authoritative in `.agents/meta-project.json`.
+- **Identity Determination Protocol:** Every agent operating in the repository must resolve its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` using `scripts/verify_identity.py`.
+- **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be verified, the agent must fail closed and report an unresolved identity.
+- **Active Team Roster:**
+{{TEAM_ROSTER}}
 ```
 <!-- TEMPLATE:END AGENTS.md -->

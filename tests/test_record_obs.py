@@ -155,6 +155,29 @@ class TestRecordObs(unittest.TestCase):
         last_line = content.splitlines()[-1]
         self.assertIn("| [ci][pin] |", last_line)
 
+    def test_observation_with_actor_id(self):
+        """Verify that --actor-id inserts [actor=<actor_id>] into the issue column while preserving 5-column table structure."""
+        actor = "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead"
+        ret = main([
+            "--category", "runtime",
+            "--path", "scripts/verify_identity.py",
+            "--issue", "Missing schema causes unhandled exit",
+            "--solution", "Enforce jsonschema structure validation",
+            "--actor-id", actor,
+            "--obs-file", str(self.obs_file),
+        ])
+        self.assertEqual(ret, 0)
+
+        content = self.obs_file.read_text(encoding="utf-8")
+        last_line = content.splitlines()[-1]
+
+        # Verify actor tag is at start of issue field
+        self.assertIn(f"| [actor={actor}] Missing schema causes unhandled exit |", last_line)
+
+        # Splitting by unescaped pipe must still yield exactly 7 parts (5 table columns + 2 outer empty parts)
+        unescaped_pipe_parts = re.split(r"(?<!\\)\|", last_line)
+        self.assertEqual(len(unescaped_pipe_parts), 7)
+
     def test_file_lock_concurrent_access(self):
         """Verify that cross-platform file locking prevents concurrent write access."""
         lock_file_path = Path(self.temp_dir.name) / "lock_test.txt"

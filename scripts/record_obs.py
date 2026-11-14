@@ -113,6 +113,7 @@ def format_row(
     issue: str,
     solution: str,
     pin: bool = False,
+    actor_id: Optional[str] = None,
 ) -> str:
     """Formats a single Markdown table row for observations.md."""
     norm_cat = normalize_category(category)
@@ -127,6 +128,9 @@ def format_row(
     clean_issue = escape_pipes(issue)
     clean_solution = escape_pipes(solution)
 
+    if actor_id:
+        clean_issue = f"[actor={actor_id.strip()}] {clean_issue}"
+
     return f"| {date_str} | {cat_tag} | {clean_path} | {clean_issue} | {clean_solution} |"
 
 
@@ -138,6 +142,7 @@ def record_observation(
     pin: bool = False,
     obs_file: Path = DEFAULT_OBSERVATIONS_PATH,
     date_str: Optional[str] = None,
+    actor_id: Optional[str] = None,
 ) -> str:
     """
     Validates, formats, and atomically appends an observation row to obs_file with file locking.
@@ -158,6 +163,7 @@ def record_observation(
         issue=issue,
         solution=solution,
         pin=pin,
+        actor_id=actor_id,
     )
 
     obs_path = Path(obs_file)
@@ -220,6 +226,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="Custom ISO date (YYYY-MM-DD), default is current local date",
     )
+    parser.add_argument(
+        "--actor-id",
+        default=None,
+        help="Qualified actor identifier (e.g. project::harness::installation::role) for action attribution",
+    )
 
     try:
         args = parser.parse_args(argv)
@@ -235,6 +246,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             pin=args.pin,
             obs_file=Path(args.obs_file),
             date_str=args.date,
+            actor_id=args.actor_id,
         )
         print(f"[OK] Recorded observation: {appended_row}")
         return 0

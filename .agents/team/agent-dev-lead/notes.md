@@ -1,6 +1,6 @@
-# Workspace and Private Notes: agent-dev-lead (Lead Developer & Dispatcher)
+# Workspace and Private Notes: agent-dev-lead (Lead Developer & Dispatcher) (`vlv-code/meta-project::antigravity::ag-main::agent-dev-lead`)
 
-This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `agent-dev-lead`.
+This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `agent-dev-lead` (Actor: `vlv-code/meta-project::antigravity::ag-main::agent-dev-lead`).
 No other agent is permitted to modify the contents of this file.
 
 ---

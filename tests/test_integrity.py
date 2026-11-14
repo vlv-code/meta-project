@@ -318,6 +318,16 @@ class TestRepositoryCanons(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"sync_templates.py --check failed: {res.stderr}\n{res.stdout}")
         self.assertIn("0 drift", res.stdout)
 
+    def test_verify_identity_script_exists_and_functional(self):
+        """Verify that scripts/verify_identity.py exists and executes --help cleanly."""
+        script_path = ROOT_DIR / "scripts" / "verify_identity.py"
+        self.assertTrue(script_path.is_file(), "scripts/verify_identity.py is missing")
+        import subprocess
+        import sys
+        res = subprocess.run([sys.executable, str(script_path), "--help"], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"verify_identity.py --help failed: {res.stderr}")
+        self.assertIn("Multi-Harness Identity Engine", res.stdout)
+
 
 
 if __name__ == "__main__":

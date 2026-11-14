@@ -1,6 +1,9 @@
 ---
 name: "Lead Developer & Dispatcher"
 role_id: "agent-dev-lead"
+harness_id: "antigravity"
+installation_id: "ag-main"
+actor_id: "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead"
 description: "Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation."
 tools:
   - read_file
@@ -20,7 +23,10 @@ invocation_triggers:
 # Agent Role Passport: agent-dev-lead (Lead Developer & Dispatcher)
 
 ## 1. Purpose and Scope of Responsibility
-- **Role Identifier:** `agent-dev-lead`
+- **Role Identifier (`role_id`):** `agent-dev-lead`
+- **Actor Identifier (`actor_id`):** `vlv-code/meta-project::antigravity::ag-main::agent-dev-lead`
+- **Harness / Installation:** `antigravity` (`ag-main`)
+- **Project Registry:** `.agents/meta-project.json`
 - **Product Scope:** Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation (`agent-intake-dispatcher` + `agent-general-worker`).
 - **User Invocation Triggers:** "plan task", "decompose request", "implement feature", "write script", "develop component", "fix logic".
 
@@ -57,24 +63,27 @@ invocation_triggers:
 ## 5. Role Invocation Log (Telemetry)
 *(Strictly 1 concise summary entry per completed task upon task closeout. Micro-step tracking belongs in `tasks.md`)*
 
-| Date | Initiator | Task / Invocation | Status / Result |
-| :--- | :--- | :--- | :--- |
-| 2026-11-07 | System / User | Role initialization (Compact Trio deployment) | Role activated |
-| 2026-11-09 | User | Session intake & protocol initialization | Initialized, tests passing |
-| 2026-11-10 | User | Polyglot Monorepo Incident Remediation (Tasks 1–5) | Tasks 1–5 completed, 7 tests pass |
-| 2026-11-10 12:02 | User | Grounding & auditor remediation (global AGENTS.md, ADR sync) | Synced init-meta-project, created templates/global/AGENTS.md, updated READMEs |
-| 2026-11-10 13:23 | User | Task 1: Boundary Gate CLI (scripts/check_boundaries.py) | Completed via TDD: 12 unit tests, integrity test, 23/23 tests pass |
-| 2026-11-10 13:45 | User | Tasks 2–5: CI gate, compact_memory, YAML frontmatter, interview protocol | Completed: 33/33 tests pass, all sprint tasks committed |
-| 2026-11-10 15:15 | User | Core Robustness & Automation (Tasks 1–6) | Completed: 47/47 tests pass, --audit-tree 100%, sync_templates 0 drift |
-| 2026-11-10 18:48 | User | Step 19: Tri-skill lifecycle suite (scan, tune, update) | Completed: 3 new lifecycle skills, dual-path script discovery, local_repo_data dual syntax |
-| 2026-11-10 19:39 | User | Grounding & memory compaction | Completed: compacted tasks.md into archive/tasks_archive.md, purged caches |
-| 2026-11-10 19:10 | User | Step 20: Definition of Done & Architecture Drift Detector | Completed: Silent Pre-Close Checklist in prompts, check_architecture_drift with 4 unit tests, 51/51 tests pass |
-| 2026-11-11 09:05 | User | Step 21: Post-audit remediation | Completed: doc relative links, check_boundaries stderr ascii, ci.yml --audit-tree, architecture.md sync |
-| 2026-11-12 22:52 | User | Step 28 (P0.2): Sentinels in sync_templates.py & embedded template wrapping | Completed via TDD: 2 new unit tests, <!-- TEMPLATE:BEGIN/END --> sentinels, 0 drift, 55/55 tests pass |
-| 2026-11-13 00:35 | User | Step 29 (P0.3): Safe Chain Execution in install_git_hook() | Completed via TDD: test_install_hook_chains_with_existing_pre_commit, safe append with || exit 1, idempotency verified, 56/56 tests pass |
-| 2026-11-13 10:20 | User | Step 31 (P0.4): Commit SHAs & branch diff target verification in check_boundaries.py | Verified git diff -z --name-only revision handling, added --diff alias to CLI, added test_cli_diff_against_head_exits_clean, 57/57 tests pass |
-| 2026-11-12 | Phase P0 Implementation | SUCCESS | All 4 P0 tasks implemented and verified |
-| 2026-11-13 | Phase P1.0 Implementation | SUCCESS | Calibrated North Stars, ADR #18–#19, Tier 0 Duo, Adversarial TDD, telemetry limits; 0 drift, 57/57 tests pass |
-| 2026-11-13 | Phase P1.1 Implementation | SUCCESS | Developed scripts/record_obs.py with category validation & file locking, 5 unit/adversarial tests pass, updated skill, 62/62 tests pass |
-| 2026-11-13 | Phase P1.2 Implementation | SUCCESS | Moved check_boundaries.py, boundaries.md & workflows to Red Zone, added .github/CODEOWNERS, updated tests, 62/62 tests pass |
-| 2026-11-14 | User | Kernel Hardening & Auditor Fixes | SUCCESS | Fixed Russian zones regex, record_obs escaping & ISO dates, sync_templates fail-closed, compact_memory locking & index retention, .gitignore, 69/69 tests pass |
+| Date | Initiator | Actor ID | Task / Invocation | Status / Result |
+| :--- | :--- | :--- | :--- | :--- |
+| 2026-11-07 | System / User | - | Role initialization (Compact Trio deployment) | Role activated |
+| 2026-11-09 | User | - | Session intake & protocol initialization | Initialized, tests passing |
+| 2026-11-10 | User | - | Polyglot Monorepo Incident Remediation (Tasks 1–5) | Tasks 1–5 completed, 7 tests pass |
+| 2026-11-10 12:02 | User | - | Grounding & auditor remediation (global AGENTS.md, ADR sync) | Synced init-meta-project, created templates/global/AGENTS.md, updated READMEs |
+| 2026-11-10 13:23 | User | - | Task 1: Boundary Gate CLI (scripts/check_boundaries.py) | Completed via TDD: 12 unit tests, integrity test, 23/23 tests pass |
+| 2026-11-10 13:45 | User | - | Tasks 2–5: CI gate, compact_memory, YAML frontmatter, interview protocol | Completed: 33/33 tests pass, all sprint tasks committed |
+| 2026-11-10 15:15 | User | - | Core Robustness & Automation (Tasks 1–6) | Completed: 47/47 tests pass, --audit-tree 100%, sync_templates 0 drift |
+| 2026-11-10 18:48 | User | - | Step 19: Tri-skill lifecycle suite (scan, tune, update) | Completed: 3 new lifecycle skills, dual-path script discovery, local_repo_data dual syntax |
+| 2026-11-10 19:39 | User | - | Grounding & memory compaction | Completed: compacted tasks.md into archive/tasks_archive.md, purged caches |
+| 2026-11-10 19:10 | User | - | Step 20: Definition of Done & Architecture Drift Detector | Completed: Silent Pre-Close Checklist in prompts, check_architecture_drift with 4 unit tests, 51/51 tests pass |
+| 2026-11-11 09:05 | User | - | Step 21: Post-audit remediation | Completed: doc relative links, check_boundaries stderr ascii, ci.yml --audit-tree, architecture.md sync |
+| 2026-11-12 22:52 | User | - | Step 28 (P0.2): Sentinels in sync_templates.py & embedded template wrapping | Completed via TDD: 2 new unit tests, <!-- TEMPLATE:BEGIN/END --> sentinels, 0 drift, 55/55 tests pass |
+| 2026-11-13 00:35 | User | - | Step 29 (P0.3): Safe Chain Execution in install_git_hook() | Completed via TDD: test_install_hook_chains_with_existing_pre_commit, safe append with || exit 1, idempotency verified, 56/56 tests pass |
+| 2026-11-13 10:20 | User | - | Step 31 (P0.4): Commit SHAs & branch diff target verification in check_boundaries.py | Verified git diff -z --name-only revision handling, added --diff alias to CLI, added test_cli_diff_against_head_exits_clean, 57/57 tests pass |
+| 2026-11-12 | Phase P0 Implementation | - | SUCCESS | All 4 P0 tasks implemented and verified |
+| 2026-11-13 | Phase P1.0 Implementation | - | SUCCESS | Calibrated North Stars, ADR #18–#19, Tier 0 Duo, Adversarial TDD, telemetry limits; 0 drift, 57/57 tests pass |
+| 2026-11-13 | Phase P1.1 Implementation | - | SUCCESS | Developed scripts/record_obs.py with category validation & file locking, 5 unit/adversarial tests pass, updated skill, 62/62 tests pass |
+| 2026-11-13 | Phase P1.2 Implementation | - | SUCCESS | Moved check_boundaries.py, boundaries.md & workflows to Red Zone, added .github/CODEOWNERS, updated tests, 62/62 tests pass |
+| 2026-11-14 | User | - | Kernel Hardening & Auditor Fixes | SUCCESS | Fixed Russian zones regex, record_obs escaping & ISO dates, sync_templates fail-closed, compact_memory locking & index retention, .gitignore, 69/69 tests pass |
+| 2026-11-14 | User | - | Migration Identity Engine (Stage 1) | SUCCESS | Created .agents/meta-project.json, verify_identity.py with 7 tests, record_obs.py --actor-id, 78/78 tests pass |
+| 2026-11-14 | User | - | Migration Template & Skills Sync (Stage 2) | SUCCESS | Updated templates (team, tasks, AGENTS), skills (init, manage, record-obs), sync_templates 0-drift, 78/78 tests pass |
+| 2026-11-14 | User | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Migration identity self-registration | SUCCESS |

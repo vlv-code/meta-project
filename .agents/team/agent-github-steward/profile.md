@@ -1,6 +1,9 @@
 ---
 name: "GitHub Steward & Release Captain"
 role_id: "agent-github-steward"
+harness_id: "antigravity"
+installation_id: "ag-main"
+actor_id: "vlv-code/meta-project::antigravity::ag-main::agent-github-steward"
 description: "Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity."
 tools:
   - read_file
@@ -19,7 +22,10 @@ invocation_triggers:
 # Agent Role Passport: agent-github-steward (GitHub Steward & Release Captain)
 
 ## 1. Purpose and Scope of Responsibility
-- **Role Identifier:** `agent-github-steward`
+- **Role Identifier (`role_id`):** `agent-github-steward`
+- **Actor Identifier (`actor_id`):** `vlv-code/meta-project::antigravity::ag-main::agent-github-steward`
+- **Harness / Installation:** `antigravity` (`ag-main`)
+- **Project Registry:** `.agents/meta-project.json`
 - **Product Scope:** Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity.
 - **User Invocation Triggers:** "git hygiene", "audit ci", "prepare release", "check readme parity", "conventional commit".
 
@@ -53,23 +59,27 @@ invocation_triggers:
 ---
 
 ## 5. Role Invocation Log (Telemetry)
-| Date | Initiator | Task / Invocation | Status / Result |
-| :--- | :--- | :--- | :--- |
-| 2026-11-07 | System / User | Role initialization (Compact Trio deployment) | Role activated |
-| 2026-11-09 | User | Role activation & pre-flight protocol check | Completed / Standby |
-| 2026-11-10 | User | Code-to-README truth parity (README.md & README.ru.md) | Completed: skills & templates aligned |
-| 2026-11-10 01:00 | User | Full repo audit (Git hygiene, CI/CD, tests, docs) | Completed: 3 risks identified, test suite 7/7 OK |
-| 2026-11-10 01:13 | User | CI/CD fix (.github/workflows/ci.yml) & CHANGELOG sync | Completed: paths-ignore corrected, CHANGELOG updated |
-| 2026-11-10 15:53 | User | GitHub Release Preparation (v1.0.0-alpha.1) | Completed: WIP warnings added, CHANGELOG cut, release tag ready |
-| 2026-11-10 16:03 | User | Add donation links & FUNDING.yml | Completed: Boosty, USDT TON, FUNDING.yml added |
-| 2026-11-10 16:17 | User | GitHub About metadata & topics sync | Completed: description, homepage, and 13 topics applied |
-| 2026-11-10 16:38 | User | Git history & repo sanitization (Option B) | Completed: personal usernames/paths cleaned, history rewritten to vlv-code, force pushed |
-| 2026-11-10 19:16 | User | Push lifecycle suite & architecture drift detector | Completed: pushed df5c0fa and 554afb0 to origin/main |
-| 2026-11-11 09:12 | User | Code-to-README truth parity (README, CONTRIBUTING, CHANGELOG) | Completed: added 3 lifecycle skills, global AGENTS template, synchronized changelog |
-| 2026-11-11 12:35 | User | Codify Role Identity Invariance & prevent role drift | Completed: verified 51/51 tests, pushed to origin/main |
-| 2026-11-13 09:57 | User | Audit CI & configure base diff evaluation in GitHub Actions | Completed: updated ci.yml with full history checkout, diff step, and template check |
-| 2026-11-12 | Phase P0 Git & CI Closeout | SUCCESS | Git tree clean, conventional commits verified |
-| 2026-11-13 | User | Step 37 (P1.0): Git Hygiene & conventional commit for architectural calibration | Completed: committed P1.0 calibration (docs, templates, skills, .agents) |
-| 2026-11-13 17:35 | User | Step 40 (P1.1): Git Hygiene & conventional commit for record_obs.py | Completed: committed record_obs.py, test suite, skill mirrors, and AGENTS.md |
-| 2026-11-13 21:45 | User | Step 42 (P1.2): Git Hygiene & conventional commit for Red Zone hardening | Completed: committed CODEOWNERS, boundaries hardening, test suite, and skill mirrors |
-| 2026-11-14 19:35 | User | Step 45: Release Git Hygiene & Conventional Commit for kernel hardening | Completed: committed core utilities hardening and auditor remediation (69/69 tests pass) |
+*(Strictly 1 concise summary entry per completed task upon task closeout. Micro-step tracking belongs in `tasks.md`)*
+
+| Date | Initiator | Actor ID | Task / Invocation | Status / Result |
+| :--- | :--- | :--- | :--- | :--- |
+| 2026-11-07 | System / User | - | Role initialization (Compact Trio deployment) | Role activated |
+| 2026-11-09 | User | - | Role activation & pre-flight protocol check | Completed / Standby |
+| 2026-11-10 | User | - | Code-to-README truth parity (README.md & README.ru.md) | Completed: skills & templates aligned |
+| 2026-11-10 01:00 | User | - | Full repo audit (Git hygiene, CI/CD, tests, docs) | Completed: 3 risks identified, test suite 7/7 OK |
+| 2026-11-10 01:13 | User | - | CI/CD fix (.github/workflows/ci.yml) & CHANGELOG sync | Completed: paths-ignore corrected, CHANGELOG updated |
+| 2026-11-10 15:53 | User | - | GitHub Release Preparation (v1.0.0-alpha.1) | Completed: WIP warnings added, CHANGELOG cut, release tag ready |
+| 2026-11-10 16:03 | User | - | Add donation links & FUNDING.yml | Completed: Boosty, USDT TON, FUNDING.yml added |
+| 2026-11-10 16:17 | User | - | GitHub About metadata & topics sync | Completed: description, homepage, and 13 topics applied |
+| 2026-11-10 16:38 | User | - | Git history & repo sanitization (Option B) | Completed: personal usernames/paths cleaned, history rewritten to vlv-code, force pushed |
+| 2026-11-10 19:16 | User | - | Push lifecycle suite & architecture drift detector | Completed: pushed df5c0fa and 554afb0 to origin/main |
+| 2026-11-11 09:12 | User | - | Code-to-README truth parity (README, CONTRIBUTING, CHANGELOG) | Completed: added 3 lifecycle skills, global AGENTS template, synchronized changelog |
+| 2026-11-11 12:35 | User | - | Codify Role Identity Invariance & prevent role drift | Completed: verified 51/51 tests, pushed to origin/main |
+| 2026-11-13 09:57 | User | - | Audit CI & configure base diff evaluation in GitHub Actions | Completed: updated ci.yml with full history checkout, diff step, and template check |
+| 2026-11-12 | Phase P0 Git & CI Closeout | - | SUCCESS | Git tree clean, conventional commits verified |
+| 2026-11-13 | User | - | Step 37 (P1.0): Git Hygiene & conventional commit for architectural calibration | Completed: committed P1.0 calibration (docs, templates, skills, .agents) |
+| 2026-11-13 17:35 | User | - | Step 40 (P1.1): Git Hygiene & conventional commit for record_obs.py | Completed: committed record_obs.py, test suite, skill mirrors, and AGENTS.md |
+| 2026-11-13 21:45 | User | - | Step 42 (P1.2): Git Hygiene & conventional commit for Red Zone hardening | Completed: committed CODEOWNERS, boundaries hardening, test suite, and skill mirrors |
+| 2026-11-14 19:35 | User | - | Step 45: Release Git Hygiene & Conventional Commit for kernel hardening | Completed: committed core utilities hardening and auditor remediation (69/69 tests pass) |
+| 2026-11-14 | User | vlv-code/meta-project::antigravity::ag-main::agent-github-steward | Migration identity self-registration | SUCCESS |
+| 2026-11-14 21:50 | User | vlv-code/meta-project::antigravity::ag-main::agent-github-steward | Step 51: Git Hygiene & Conventional Commit for identity registry & migration prep | SUCCESS: committed multi-harness identity engine, registry, and templates (78/78 tests pass) |

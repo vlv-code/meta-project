@@ -1,6 +1,6 @@
-# Workspace and Private Notes: agent-github-steward (GitHub Steward & Release Captain)
+# Workspace and Private Notes: agent-github-steward (GitHub Steward & Release Captain) (`vlv-code/meta-project::antigravity::ag-main::agent-github-steward`)
 
-This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `agent-github-steward`.
+This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `agent-github-steward` (Actor: `vlv-code/meta-project::antigravity::ag-main::agent-github-steward`).
 No other agent is permitted to modify the contents of this file.
 
 ---

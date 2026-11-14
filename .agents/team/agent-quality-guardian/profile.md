@@ -1,6 +1,9 @@
 ---
 name: "Quality & Meta-Architecture Guardian"
 role_id: "agent-quality-guardian"
+harness_id: "antigravity"
+installation_id: "ag-main"
+actor_id: "vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian"
 description: "Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing."
 tools:
   - read_file
@@ -20,7 +23,10 @@ invocation_triggers:
 # Agent Role Passport: agent-quality-guardian (Quality & Meta-Architecture Guardian)
 
 ## 1. Purpose and Scope of Responsibility
-- **Role Identifier:** `agent-quality-guardian`
+- **Role Identifier (`role_id`):** `agent-quality-guardian`
+- **Actor Identifier (`actor_id`):** `vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian`
+- **Harness / Installation:** `antigravity` (`ag-main`)
+- **Project Registry:** `.agents/meta-project.json`
 - **Product Scope:** Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing (`agent-meta-guardian` + `agent-qa-engineer` + `agent-deep-auditor`).
 - **User Invocation Triggers:** "verify meta-project structure", "run tests", "audit passport", "audit knowledge base", "check links", "check dead code".
 
@@ -54,20 +60,24 @@ invocation_triggers:
 ---
 
 ## 5. Role Invocation Log (Telemetry)
-| Date | Initiator | Task / Invocation | Status / Result |
-| :--- | :--- | :--- | :--- |
-| 2026-11-07 | System / User | Role initialization (Compact Trio deployment) | Role activated |
-| 2026-11-07 14:38 | User | Session role adoption via manage-meta-project | Active duty as quality & meta guardian |
-| 2026-11-10 00:52 | User | Full repo audit & Global skills sync (Task 6) | Completed: test suite passed (7/7), global skills synchronized, handoff package generated |
-| 2026-11-10 01:23 | User | Sync repo meta-structure with applied .agents | Completed: .agents/skills/init-meta-project synced, architecture.md & boundaries.md updated, 7/7 tests passing |
-| 2026-11-10 19:10 | User | Verification of Definition of Done & drift detection | Passed: 51/51 tests OK, 0 template drift, 100% boundary coverage |
-| 2026-11-12 22:10 | User | Audit of compact_memory fix & regression suite run | Passed: 53/53 tests OK, observations.md safe, gate cleared for agent-github-steward |
-| 2026-11-12 22:58 | User | Verification of sync_templates sentinels & integrity suite | Passed: 0 template drift, 16/16 integrity tests OK, 7/7 sync tests OK, 55/55 total tests OK |
-| 2026-11-13 01:10 | User | Verification of pre-commit safe chain & ground-meta-project | Passed: 25/25 boundary tests OK, 56/56 full suite OK, 100% boundary coverage, gate cleared |
-| 2026-11-13 10:23 | User | Final quality gate for Phase P0 & CI pipeline verification | Passed: 57/57 tests OK, 0 drift, 100% boundary coverage, gate cleared for agent-github-steward |
-| 2026-11-12 | Phase P0 Audit & Weak Spots Update | SUCCESS | Verified 53+ tests, resolved P0 debt |
-| 2026-11-13 | User | Step 36 (P1.0): Verification of architectural invariants & templates | Passed: 57/57 tests OK, 0 template drift, 100% boundary coverage, gate cleared |
-| 2026-11-13 17:25 | User | Step 39 (P1.1): Audit of record_obs.py CLI & memory safety | Passed: 5/5 unit tests, live pipe escaping verified, 62/62 regression tests OK, 0 template drift, 100% boundary coverage |
-| 2026-11-13 21:35 | User | Step 41 (P1.2): Red Zone hardening & CODEOWNERS audit | Passed: 100% boundary coverage (8 Red Zone files), Red Zone violation block confirmed, 62/62 tests OK, 0 template drift |
-| 2026-11-13 22:55 | User | Step 42: Full harness sync (global skills & active team roles) | Completed: 9 global skills in 100% parity, active role prompts & profiles updated with P1.0 invariants, 62/62 tests OK |
-| 2026-11-14 19:30 | User | Step 44: Acceptance audit of external auditor core hardening | Passed: 69/69 tests OK, 0 template drift, 100% boundary coverage, clean diff-gate against HEAD |
+*(Strictly 1 concise summary entry per completed task upon task closeout. Micro-step tracking belongs in `tasks.md`)*
+
+| Date | Initiator | Actor ID | Task / Invocation | Status / Result |
+| :--- | :--- | :--- | :--- | :--- |
+| 2026-11-07 | System / User | - | Role initialization (Compact Trio deployment) | Role activated |
+| 2026-11-07 14:38 | User | - | Session role adoption via manage-meta-project | Active duty as quality & meta guardian |
+| 2026-11-10 00:52 | User | - | Full repo audit & Global skills sync (Task 6) | Completed: test suite passed (7/7), global skills synchronized, handoff package generated |
+| 2026-11-10 01:23 | User | - | Sync repo meta-structure with applied .agents | Completed: .agents/skills/init-meta-project synced, architecture.md & boundaries.md updated, 7/7 tests passing |
+| 2026-11-10 19:10 | User | - | Verification of Definition of Done & drift detection | Passed: 51/51 tests OK, 0 template drift, 100% boundary coverage |
+| 2026-11-12 22:10 | User | - | Audit of compact_memory fix & regression suite run | Passed: 53/53 tests OK, observations.md safe, gate cleared for agent-github-steward |
+| 2026-11-12 22:58 | User | - | Verification of sync_templates sentinels & integrity suite | Passed: 0 template drift, 16/16 integrity tests OK, 7/7 sync tests OK, 55/55 total tests OK |
+| 2026-11-13 01:10 | User | - | Verification of pre-commit safe chain & ground-meta-project | Passed: 25/25 boundary tests OK, 56/56 full suite OK, 100% boundary coverage, gate cleared |
+| 2026-11-13 10:23 | User | - | Final quality gate for Phase P0 & CI pipeline verification | Passed: 57/57 tests OK, 0 drift, 100% boundary coverage, gate cleared for agent-github-steward |
+| 2026-11-12 | Phase P0 Audit & Weak Spots Update | - | SUCCESS | Verified 53+ tests, resolved P0 debt |
+| 2026-11-13 | User | - | Step 36 (P1.0): Verification of architectural invariants & templates | Passed: 57/57 tests OK, 0 template drift, 100% boundary coverage, gate cleared |
+| 2026-11-13 17:25 | User | - | Step 39 (P1.1): Audit of record_obs.py CLI & memory safety | Passed: 5/5 unit tests, live pipe escaping verified, 62/62 regression tests OK, 0 template drift, 100% boundary coverage |
+| 2026-11-13 21:35 | User | - | Step 41 (P1.2): Red Zone hardening & CODEOWNERS audit | Passed: 100% boundary coverage (8 Red Zone files), Red Zone violation block confirmed, 62/62 tests OK, 0 template drift |
+| 2026-11-13 22:55 | User | - | Step 42: Full harness sync (global skills & active team roles) | Completed: 9 global skills in 100% parity, active role prompts & profiles updated with P1.0 invariants, 62/62 tests OK |
+| 2026-11-14 19:30 | User | - | Step 44: Acceptance audit of external auditor core hardening | Passed: 69/69 tests OK, 0 template drift, 100% boundary coverage, clean diff-gate against HEAD |
+| 2026-11-14 | User | vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian | Migration identity self-registration | SUCCESS |
+| 2026-11-14 21:45 | User | vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian | Step 50: Comprehensive audit of multi-harness migration readiness | SUCCESS: 78/78 tests OK, 0 drift, 100% boundary coverage, identity verified |

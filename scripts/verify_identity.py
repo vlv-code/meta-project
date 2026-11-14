@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""
+Multi-Harness Identity Engine & Registry Validator.
+Zero-dependency utility (pure Python 3.10+ standard library).
+Validates .agents/meta-project.json registry, actor_id bindings, and profile synchronization.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import re
+import sys
+from typing import Any, Dict, List, Optional, Tuple
+
+DEFAULT_REGISTRY_REL = Path(".agents/meta-project.json")
+
+
+def parse_yaml_frontmatter(content: str) -> Dict[str, str]:
+    """Extracts key-value string pairs from YAML frontmatter between --- markers."""
+    match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+    if not match:
+        return {}
+    frontmatter_text = match.group(1)
+    result: Dict[str, str] = {}
+    for line in frontmatter_text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" in line:
+            key, val = line.split(":", 1)
+            key = key.strip()
+            val = val.strip().strip("'\"")
+            result[key] = val
+    return result
+
+
+def load_registry(repo_root: Path) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Loads and parses .agents/meta-project.json."""
+    registry_path = repo_root / DEFAULT_REGISTRY_REL
+    if not registry_path.is_file():
+        return None, f"Registry file missing: {DEFAULT_REGISTRY_REL} at {repo_root}"
+    try:
+        content = registry_path.read_text(encoding="utf-8")
+        data = json.loads(content)
+        return data, None
+    except Exception as exc:
+        return None, f"Failed to parse {DEFAULT_REGISTRY_REL}: {exc}"
+
+
+def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
+    """
+    Validates complete identity registry and all role profile bindings.
+    Returns (is_valid, list_of_errors).
+    """
+    errors: List[str] = []
+    registry, err = load_registry(repo_root)
+    if err:
+        return False, [err]
+
+    assert registry is not None
+
+    schema_version = registry.get("schema_version")
+    if not schema_version:
+        errors.append("Missing required field 'schema_version' in registry")
+
+    project_id = registry.get("project_id")
+    if not project_id:
+        errors.append("Missing required field 'project_id' in registry")
+
+    installations: Dict[str, Any] = registry.get("installations", {})
+    if not isinstance(installations, dict) or not installations:
+        errors.append("Missing or invalid 'installations' dictionary in registry")
+
+    roles: Dict[str, Any] = registry.get("roles", {})
+    if not isinstance(roles, dict) or not roles:
+        errors.append("Missing or invalid 'roles' dictionary in registry")
+
+    seen_actor_ids: Dict[str, str] = {}
+
+    for inst_id, inst_data in installations.items():
+        if not isinstance(inst_data, dict):
+            errors.append(f"Installation '{inst_id}' must be an object")
+            continue
+        harness_id = inst_data.get("harness_id")
+        status = inst_data.get("status")
+        if not harness_id:
+            errors.append(f"Installation '{inst_id}' missing 'harness_id'")
+        if not status:
+            errors.append(f"Installation '{inst_id}' missing 'status'")
+
+    for role_id, role_data in roles.items():
+        if not isinstance(role_data, dict):
+            errors.append(f"Role '{role_id}' must be an object")
+            continue
+
+        bindings: Dict[str, Any] = role_data.get("bindings", {})
+        if not isinstance(bindings, dict):
+            errors.append(f"Role '{role_id}' missing 'bindings' dictionary")
+            continue
+
+        for inst_id, binding in bindings.items():
+            if not isinstance(binding, dict):
+                errors.append(f"Binding '{role_id}.{inst_id}' must be an object")
+                continue
+
+            actor_id = binding.get("actor_id")
+            b_status = binding.get("status")
+            profile_path_rel = binding.get("profile_path")
+
+            if not actor_id:
+                errors.append(f"Binding '{role_id}.{inst_id}' missing 'actor_id'")
+                continue
+
+            # Duplicate check
+            existing_loc = seen_actor_ids.get(actor_id)
+            if existing_loc:
+                errors.append(
+                    f"Duplicate actor_id '{actor_id}' found in '{role_id}.{inst_id}' and '{existing_loc}'"
+                )
+            else:
+                seen_actor_ids[actor_id] = f"{role_id}.{inst_id}"
+
+            # Format check: project_id::harness_id::installation_id::role_id
+            parts = actor_id.split("::")
+            if len(parts) != 4:
+                errors.append(
+                    f"Invalid actor_id format '{actor_id}'. Expected '<project_id>::<harness_id>::<installation_id>::<role_id>'"
+                )
+            else:
+                p_id, h_id, i_id, r_id = parts
+                if project_id and p_id != project_id:
+                    errors.append(
+                        f"actor_id '{actor_id}' project_id mismatch: '{p_id}' != '{project_id}'"
+                    )
+                if i_id != inst_id:
+                    errors.append(
+                        f"actor_id '{actor_id}' installation_id mismatch: '{i_id}' != '{inst_id}'"
+                    )
+                if r_id != role_id:
+                    errors.append(
+                        f"actor_id '{actor_id}' role_id mismatch: '{r_id}' != '{role_id}'"
+                    )
+
+            # Check installation existence & planned status rules
+            inst_info = installations.get(inst_id)
+            if not inst_info:
+                errors.append(
+                    f"Binding '{role_id}.{inst_id}' references unknown installation '{inst_id}'"
+                )
+            else:
+                inst_status = inst_info.get("status")
+                if inst_status == "planned" and b_status == "active":
+                    errors.append(
+                        f"Binding '{role_id}.{inst_id}' cannot be 'active' while installation '{inst_id}' status is 'planned'"
+                    )
+
+            # Profile verification if path specified
+            if profile_path_rel:
+                prof_path = repo_root / profile_path_rel
+                if not prof_path.is_file():
+                    if b_status == "active":
+                        errors.append(
+                            f"Active role '{role_id}' missing profile file at {profile_path_rel}"
+                        )
+                else:
+                    prof_content = prof_path.read_text(encoding="utf-8")
+                    frontmatter = parse_yaml_frontmatter(prof_content)
+
+                    p_actor_id = frontmatter.get("actor_id")
+                    p_role_id = frontmatter.get("role_id")
+                    p_harness_id = frontmatter.get("harness_id")
+                    p_inst_id = frontmatter.get("installation_id")
+
+                    if p_actor_id and p_actor_id != actor_id:
+                        errors.append(
+                            f"Mismatch in {profile_path_rel}: profile actor_id '{p_actor_id}' != registry '{actor_id}'"
+                        )
+                    if p_role_id and p_role_id != role_id:
+                        errors.append(
+                            f"Mismatch in {profile_path_rel}: profile role_id '{p_role_id}' != registry '{role_id}'"
+                        )
+
+                    # Check for premature active assertion of planned installation
+                    referenced_inst = p_inst_id
+                    if not referenced_inst and p_actor_id and len(p_actor_id.split("::")) == 4:
+                        referenced_inst = p_actor_id.split("::")[2]
+
+                    if referenced_inst and installations.get(referenced_inst, {}).get("status") == "planned":
+                        errors.append(
+                            f"Profile {profile_path_rel} prematurely references planned installation '{referenced_inst}' (installation status is 'planned')"
+                        )
+
+    is_valid = len(errors) == 0
+    return is_valid, errors
+
+
+def resolve_actor_binding(
+    repo_root: Path, actor_id: str
+) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    """
+    Looks up exact actor_id in registry and returns binding info if valid.
+    Fails closed if actor_id is unknown or invalid.
+    """
+    registry, _ = load_registry(repo_root)
+    if not registry:
+        return False, None
+
+    roles: Dict[str, Any] = registry.get("roles", {})
+    for role_id, role_data in roles.items():
+        bindings: Dict[str, Any] = role_data.get("bindings", {})
+        for inst_id, binding in bindings.items():
+            if binding.get("actor_id") == actor_id:
+                result = dict(binding)
+                result["role_id"] = role_id
+                result["installation_id"] = inst_id
+                return True, result
+
+    return False, None
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for verify_identity."""
+    parser = argparse.ArgumentParser(
+        description="Multi-Harness Identity Engine: Verify registry (.agents/meta-project.json) and role profile bindings."
+    )
+    parser.add_argument(
+        "--repo-root",
+        default=".",
+        help="Path to repository root (defaults to current directory)",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Perform comprehensive validation of registry and role profiles",
+    )
+    parser.add_argument(
+        "--actor",
+        help="Validate and resolve a specific qualified actor_id",
+    )
+
+    args = parser.parse_args(argv)
+    root = Path(args.repo_root).resolve()
+
+    if args.actor:
+        found, binding = resolve_actor_binding(root, args.actor)
+        if not found:
+            sys.stderr.write(f"[ERROR] Unresolved identity: actor_id '{args.actor}' not found in registry.\n")
+            return 1
+        sys.stdout.write(f"[OK] Identity resolved: {args.actor} -> role={binding['role_id']}, installation={binding['installation_id']}, status={binding.get('status')}\n")
+        return 0
+
+    if args.check:
+        valid, errors = validate_identity_registry(root)
+        if not valid:
+            sys.stderr.write(f"[ERROR] Identity verification failed ({len(errors)} issues):\n")
+            for err in errors:
+                sys.stderr.write(f"  * {err}\n")
+            return 1
+        sys.stdout.write("[OK] Identity verification passed: 0 errors detected. Registry and profiles in sync.\n")
+        return 0
+
+    parser.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,6 +1,9 @@
 ---
 name: "{{ROLE_TITLE}}"
 role_id: "{{ROLE_ID}}"
+harness_id: "{{HARNESS_ID}}"
+installation_id: "{{INSTALLATION_ID}}"
+actor_id: "{{ACTOR_ID}}"
 description: "{{ROLE_SCOPE}}"
 tools:
   - read_file
@@ -13,7 +16,10 @@ invocation_triggers:
 # Agent Role Passport: {{ROLE_TITLE}}
 
 ## 1. Purpose and Scope of Responsibility
-- **Role Identifier:** `{{ROLE_ID}}`
+- **Role Identifier (`role_id`):** `{{ROLE_ID}}`
+- **Actor Identifier (`actor_id`):** `{{ACTOR_ID}}`
+- **Harness / Installation:** `{{HARNESS_ID}}` (`{{INSTALLATION_ID}}`)
+- **Project Registry:** `.agents/meta-project.json`
 - **Product Scope:** {{ROLE_SCOPE}}
 - **User Invocation Triggers:** {{ROLE_TRIGGERS}}
 
@@ -46,6 +52,6 @@ invocation_triggers:
 ## 5. Role Invocation Log (Telemetry)
 *(Strictly 1 concise summary entry per completed task upon task closeout. Micro-step tracking belongs in `tasks.md`)*
 
-| Date | Initiator | Task / Invocation | Status / Result |
-| :--- | :--- | :--- | :--- |
-| {{INIT_DATE}} | System / User | Role initialization | Role activated |
+| Date | Initiator | Actor ID | Task / Invocation | Status / Result |
+| :--- | :--- | :--- | :--- | :--- |
+| {{INIT_DATE}} | System / User | {{ACTOR_ID}} | Role initialization | Role activated |

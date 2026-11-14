@@ -38,7 +38,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
   - *What to update:* immediately and atomically record solved non-trivial bugs using `record-observation`.
 - **Active Tasks (`.agents/project_knowledge/tasks.md`):**
   - *When to consult:* at the beginning of any session and upon completing subtasks.
-  - *What to update:* track execution progress, register new tasks and delegated steps.
+  - *What to update:* track execution progress, register new tasks and delegated steps with author and timestamp `[<actor_id> @ ISO_DATETIME]`.
 
 ## 4. Procedural Skills Registry
 ### Built-in meta-project skills:
@@ -66,7 +66,10 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
 5. When encountering hidden environment quirks, record the fact via `record-observation`.
 
-## 6. Project Agent Team (.agents/team/)
+## 6. Project Agent Team & Multi-Harness Identity (.agents/team/)
+Authoritative role bindings and installation identities are defined in `.agents/meta-project.json`.
+- **Identity Determination Protocol:** In runtime execution, every active agent determines its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` and verifies integrity via `scripts/verify_identity.py --check`.
+- **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be validated against `.agents/meta-project.json`, the agent must fail closed and report an unresolved identity.
 - [Lead Developer & Dispatcher](.agents/team/agent-dev-lead/profile.md) — Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation (invoked by: "plan task", "decompose request", "implement feature", "write script", "develop component", "fix logic")
 - [Quality & Meta-Architecture Guardian](.agents/team/agent-quality-guardian/profile.md) — Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing (invoked by: "verify meta-project structure", "run tests", "audit passport", "audit knowledge base", "check links", "check dead code")
 - [GitHub Steward & Release Captain](.agents/team/agent-github-steward/profile.md) — Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity (invoked by: "git hygiene", "audit ci", "prepare release", "check readme parity", "conventional commit")

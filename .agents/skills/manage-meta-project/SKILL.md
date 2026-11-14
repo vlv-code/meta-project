@@ -109,18 +109,22 @@ Generate a concise advisory proposal for the user:
 
 After user confirmation, perform the production write:
 1. Create directories for each approved role: `.agents/team/<role_id>/`.
-2. Scaffold `.agents/team/<role_id>/profile.md` using the reference template `templates/team/profile.md` (or the embedded template below):
-   - Fill in role ID, scope, invocation triggers, active skills, and boundary permissions.
-   - Initialize telemetry table with current date.
-3. Create a private notes file: `.agents/team/<role_id>/notes.md` using the reference template `templates/team/notes.md` (or the embedded template below).
-4. Generate the initial ready-to-use system prompt `.agents/team/<role_id>/system_prompt.md` using `templates/team/system_prompt.md` (or the embedded template below):
-   - Populate role name, purpose, skill stack, and canonical boundary permissions (Green / Yellow / Red).
-5. Register roles in root `AGENTS.md` under section:
+2. Register role in `.agents/meta-project.json` under `roles.<role_id>`:
+   - Configure bindings for active installation (e.g. `ag-main` with `status: "active"` and `profile_path: ".agents/team/<role_id>/profile.md"`).
+   - Configure planned migration bindings (e.g. `zc-main` with `status: "planned"` and `profile_path: null`).
+   - Derive qualified `actor_id`: `<project_id>::<harness_id>::<installation_id>::<role_id>`.
+3. Scaffold `.agents/team/<role_id>/profile.md` using the reference template `templates/team/profile.md` (or the embedded template below):
+   - Fill in role ID, qualified `actor_id`, `harness_id`, `installation_id`, scope, invocation triggers, active skills, and boundary permissions.
+   - Initialize telemetry table with current date, initiator, and `actor_id`.
+4. Create a private notes file: `.agents/team/<role_id>/notes.md` using the reference template `templates/team/notes.md` (or the embedded template below).
+5. Generate the initial ready-to-use system prompt `.agents/team/<role_id>/system_prompt.md` using `templates/team/system_prompt.md` (or the embedded template below):
+   - Populate role name, purpose, qualified `actor_id`, skill stack, and canonical boundary permissions (Green / Yellow / Red).
+6. Register roles in root `AGENTS.md` under section:
    ```markdown
-   ## 6. Project Agent Team (.agents/team/)
+   ## 6. Project Agent Team & Multi-Harness Identity (.agents/team/)
    - [{{ROLE_TITLE}}](.agents/team/{{ROLE_ID}}/profile.md) — {{ROLE_SCOPE}} (invoked by: {{ROLE_TRIGGERS}})
    ```
-6. Generate and display a compact Quick-Launch Table to the user without spamming long prompt text in chat:
+7. Generate and display a compact Quick-Launch Table to the user without spamming long prompt text in chat:
    ```markdown
    | Role | Purpose | System Prompt Path | Trigger Keywords |
    | :--- | :--- | :--- | :--- |
@@ -170,6 +174,9 @@ The agent concluding `manage-meta-project` does not end the session idling or re
 ---
 name: "{{ROLE_TITLE}}"
 role_id: "{{ROLE_ID}}"
+harness_id: "{{HARNESS_ID}}"
+installation_id: "{{INSTALLATION_ID}}"
+actor_id: "{{ACTOR_ID}}"
 description: "{{ROLE_SCOPE}}"
 tools:
   - read_file
@@ -182,7 +189,10 @@ invocation_triggers:
 # Agent Role Passport: {{ROLE_TITLE}}
 
 ## 1. Purpose and Scope of Responsibility
-- **Role Identifier:** `{{ROLE_ID}}`
+- **Role Identifier (`role_id`):** `{{ROLE_ID}}`
+- **Actor Identifier (`actor_id`):** `{{ACTOR_ID}}`
+- **Harness / Installation:** `{{HARNESS_ID}}` (`{{INSTALLATION_ID}}`)
+- **Project Registry:** `.agents/meta-project.json`
 - **Product Scope:** {{ROLE_SCOPE}}
 - **User Invocation Triggers:** {{ROLE_TRIGGERS}}
 
@@ -215,18 +225,18 @@ invocation_triggers:
 ## 5. Role Invocation Log (Telemetry)
 *(Strictly 1 concise summary entry per completed task upon task closeout. Micro-step tracking belongs in `tasks.md`)*
 
-| Date | Initiator | Task / Invocation | Status / Result |
-| :--- | :--- | :--- | :--- |
-| {{INIT_DATE}} | System / User | Role initialization | Role activated |
+| Date | Initiator | Actor ID | Task / Invocation | Status / Result |
+| :--- | :--- | :--- | :--- | :--- |
+| {{INIT_DATE}} | System / User | {{ACTOR_ID}} | Role initialization | Role activated |
 ```
 <!-- TEMPLATE:END profile.md -->
 
 ### Template: `notes.md`
 <!-- TEMPLATE:BEGIN notes.md -->
 ```markdown
-# Workspace and Private Notes: {{ROLE_TITLE}}
+# Workspace and Private Notes: {{ROLE_TITLE}} (`{{ACTOR_ID}}`)
 
-This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `{{ROLE_ID}}`.
+This document is dedicated exclusively to the in-depth working context, drafts, and role-specific specifications of `{{ROLE_ID}}` (Actor: `{{ACTOR_ID}}`).
 No other agent is permitted to modify the contents of this file.
 
 ---
@@ -249,9 +259,9 @@ No other agent is permitted to modify the contents of this file.
 ### Template: `system_prompt.md`
 <!-- TEMPLATE:BEGIN system_prompt.md -->
 ```markdown
-# Initial System Prompt: {{ROLE_TITLE}} (`{{ROLE_ID}}`)
+# Initial System Prompt: {{ROLE_TITLE}} (`{{ACTOR_ID}}`)
 
-You are a specialized repository agent: **{{ROLE_TITLE}}** (`{{ROLE_ID}}`).
+You are a specialized repository agent: **{{ROLE_TITLE}}** with actor identity `{{ACTOR_ID}}` (logical role: `{{ROLE_ID}}`, harness: `{{HARNESS_ID}}::{{INSTALLATION_ID}}`).
 Your product scope: {{ROLE_SCOPE}}.
 
 ---
@@ -293,6 +303,6 @@ Perform silent internal verification before your first tool call or answer:
    - *Contract Duplication:* Is this logic mirrored in multiple languages or client modules?
 8. **Minimal Diffs, Maximal Depth & Adversarial TDD:** "Minimal changes" means minimal width of interference (no unrelated refactoring), but maximal depth of root-cause investigation. When practicing TDD, enforce the Adversarial Testing Invariant: write negative/adversarial boundary tests and confirm RED failure before implementing code for GREEN. Never apply regex sanitizing or ad-hoc patches to suppress symptom errors.
 9. **Pragmatic Handoff vs Dogmatism:** If the user explicitly asks you to inspect or patch a minor issue within the current session, proceed without forcing a handoff. Only trigger a structured Handoff Packet if the task requires deep domain architecture outside your skills, or if you lack the required toolchain to test the change safely.
-10. **Role Identity Invariance:** Your role changes ONLY upon explicit user instruction; changing roles autonomously is prohibited.
+10. **Role and Qualified Identity Invariance:** You operate under a concrete qualified identity: `{{ACTOR_ID}}`, registered in `.agents/meta-project.json`. Changing roles or installations autonomously is prohibited. Reading another role's profile or notes does NOT alter your active identity. If your identity cannot be validated against `.agents/meta-project.json`, report unresolved identity rather than guessing by directory name.
 ```
 <!-- TEMPLATE:END system_prompt.md -->
