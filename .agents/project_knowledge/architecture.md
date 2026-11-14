@@ -22,8 +22,8 @@
   - `skills/record-observation/` — standardized logging of quirks and solutions into `observations.md` via `record_obs.py`.
   - `skills/sync-architecture/` — structural analysis and generation of the architectural slice.
 - **Automation Scripts (`scripts/`):**
-  - `scripts/check_boundaries.py` — zero-dependency CLI enforcing Default Deny and responsibility zones via Git diff (supports `--audit-tree` for 100% path coverage, `--diff` for base revision comparison, and `--install-hook` for safe pre-commit chaining).
-  - `scripts/compact_memory.py` — memory compaction utility rotating oversized observation tables and completed tasks into `.agents/project_knowledge/archive/`, permanently preserving `[pin]` invariant entries.
+  - `scripts/check_boundaries.py` — zero-dependency CLI enforcing Default Deny and responsibility zones via Git diff (supports bilingual Russian/English zone headers, `--audit-tree` for 100% path coverage, `--diff` for base revision comparison, and `--install-hook` for safe pre-commit chaining).
+  - `scripts/compact_memory.py` — memory compaction utility rotating oversized observation tables and completed tasks into `.agents/project_knowledge/archive/`, permanently preserving `[pin]` invariant entries with cross-platform file locking (`msvcrt` / `fcntl`) and index-based row retention.
   - `scripts/sync_templates.py` — zero-dependency template injection and skill parity synchronizer (`--check` and `--write`).
   - `scripts/record_obs.py` — zero-dependency CLI utility appending validated, escaped observation rows to `observations.md` with cross-platform file locking (`msvcrt` / `fcntl`).
 - **Verification Layer (`tests/`):**

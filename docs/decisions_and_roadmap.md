@@ -363,9 +363,9 @@
   - [x] P0.3: Безопасное слияние существующих проверок в `check_boundaries.py --install-hook` (chain execution).
   - [x] P0.4: Доработка CI workflow (`.github/workflows/ci.yml`): раздельное определение базы для PR (`github.base_ref`) и push (`github.event.before` с вычислением `merge-base` для нулевого SHA), использование доверенной версии гейта, интеграция с branch protection; поддержка `--diff` в CLI.
 - **P1 (Механизация рутины, защита политик и калибровка ролей):**
-  - [ ] P1.0: Калибровка North Stars, ADR #18–#19, шаблонов ролей и телеметрии (Default Closed, Adversarial TDD, Tier 0 Duo, 1 строка телеметрии на задачу).
-  - [ ] P1.1: Создание CLI-утилиты `scripts/record_obs.py` (валидация категорий, экранирование Markdown-пайпов, дедупликация, файловая блокировка от гонок).
-  - [ ] P1.2: Перевод файлов политик (`check_boundaries.py`, `boundaries.md`, `ci.yml`) в Red Zone и формализация `CODEOWNERS` с обязательными проверками в GitHub.
+  - [x] P1.0: Калибровка North Stars, ADR #18–#19, шаблонов ролей и телеметрии (Default Closed, Adversarial TDD, Tier 0 Duo, 1 строка телеметрии на задачу).
+  - [x] P1.1: Создание CLI-утилиты `scripts/record_obs.py` (валидация категорий, экранирование Markdown-пайпов, дедупликация, файловая блокировка от гонок).
+  - [x] P1.2: Перевод файлов политик (`check_boundaries.py`, `boundaries.md`, `ci.yml`) в Red Zone и формализация `CODEOWNERS` с обязательными проверками в GitHub.
   - [ ] P1.3: Описание режима «Tier 0 (Micro)» в `README.md` для компактных репозиториев (<3-5k LOC) без разворачивания команды агентов.
   - [ ] P1.4: Двуязычность ключевых решений (перевод ADR и Lessons Learned на английский язык).
 - **P2 (Экосистема адаптеров харнессов):**

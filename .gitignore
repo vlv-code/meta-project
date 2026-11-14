@@ -22,5 +22,6 @@ Desktop.ini
 
 # Temporary empirical test artifacts
 *.log
+*.lock
 temp/
 scratch/

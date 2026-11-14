@@ -73,6 +73,7 @@ def sync_embedded_templates(
     for target_skill_rel, tmpl_map in EMBEDDED_TARGETS.items():
         skill_path = repo_root / target_skill_rel
         if not skill_path.is_file():
+            drift_messages.append(f"Missing target skill file: {target_skill_rel}")
             continue
 
         content = skill_path.read_text(encoding="utf-8")
@@ -81,6 +82,9 @@ def sync_embedded_templates(
         for tmpl_name, tmpl_rel in tmpl_map.items():
             tmpl_path = repo_root / tmpl_rel
             if not tmpl_path.is_file():
+                drift_messages.append(
+                    f"Missing canonical template file: {tmpl_rel} (required by {target_skill_rel})"
+                )
                 continue
 
             canonical_content = tmpl_path.read_text(encoding="utf-8")

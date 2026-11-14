@@ -123,7 +123,7 @@ def format_row(
         )
 
     cat_tag = f"[{norm_cat}][pin]" if pin else f"[{norm_cat}]"
-    clean_path = path.replace("\r", " ").replace("\n", " ").strip()
+    clean_path = escape_pipes(path)
     clean_issue = escape_pipes(issue)
     clean_solution = escape_pipes(solution)
 
@@ -144,6 +144,13 @@ def record_observation(
     Returns the appended table row.
     """
     target_date = date_str or datetime.date.today().isoformat()
+    try:
+        datetime.date.fromisoformat(target_date)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(
+            f"Invalid date format '{target_date}'. Expected ISO format 'YYYY-MM-DD'."
+        ) from exc
+
     row = format_row(
         date_str=target_date,
         category=category,

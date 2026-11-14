@@ -14,9 +14,9 @@
   - skills/tune-meta-project/ — навык калибровки и оптимизации агентной среды: диагностика трения Git, адаптация топологии ролей и кристаллизация фундаментальных инвариантов (не более 3 North Stars).
   - skills/update-meta-project/ — навык безопасного обновления фреймворка с GitHub или локального кэша с сохранением всех проектных данных в блоках local_repo_data.
 - **Детектор архитектурного дрейфа (Architecture Drift Warning)**:
-  - Эвристика мягкого предупреждения в scripts/check_boundaries.py: неблокирующее предупреждение при добавлении кодовых модулей (src/**, pp/**, lib/**, skills/**) без актуализации rchitecture.md.
+  - Эвристика мягкого предупреждения в scripts/check_boundaries.py: неблокирующее предупреждение при добавлении кодовых модулей (src/**, app/**, lib/**, skills/**) без актуализации architecture.md.
 - **Регламент Definition of Done (Silent Pre-Close Checklist)**:
-  - Обязательный чек-лист в системных промптах ролей (	emplates/team/system_prompt.md и активных промптах): актуализация rchitecture.md, закрытие рисков в weak_spots.md и фиксация телеметрии в profile.md.
+  - Обязательный чек-лист в системных промптах ролей (templates/team/system_prompt.md и активных промптах): актуализация architecture.md, закрытие рисков в weak_spots.md и фиксация телеметрии в profile.md.
 
 ### Fixed / Исправлено
 - Кроссплатформенная безопасность вывода: замена Unicode-эмодзи в stderr/stdout check_boundaries.py на ASCII-маркеры для предотвращения UnicodeEncodeError в консолях Windows (cp1251).

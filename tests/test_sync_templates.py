@@ -83,6 +83,39 @@ class TestTemplateInjection(unittest.TestCase):
             self.assertFalse(in_sync)
             self.assertTrue(any("Missing template block" in msg for msg in drift_msgs))
 
+    def test_missing_canonical_template_reports_drift(self):
+        """Verify that missing canonical template file is reported as drift rather than silently ignored."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            skill_dir = root / "skills" / "init-meta-project"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_text = (
+                "# Init Skill\n"
+                "### Template: `boundaries.md`\n"
+                "<!-- TEMPLATE:BEGIN boundaries.md -->\n"
+                "```markdown\nOLD BOUNDARIES\n```\n"
+                "<!-- TEMPLATE:END boundaries.md -->\n"
+            )
+            (skill_dir / "SKILL.md").write_text(skill_text, encoding="utf-8")
+
+            # Note: root / "templates" / "project_knowledge" / "boundaries.md" is intentionally NOT created
+            in_sync, drift_msgs = sync_templates.sync_embedded_templates(root, write=False)
+            self.assertFalse(in_sync)
+            self.assertTrue(any("Missing canonical template file" in msg for msg in drift_msgs))
+
+    def test_missing_target_skill_reports_drift(self):
+        """Verify that missing target skill file is reported as drift rather than silently ignored."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            # Create template but not skill file
+            tmpl_dir = root / "templates" / "project_knowledge"
+            tmpl_dir.mkdir(parents=True, exist_ok=True)
+            (tmpl_dir / "boundaries.md").write_text("# Canonical Boundaries\n", encoding="utf-8")
+
+            in_sync, drift_msgs = sync_templates.sync_embedded_templates(root, write=False)
+            self.assertFalse(in_sync)
+            self.assertTrue(any("Missing target skill file" in msg for msg in drift_msgs))
+
     def test_nested_fenced_backticks_replacement(self):
         """Verify template replacement handles inner triple backtick code blocks properly."""
         tmpl_content = "# Title\n\n```python\nprint('hello')\n```\n"
@@ -127,23 +160,64 @@ class TestSyncTemplatesCLI(unittest.TestCase):
     def test_cli_check_drift_detected_exit_1(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
-            # Create templates/
+            # Create all canonical templates
             (tmppath / "templates" / "project_knowledge").mkdir(parents=True)
+            (tmppath / "templates" / "team").mkdir(parents=True)
             (tmppath / "templates" / "project_knowledge" / "boundaries.md").write_text(
                 "CANONICAL BOUNDARIES V2", encoding="utf-8"
             )
-
-            # Create skills/
-            (tmppath / "skills" / "init-meta-project").mkdir(parents=True)
-            skill_text = """# Init Skill\n### Template: `boundaries.md`\n<!-- TEMPLATE:BEGIN boundaries.md -->\n```markdown\nOLD BOUNDARIES V1\n```\n<!-- TEMPLATE:END boundaries.md -->\n"""
-            (tmppath / "skills" / "init-meta-project" / "SKILL.md").write_text(
-                skill_text, encoding="utf-8"
+            (tmppath / "templates" / "project_knowledge" / "observations.md").write_text(
+                "CANONICAL OBS", encoding="utf-8"
+            )
+            (tmppath / "templates" / "project_knowledge" / "weak_spots.md").write_text(
+                "CANONICAL WEAK", encoding="utf-8"
+            )
+            (tmppath / "templates" / "AGENTS.md").write_text(
+                "CANONICAL AGENTS", encoding="utf-8"
+            )
+            (tmppath / "templates" / "team" / "profile.md").write_text(
+                "CANONICAL PROFILE", encoding="utf-8"
+            )
+            (tmppath / "templates" / "team" / "notes.md").write_text(
+                "CANONICAL NOTES", encoding="utf-8"
+            )
+            (tmppath / "templates" / "team" / "system_prompt.md").write_text(
+                "CANONICAL PROMPT", encoding="utf-8"
             )
 
-            # Create .agents/skills/ with matching old content
+            # Create skills/init-meta-project (with intentional drift in boundaries.md)
+            (tmppath / "skills" / "init-meta-project").mkdir(parents=True)
+            init_skill = (
+                "# Init Skill\n"
+                "### Template: `boundaries.md`\n<!-- TEMPLATE:BEGIN boundaries.md -->\n```markdown\nOLD BOUNDARIES V1\n```\n<!-- TEMPLATE:END boundaries.md -->\n"
+                "### Template: `observations.md`\n<!-- TEMPLATE:BEGIN observations.md -->\n```markdown\nCANONICAL OBS\n```\n<!-- TEMPLATE:END observations.md -->\n"
+                "### Template: `weak_spots.md`\n<!-- TEMPLATE:BEGIN weak_spots.md -->\n```markdown\nCANONICAL WEAK\n```\n<!-- TEMPLATE:END weak_spots.md -->\n"
+                "### Template: `AGENTS.md`\n<!-- TEMPLATE:BEGIN AGENTS.md -->\n```markdown\nCANONICAL AGENTS\n```\n<!-- TEMPLATE:END AGENTS.md -->\n"
+            )
+            (tmppath / "skills" / "init-meta-project" / "SKILL.md").write_text(
+                init_skill, encoding="utf-8"
+            )
+
+            # Create skills/manage-meta-project (in sync)
+            (tmppath / "skills" / "manage-meta-project").mkdir(parents=True)
+            manage_skill = (
+                "# Manage Skill\n"
+                "### Template: `profile.md`\n<!-- TEMPLATE:BEGIN profile.md -->\n```markdown\nCANONICAL PROFILE\n```\n<!-- TEMPLATE:END profile.md -->\n"
+                "### Template: `notes.md`\n<!-- TEMPLATE:BEGIN notes.md -->\n```markdown\nCANONICAL NOTES\n```\n<!-- TEMPLATE:END notes.md -->\n"
+                "### Template: `system_prompt.md`\n<!-- TEMPLATE:BEGIN system_prompt.md -->\n```markdown\nCANONICAL PROMPT\n```\n<!-- TEMPLATE:END system_prompt.md -->\n"
+            )
+            (tmppath / "skills" / "manage-meta-project" / "SKILL.md").write_text(
+                manage_skill, encoding="utf-8"
+            )
+
+            # Create .agents/skills/ matching skills/
             (tmppath / ".agents" / "skills" / "init-meta-project").mkdir(parents=True)
             (tmppath / ".agents" / "skills" / "init-meta-project" / "SKILL.md").write_text(
-                skill_text, encoding="utf-8"
+                init_skill, encoding="utf-8"
+            )
+            (tmppath / ".agents" / "skills" / "manage-meta-project").mkdir(parents=True)
+            (tmppath / ".agents" / "skills" / "manage-meta-project" / "SKILL.md").write_text(
+                manage_skill, encoding="utf-8"
             )
 
             # Run --check -> should detect drift and exit 1

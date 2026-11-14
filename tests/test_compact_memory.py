@@ -120,6 +120,28 @@ class TestCompactObservations(unittest.TestCase):
         self.assertNotIn("permanent invariant 1", archive)
         self.assertNotIn("permanent invariant 2", archive)
 
+    def test_compaction_with_duplicate_rows(self):
+        """Verify that duplicate rows are handled predictably without id()-based identity corruption."""
+        sample_dups = """# Agent Observations Base
+
+| Date | Category | Component / Path | Observation / Issue | Solution / Workaround |
+| :--- | :--- | :--- | :--- | :--- |
+| 2026-11-01 | [ci] | comp1 | identical issue | identical fix |
+| 2026-11-02 | [ci] | comp1 | identical issue | identical fix |
+| 2026-11-03 | [ci] | comp1 | identical issue | identical fix |
+| 2026-11-04 | [ci] | comp1 | identical issue | identical fix |
+| 2026-11-05 | [ci] | comp1 | identical issue | identical fix |
+"""
+        compacted, primary, archive = compact_memory.compact_observations(
+            sample_dups, max_rows=3, keep_rows=2
+        )
+        self.assertTrue(compacted)
+        # Should keep newest 2 rows
+        primary_rows = [line for line in primary.splitlines() if line.startswith("| 2026-")]
+        self.assertEqual(len(primary_rows), 2)
+        archive_rows = [line for line in archive.splitlines() if line.startswith("| 2026-")]
+        self.assertEqual(len(archive_rows), 3)
+
 
 
 class TestCompactTasks(unittest.TestCase):
@@ -252,6 +274,16 @@ class TestCompactMemoryCLI(unittest.TestCase):
             archive_content = archive_file.read_text(encoding="utf-8")
             self.assertIn("Invalid Date format returned", archive_content, "Row with 'Date' in text was lost!")
             self.assertIn("Missing --- separator in header", archive_content, "Row with '---' in text was lost!")
+
+    def test_file_lock_lifecycle(self):
+        """Verify cross-platform file_lock acquires and releases lock file cleanly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock_path = Path(tmpdir) / "test.lock"
+            with compact_memory.file_lock(lock_path):
+                self.assertTrue(lock_path.exists())
+            # Lock released; file can be reopened/locked again
+            with compact_memory.file_lock(lock_path):
+                self.assertTrue(lock_path.exists())
 
 
 if __name__ == "__main__":

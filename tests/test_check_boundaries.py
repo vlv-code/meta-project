@@ -83,6 +83,30 @@ class TestBoundaryGateParser(unittest.TestCase):
         self.assertIn("tests/test_unit_*.py", zones["green"])
         self.assertNotIn("AGENTS.md", zones["green"])
 
+    def test_russian_zone_headers_parsing(self):
+        """Verify that Russian zone headers (Зеленая зона, Желтая зона, Красная зона) are parsed correctly."""
+        content = """# Зоны ответственности
+## Зеленая зона (Автономные изменения)
+- `docs/**`, `*.md`
+- `src/utils/**`
+
+## Желтая зона (С обязательной верификацией)
+- `skills/**`
+- `templates/**`
+
+## Красная зона (Запрещено без подтверждения)
+- `scripts/check_boundaries.py`
+- `*boundaries.md`
+- `tests/test_integrity.py`
+"""
+        zones = check_boundaries.parse_boundaries(content)
+        self.assertIn("docs/**", zones["green"])
+        self.assertIn("src/utils/**", zones["green"])
+        self.assertIn("skills/**", zones["yellow"])
+        self.assertIn("templates/**", zones["yellow"])
+        self.assertIn("scripts/check_boundaries.py", zones["red"])
+        self.assertIn("*boundaries.md", zones["red"])
+
     def test_zero_depth_double_star_matching(self):
         regex = check_boundaries.glob_to_regex("src/**/test.py")
         self.assertTrue(bool(regex.match("src/test.py")))

@@ -100,6 +100,45 @@ class TestRecordObs(unittest.TestCase):
         unescaped_pipe_parts = re.split(r"(?<!\\)\|", last_line)
         self.assertEqual(len(unescaped_pipe_parts), 7)
 
+    def test_path_pipe_escaping(self):
+        r"""Verify that raw pipes '|' in path argument are properly escaped to '\|'."""
+        ret = main([
+            "--category", "boundaries",
+            "--path", "src/module | helper.py",
+            "--issue", "Issue text",
+            "--solution", "Solution text",
+            "--obs-file", str(self.obs_file),
+        ])
+        self.assertEqual(ret, 0)
+
+        content = self.obs_file.read_text(encoding="utf-8")
+        last_line = content.splitlines()[-1]
+        self.assertIn(r"src/module \| helper.py", last_line)
+        unescaped_pipe_parts = re.split(r"(?<!\\)\|", last_line)
+        self.assertEqual(len(unescaped_pipe_parts), 7)
+
+    def test_invalid_date_format_fails_exit_1(self):
+        """Adversarial check: verify that a malformed date string fails validation with exit code 1."""
+        ret = main([
+            "--category", "runtime",
+            "--path", "src/app.py",
+            "--issue", "Issue text",
+            "--solution", "Solution text",
+            "--date", "2026/11/14",  # Malformed date (slash instead of hyphen)
+            "--obs-file", str(self.obs_file),
+        ])
+        self.assertEqual(ret, 1)
+
+        ret_junk = main([
+            "--category", "runtime",
+            "--path", "src/app.py",
+            "--issue", "Issue text",
+            "--solution", "Solution text",
+            "--date", "not-a-date",
+            "--obs-file", str(self.obs_file),
+        ])
+        self.assertEqual(ret_junk, 1)
+
     def test_pinned_observation_flag(self):
         """Verify that --pin appends the [pin] invariant tag to the category tag."""
         ret = main([

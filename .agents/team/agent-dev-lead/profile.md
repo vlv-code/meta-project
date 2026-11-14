@@ -77,3 +77,4 @@ invocation_triggers:
 | 2026-11-13 | Phase P1.0 Implementation | SUCCESS | Calibrated North Stars, ADR #18–#19, Tier 0 Duo, Adversarial TDD, telemetry limits; 0 drift, 57/57 tests pass |
 | 2026-11-13 | Phase P1.1 Implementation | SUCCESS | Developed scripts/record_obs.py with category validation & file locking, 5 unit/adversarial tests pass, updated skill, 62/62 tests pass |
 | 2026-11-13 | Phase P1.2 Implementation | SUCCESS | Moved check_boundaries.py, boundaries.md & workflows to Red Zone, added .github/CODEOWNERS, updated tests, 62/62 tests pass |
+| 2026-11-14 | User | Kernel Hardening & Auditor Fixes | SUCCESS | Fixed Russian zones regex, record_obs escaping & ISO dates, sync_templates fail-closed, compact_memory locking & index retention, .gitignore, 69/69 tests pass |

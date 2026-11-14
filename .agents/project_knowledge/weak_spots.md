@@ -18,3 +18,6 @@ Registry of fragile areas, known bugs, and constraints of the repository. Agents
 - `[RESOLVED 2026-11-12] compact_memory.py`: Row filtering previously dropped observation records containing substring 'Date' or '---' when appending to an existing monthly archive. Resolved by switching to deterministic header slice `chunk_lines[2:]` and verified via unit tests.
 - `[RESOLVED 2026-11-12] sync_templates.py`: Regex-based template replacement exhibited false-green behavior on missing template blocks and failed on nested triple-backtick fenced blocks. Resolved by explicit HTML sentinel comments (`<!-- TEMPLATE:BEGIN/END -->`) and strict drift error detection.
 - `[RESOLVED 2026-11-13] check_boundaries.py`: Pre-commit hook installation (`--install-hook`) previously completely overwrote existing `.git/hooks/pre-commit` scripts. Resolved via non-destructive safe chaining (append with `|| exit 1`) and idempotency guard.
+- `[RESOLVED 2026-11-14] check_boundaries.py`: Russian zone regex character class defect fixed with non-capturing groups.
+- `[RESOLVED 2026-11-14] sync_templates.py`: Silent continue on missing templates/skills replaced with fail-closed drift reporting.
+- `[RESOLVED 2026-11-14] compact_memory.py`: Concurrency race condition with record_obs.py resolved via cross-platform file locking; id(r) anti-pattern replaced with enumeration index retention.

@@ -63,13 +63,13 @@ def parse_boundaries(content: str) -> Dict[str, List[str]]:
         line_str = line.strip()
 
         # Zone header detection
-        if re.search(r"##\s*(?:Green\s*Zone|Зелен[ая|ое]\s*зон[а|ы])", line_str, re.IGNORECASE):
+        if re.search(r"##\s*(?:Green\s*Zone|Зелен(?:ая|ое|ые)\s*зон(?:а|ы))", line_str, re.IGNORECASE):
             current_zone = "green"
             continue
-        elif re.search(r"##\s*(?:Yellow\s*Zone|Желт[ая|ое]\s*зон[а|ы])", line_str, re.IGNORECASE):
+        elif re.search(r"##\s*(?:Yellow\s*Zone|Желт(?:ая|ое|ые)\s*зон(?:а|ы))", line_str, re.IGNORECASE):
             current_zone = "yellow"
             continue
-        elif re.search(r"##\s*(?:Red\s*Zone|Красн[ая|ое]\s*зон[а|ы])", line_str, re.IGNORECASE):
+        elif re.search(r"##\s*(?:Red\s*Zone|Красн(?:ая|ое|ые)\s*зон(?:а|ы))", line_str, re.IGNORECASE):
             current_zone = "red"
             continue
         elif line_str.startswith("## ") and current_zone:
