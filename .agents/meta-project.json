@@ -1,6 +1,18 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "project_id": "vlv-code/meta-project",
+  "scenario": {
+    "profile": "active_development",
+    "deployment_mode": "shared_repo",
+    "collaboration_model": "triad",
+    "verification_policy": "strict_independent",
+    "delegation_level": "controlled",
+    "constraints": [
+      "zero_dependency_core",
+      "fail_closed_boundaries"
+    ],
+    "unresolved_questions": []
+  },
   "installations": {
     "ag-main": {
       "harness_id": "antigravity",

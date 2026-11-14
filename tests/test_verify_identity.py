@@ -203,6 +203,59 @@ actor_id: "vlv-code/meta-project::zcode::zc-main::agent-dev-lead"
             self.assertFalse(valid)
             self.assertIsNone(binding)
 
+    def test_registry_with_valid_scenario_passes_verification(self):
+        """Verifies that registry with schema 1.1.0 and valid scenario passes verification."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            agents_dir = root / ".agents"
+            agents_dir.mkdir(parents=True)
+
+            registry = dict(SAMPLE_VALID_REGISTRY)
+            registry["schema_version"] = "1.1.0"
+            registry["scenario"] = {
+                "profile": "active_development",
+                "deployment_mode": "shared_repo",
+                "collaboration_model": "triad",
+                "verification_policy": "strict_independent",
+                "delegation_level": "controlled",
+                "constraints": ["zero_dependency_core", "fail_closed_boundaries"],
+                "unresolved_questions": [],
+            }
+            (agents_dir / "meta-project.json").write_text(json.dumps(registry, indent=2), encoding="utf-8")
+
+            profile_dir = agents_dir / "team" / "agent-dev-lead"
+            profile_dir.mkdir(parents=True)
+            (profile_dir / "profile.md").write_text(SAMPLE_ACTIVE_PROFILE, encoding="utf-8")
+
+            valid, errors = verify_identity.validate_identity_registry(root)
+            self.assertTrue(valid, f"Validation failed: {errors}")
+            self.assertEqual(len(errors), 0)
+
+    def test_registry_invalid_scenario_profile_fails(self):
+        """Adversarial test: invalid scenario profile or malformed scenario section fails validation."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            agents_dir = root / ".agents"
+            agents_dir.mkdir(parents=True)
+
+            registry = dict(SAMPLE_VALID_REGISTRY)
+            registry["schema_version"] = "1.1.0"
+            registry["scenario"] = {
+                "profile": "invalid_unknown_profile",
+                "deployment_mode": "shared_repo",
+                "collaboration_model": "triad",
+                "verification_policy": "strict_independent",
+            }
+            (agents_dir / "meta-project.json").write_text(json.dumps(registry, indent=2), encoding="utf-8")
+
+            profile_dir = agents_dir / "team" / "agent-dev-lead"
+            profile_dir.mkdir(parents=True)
+            (profile_dir / "profile.md").write_text(SAMPLE_ACTIVE_PROFILE, encoding="utf-8")
+
+            valid, errors = verify_identity.validate_identity_registry(root)
+            self.assertFalse(valid, "Expected validation failure for invalid scenario profile")
+            self.assertTrue(any("scenario" in e.lower() for e in errors), f"Errors: {errors}")
+
 
 class TestVerifyIdentityCLI(unittest.TestCase):
     """Test CLI exit codes and output formatting."""

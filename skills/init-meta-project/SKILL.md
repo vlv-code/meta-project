@@ -44,11 +44,47 @@ The initialization skill strictly enforces the **Survey-First Zero-Write Invaria
 3. **Evaluate Capability Matrix:**
    Review readiness levels across: `read_instructions`, `local_checks`, `skills`, `roles`, `hooks` (`available`, `unavailable`, `untested`).
 4. **Select Execution Strategy:**
-   Route to the corresponding scenario in Phase 2 below.
+   Route to Phase 2 (Scenario Agreement) and the corresponding scenario in Phase 3 below.
 
 ---
 
-### Phase 2: Execution by Canonical State
+### Phase 2: Scenario Agreement and Decision Capture (Alignment Phase)
+
+After the initial survey, the agent executes the **Scenario Agreement Protocol** across 4 key dimensions:
+
+1. **Application (`profile`):**
+   - `active_development`: Active multi-file development, feature additions, frequent testing, and commits.
+   - `maintenance`: Bug fixing, dependency bumps, security patches, small refactorings.
+   - `research`: Exploratory research, prototyping, benchmark scripts, minimal formal structure.
+   - `audit`: Code analysis, security review, boundary and dependency audits, zero destructive edits.
+   - `documentation`: Documentation updates, API specifications, bilingual alignment, architectural diagrams.
+
+2. **Placement (`deployment_mode`):**
+   - `shared_repo`: Meta-Project instructions (`AGENTS.md`, `.agents/`) are committed to Git for team synchronization and CI/CD gates.
+   - `local_overlay`: Meta-Project files are placed into `.git/info/exclude` in the target repository (local invisible exoskeleton, 0 Git commits).
+   - `hybrid`: Canonical passport committed, but local agent notes and reports kept local.
+
+3. **Collaboration & Environments (`collaboration_model`):**
+   - `solo`: Single generalist agent (`agent-general-worker` or standalone fallback).
+   - `duo`: Tier 0 Micro-Mini Duo (`agent-dev-lead` + `agent-quality-guardian` / `agent-inspector-guardian`).
+   - `triad`: Canonical Compact Trio (`agent-dev-lead` + `agent-quality-guardian` + `agent-github-steward`).
+   - `specialized_swarm`: Domain-specific multi-role team (DevOps, QA, Legal, Security, UI/UX).
+   - Multi-harness targets: Identify primary and planned harnesses (`antigravity`, `zcode`, etc.).
+
+4. **Execution Rules (`verification_policy`, `delegation_level`):**
+   - `verification_policy`: `strict_independent` (independent Guardian/Inspector verification), `duo_peer_review`, or `self_check`.
+   - `delegation_level`: `strictly_manual`, `controlled`, or `autonomous`.
+   - Specific constraints: zero-dependency core, platform limits, sensitive paths.
+
+#### Core Invariants of Scenario Agreement:
+- **Repeat Run Invariant:** If the repository is in `HEALTHY_REGISTERED` and an agreed scenario is already recorded in `.agents/meta-project.json`, do NOT re-interview the user! Reuse the existing scenario.
+- **Strict Separation of Truth:** System outputs and reports must strictly separate User Decisions, Established Facts, and Agent Recommendations. Agent proposals must never be recorded as approved user decisions without confirmation.
+- **Capability-Desire Conflict Resolution:** If user desires conflict with environment capabilities (e.g., independent verification requested, but only solo agent supported by harness), present a concrete binary choice.
+- **Persistence:** Save the agreed scenario into `.agents/meta-project.json` under the `"scenario"` block with `schema_version: "1.1.0"`.
+
+---
+
+### Phase 3: Execution and Scaffolding by Canonical State
 
 #### Scenario 1: State `NONE` (Clean Scaffold Mode)
 If no structure exists, execute the standard two-pass algorithm:
@@ -191,6 +227,39 @@ If no structure exists, execute the standard two-pass algorithm:
 
 ---
 
+### Phase 4: Formal Initialization Report Generation and Manage Handoff
+
+Upon completing scaffolding or adaptation, the agent generates a machine-readable initialization report:
+
+1. **Generate Report File via stdlib Engine:**
+   ```bash
+   python scripts/manage_reports.py init --action create \
+     --installation <installation_id> \
+     --harness <harness_id> \
+     --actor <actor_id> \
+     --status <completed|awaiting_decision|blocked> \
+     --scenario-file <path_or_inline>
+   ```
+   The report is written atomically to:
+   `.agents/reports/<installation_id>/init/<init_run_id>.json`
+   and safely updates `.agents/reports/<installation_id>/init/latest.json`.
+
+2. **Status Semantics:**
+   - `completed`: All knowledge slices initialized, scenario agreed, baseline checks passed.
+   - `awaiting_decision`: Critical choices unresolved; report acts as a decision ledger, NOT as authorization to deploy.
+   - `blocked`: Environment incompatibility or broken invariants prevent completion.
+
+3. **No Automatic Team Deployment Invariant:**
+   **`init-meta-project` NEVER automatically deploys agent roles or teams.**
+   Init prepares repository knowledge, boundaries, scenario, and verification checks. Deploying or adapting agent roles is the exclusive responsibility of `manage-meta-project`.
+   At the end of initialization, output a concise human-readable summary and recommend invoking `manage-meta-project`:
+   ```text
+   Initialization complete. Report saved to .agents/reports/<installation_id>/init/<init_run_id>.json.
+   Recommended next step: Invoke 'manage-meta-project' to configure team roles according to the agreed scenario.
+   ```
+
+---
+
 ### Finalization and Verification
 
 1. Verify created/updated files using `Get-ChildItem -Recurse .agents` or `ls -R .agents`.
@@ -309,6 +378,7 @@ Areas requiring elevated caution and mandatory local test and linter execution p
 - `*formatting*`, `*render*`, `templates/** (except boundaries.md)` — formatting modules, template engines, and markup escaping (parsing errors break message delivery).
 - `keyboards.*`, `ui/**` — keyboard layouts and UI components.
 - `.agents/*.json` — project registries and identity binding definitions.
+- `.agents/reports/**` — initialization and team management audit reports.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 
 ---
@@ -431,6 +501,8 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
   `python scripts/compact_memory.py --dry-run`
 - **Atomic Observation Logging:**
   `python scripts/record_obs.py --category <cat> --component <path> --issue <text> --solution <text>`
+- **Initialization & Management Report Audit:**
+  `python scripts/manage_reports.py [init|manage|latest|verify]`
 
 ### Read-Only Exploration Mode
 When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:

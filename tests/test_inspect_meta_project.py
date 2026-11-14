@@ -278,6 +278,70 @@ class TestInspectMetaProject(unittest.TestCase):
         self.assertEqual(initial_snapshot, post_snapshot, "Survey phase must produce 0 file modifications or locks.")
 
     # -------------------------------------------------------------------------
+    # Scenario and Latest Init Report Inspection
+    # -------------------------------------------------------------------------
+    def test_inspector_surfaces_agreed_scenario_and_latest_init_report(self):
+        self._create_minimal_metaproject()
+
+        # Update meta-project.json with schema 1.1.0 and scenario block
+        registry_path = self.root / ".agents" / "meta-project.json"
+        with open(registry_path, "r", encoding="utf-8") as f:
+            registry = json.load(f)
+        registry["schema_version"] = "1.1.0"
+        registry["scenario"] = {
+            "profile": "active_development",
+            "deployment_mode": "shared_repo",
+            "collaboration_model": "triad",
+            "verification_policy": "strict_independent",
+            "delegation_level": "controlled",
+            "constraints": ["zero_dependency_core", "fail_closed_boundaries"],
+            "unresolved_questions": [],
+        }
+        with open(registry_path, "w", encoding="utf-8") as f:
+            json.dump(registry, f, indent=2)
+
+        # Create latest init report
+        reports_dir = self.root / ".agents" / "reports" / "ag-main" / "init"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        report_data = {
+            "schema_version": "1.0.0",
+            "report_type": "init",
+            "project_id": "vlv-code/meta-project",
+            "installation_id": "ag-main",
+            "harness_id": "antigravity",
+            "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+            "run_id": "20261115T005300Z-a1b2c3d4",
+            "created_at": "2026-11-15T00:53:00Z",
+            "status": "completed",
+            "git_state": {"commit_sha": "abc", "branch": "main", "is_clean": True, "modified_files": []},
+            "scenario": registry["scenario"],
+            "next_step_readiness": {"ready_for_manage": True},
+        }
+        report_file = reports_dir / "20261115T005300Z-a1b2c3d4.json"
+        with open(report_file, "w", encoding="utf-8") as f:
+            json.dump(report_data, f, indent=2)
+
+        latest_pointer = reports_dir / "latest.json"
+        with open(latest_pointer, "w", encoding="utf-8") as f:
+            json.dump({
+                "run_id": "20261115T005300Z-a1b2c3d4",
+                "status": "completed",
+                "created_at": "2026-11-15T00:53:00Z",
+                "path": str(report_file.resolve()).replace("\\", "/"),
+            }, f, indent=2)
+
+        proc = self.run_inspect(["--repo-root", str(self.root), "--installation", "ag-main", "--json"])
+        self.assertEqual(proc.returncode, 0)
+        data = json.loads(proc.stdout)
+
+        self.assertIn("scenario", data)
+        self.assertEqual(data["scenario"]["profile"], "active_development")
+        self.assertIn("latest_init_report", data)
+        self.assertIsNotNone(data["latest_init_report"])
+        self.assertEqual(data["latest_init_report"]["run_id"], "20261115T005300Z-a1b2c3d4")
+        self.assertEqual(data["latest_init_report"]["status"], "completed")
+
+    # -------------------------------------------------------------------------
     # Human-Readable CLI Output
     # -------------------------------------------------------------------------
     def test_human_readable_cli_output(self):
