@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0.0",
+  "report_type": "init",
+  "project_id": "vlv-code/meta-project",
+  "installation_id": "zc-main",
+  "harness_id": "zcode",
+  "actor_id": "vlv-code/meta-project::zcode::zc-main::init-meta-project",
+  "run_id": "init-20261114T192819Z-66a6fa3d",
+  "created_at": "2026-11-14T19:28:19Z",
+  "status": "completed",
+  "git_state": {
+    "commit_sha": "4274bbdecb17eb5c31c20f4d981c7d4f9131966c",
+    "branch": "main",
+    "is_clean": false,
+    "modified_files": [
+      ".agents/meta-project.json",
+      ".agents/project_knowledge/architecture.md",
+      ".agents/project_knowledge/observations.md",
+      ".agents/project_knowledge/tasks.md",
+      ".agents/team/agent-quality-guardian/profile.md",
+      "scripts/sync_templates.py",
+      "tests/test_sync_templates.py"
+    ]
+  },
+  "references": {
+    "registry": ".agents/meta-project.json",
+    "passport": "AGENTS.md",
+    "boundaries": ".agents/project_knowledge/boundaries.md"
+  },
+  "scenario": {
+    "profile": "active_development",
+    "deployment_mode": "shared_repo",
+    "collaboration_model": "triad",
+    "verification_policy": "strict_independent",
+    "delegation_level": "controlled",
+    "constraints": [
+      "zero_dependency_core",
+      "fail_closed_boundaries"
+    ],
+    "unresolved_questions": []
+  },
+  "environment": {
+    "capabilities": {},
+    "constraints": []
+  },
+  "components": {
+    "created": [],
+    "modified": [
+      ".agents/meta-project.json",
+      ".agents/project_knowledge/tasks.md",
+      ".agents/project_knowledge/observations.md"
+    ],
+    "preserved": [
+      "ag-main installation and all ag-main role bindings",
+      "observations.md full history",
+      "all knowledge slices and skills"
+    ]
+  },
+  "checks": [
+    {
+      "name": "verify_identity",
+      "command": "python scripts/verify_identity.py --check",
+      "status": "pass",
+      "output_summary": "0 errors detected, registry and profiles in sync"
+    },
+    {
+      "name": "inspect_state",
+      "command": "python scripts/inspect_meta_project.py --json --harness zcode",
+      "status": "pass",
+      "output_summary": "HEALTHY_REGISTERED (transitioned from HEALTHY_NEW_HARNESS via Scenario 4 bind_harness)"
+    },
+    {
+      "name": "boundary_audit",
+      "command": "python scripts/check_boundaries.py --audit-tree",
+      "status": "pass",
+      "output_summary": "100% coverage across 111 files (Green 36, Yellow 67, Red 8)"
+    },
+    {
+      "name": "test_suite",
+      "command": "python -m unittest discover -s tests",
+      "status": "pass",
+      "output_summary": "119/119 OK"
+    },
+    {
+      "name": "template_drift",
+      "command": "python scripts/sync_templates.py --check",
+      "status": "pass",
+      "output_summary": "0 drift detected"
+    }
+  ],
+  "recommendations_for_manage": {
+    "suggested_roles": [
+      "agent-dev-lead",
+      "agent-quality-guardian",
+      "agent-github-steward"
+    ],
+    "target_topology": "triad",
+    "rationale": "Agreed scenario (triad, strict_independent) already recorded in registry; zc-main role bindings remain planned with profile_path null - materialize zc-main role profiles and activate bindings; hooks capability unavailable (pre-commit boundary hook not installed)"
+  },
+  "blockers_and_unresolved": [
+    "Concurrent ag-main session in flight: scripts/sync_templates.py (--global-skills feature), tests/test_sync_templates.py, architecture.md modified at 2026-11-15 02:26 +0700 - coordinate before committing"
+  ],
+  "next_step_readiness": {
+    "ready_for_manage": true,
+    "details": "Baseline verified, zc-main harness activated; role materialization pending manage-meta-project"
+  }
+}

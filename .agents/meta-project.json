@@ -21,8 +21,8 @@
     },
     "zc-main": {
       "harness_id": "zcode",
-      "status": "planned",
-      "description": "Planned ZCode migration target"
+      "status": "active",
+      "description": "Primary ZCode environment (activated via init-meta-project Scenario 4)"
     }
   },
   "roles": {
@@ -36,8 +36,8 @@
         },
         "zc-main": {
           "actor_id": "vlv-code/meta-project::zcode::zc-main::agent-dev-lead",
-          "status": "planned",
-          "profile_path": null
+          "status": "active",
+          "profile_path": ".agents/team/agent-dev-lead-zc/profile.md"
         }
       }
     },
@@ -51,8 +51,8 @@
         },
         "zc-main": {
           "actor_id": "vlv-code/meta-project::zcode::zc-main::agent-quality-guardian",
-          "status": "planned",
-          "profile_path": null
+          "status": "active",
+          "profile_path": ".agents/team/agent-quality-guardian-zc/profile.md"
         }
       }
     },
@@ -66,8 +66,8 @@
         },
         "zc-main": {
           "actor_id": "vlv-code/meta-project::zcode::zc-main::agent-github-steward",
-          "status": "planned",
-          "profile_path": null
+          "status": "active",
+          "profile_path": ".agents/team/agent-github-steward-zc/profile.md"
         }
       }
     }

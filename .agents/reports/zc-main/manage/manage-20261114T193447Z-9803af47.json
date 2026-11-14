@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0.0",
+  "report_type": "manage",
+  "project_id": "vlv-code/meta-project",
+  "installation_id": "zc-main",
+  "harness_id": "zcode",
+  "actor_id": "vlv-code/meta-project::zcode::zc-main::manage-meta-project",
+  "run_id": "manage-20261114T193447Z-9803af47",
+  "init_run_id": "init-20261114T192819Z-66a6fa3d",
+  "created_at": "2026-11-14T19:34:47Z",
+  "status": "awaiting_decision",
+  "git_state": {
+    "commit_sha": "4274bbdecb17eb5c31c20f4d981c7d4f9131966c",
+    "branch": "main",
+    "is_clean": false,
+    "modified_files": [
+      ".agents/meta-project.json",
+      ".agents/project_knowledge/architecture.md",
+      ".agents/project_knowledge/observations.md",
+      ".agents/project_knowledge/tasks.md",
+      ".agents/team/agent-quality-guardian/profile.md",
+      "scripts/sync_templates.py",
+      "tests/test_sync_templates.py",
+      ".agents/reports/"
+    ]
+  },
+  "scenario": {
+    "profile": "active_development",
+    "deployment_mode": "shared_repo",
+    "collaboration_model": "triad",
+    "verification_policy": "strict_independent",
+    "delegation_level": "controlled",
+    "constraints": [
+      "zero_dependency_core",
+      "fail_closed_boundaries"
+    ],
+    "unresolved_questions": []
+  },
+  "roles": {
+    "preserved": [
+      "agent-dev-lead",
+      "agent-quality-guardian",
+      "agent-github-steward"
+    ],
+    "created": [],
+    "adapted": [],
+    "archived": []
+  },
+  "bindings": {
+    "agent-dev-lead": {
+      "installation": "zc-main",
+      "status": "planned",
+      "decision": "deferred_by_user"
+    },
+    "agent-quality-guardian": {
+      "installation": "zc-main",
+      "status": "planned",
+      "decision": "deferred_by_user"
+    },
+    "agent-github-steward": {
+      "installation": "zc-main",
+      "status": "planned",
+      "decision": "deferred_by_user"
+    }
+  },
+  "effective_capabilities": {
+    "orchestration_mode": "harness_native_parallel_subagents",
+    "detail": "User decision 2026-11-15: ZCode sessions orchestrate work via harness-native parallel subagents (partitioned by non-overlapping directories per dispatching-parallel-agents pattern); meta-project registry roles remain ag-main-only"
+  },
+  "checks": [
+    {
+      "name": "verify_identity",
+      "command": "python scripts/verify_identity.py --check",
+      "status": "pass",
+      "output_summary": "0 errors; registry unchanged (no production writes)"
+    },
+    {
+      "name": "inspect_state",
+      "command": "python scripts/inspect_meta_project.py --json --harness zcode",
+      "status": "pass",
+      "output_summary": "HEALTHY_REGISTERED, pass_through"
+    }
+  ],
+  "remaining_manual_actions": [
+    "Pre-commit boundary hook installation deferred by user (later); path .git/hooks/pre-commit unmapped (Default Deny) - requires explicit confirmation when requested",
+    "Future option: activate zc-main trio bindings in registry via manage-meta-project when registry-based orchestration is desired"
+  ]
+}
