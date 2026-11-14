@@ -9,6 +9,13 @@
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#support-the-project)
 
+<!-- META-PROJECT:ENTRY:BEGIN -->
+[![Built with Meta-Project](https://img.shields.io/badge/Built%20with-Meta--Project-blueviolet)](https://github.com/vlv-code/meta-project)
+
+Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/boundaries.md](.agents/project_knowledge/boundaries.md)  
+*To inspect, configure, or adapt your environment, run `python scripts/inspect_meta_project.py` or invoke the `init-meta-project` skill.*
+<!-- META-PROJECT:ENTRY:END -->
+
 Context organization framework and separation of concerns between permanent rules (`AGENTS.md`), focused meta-knowledge slices (`project_knowledge/`), and procedural skills (`skills/`) in Google Antigravity and compatible agent environments.
 
 > [!WARNING]
@@ -23,6 +30,7 @@ Context organization framework and separation of concerns between permanent rule
 
 - [Architectural Principles](#architectural-principles)
 - [Target Repository Structure](#target-repository-structure)
+- [Repository Inspection & Canonical States](#repository-inspection--canonical-states)
 - [Meta-Project Components](#meta-project-components)
 - [Quickstart](#quickstart)
 - [Testing and Validation](#testing-and-validation)
@@ -81,6 +89,29 @@ After initialization, the following standardized structure is created in any tar
 
 ---
 
+## Repository Inspection & Canonical States
+
+Meta-Project features a deterministic, zero-write inspection engine (`scripts/inspect_meta_project.py`) using only the Python 3.10+ standard library. It classifies any repository into one of 7 canonical states and evaluates readiness across 5 capability dimensions (`read_instructions`, `local_checks`, `skills`, `roles`, `hooks`):
+
+| State Code | Canonical State | Criteria & Signatures | Action & Strategy |
+| :--- | :--- | :--- | :--- |
+| `NONE` | Greenfield repository | No `AGENTS.md`, no `.agents/`, no recognized agent instructions. | **Scaffold Clean:** Generate full Meta-Project skeleton tailored to detected stack. |
+| `FOREIGN_RULES` | Foreign agent rules | Foreign instructions found (`.cursorrules`, `CLAUDE.md`, `.windsurfrules`, or foreign `AGENTS.md`). | **Preserve & Merge:** Retain foreign files intact, establish coexistence wrapper. |
+| `HEALTHY_REGISTERED` | Meta-Project intact (active) | Meta-Project intact (`AGENTS.md`, `.agents/meta-project.json`, `boundaries.md`, scripts); current harness is active. | **Verify & Pass-Through:** No-op. Zero diff, zero locks, report ready status. |
+| `HEALTHY_NEW_HARNESS` | New harness onboarding | Meta-Project intact; target harness/installation is not registered or is registered as `planned`. | **Bind Harness:** Scaffold role bindings and installation adapter without disturbing active setups. |
+| `LEGACY_UNREGISTERED` | Legacy setup without registry | Older Meta-Project structure without `.agents/meta-project.json` or identity engine. | **Legacy Adoption:** Upgrade table headers, generate `.agents/meta-project.json`, preserve historical logs. |
+| `PARTIAL_CORRUPTED` | Partial / corrupted setup | Missing critical files (e.g. `boundaries.md` absent, corrupted JSON, missing core scripts). | **Diagnose & Repair:** Report exact discrepancies; offer surgical repair plan without overwriting intact slices. |
+| `INCOMPATIBLE_SCHEMA` | Incompatible registry schema | `.agents/meta-project.json` present but `schema_version` is major-incompatible with current tooling. | **Read-Only Fallback:** Lock into read-only audit mode, report required schema migration. |
+
+To inspect your repository without modifying any files:
+```bash
+python scripts/inspect_meta_project.py --read-only
+# Or machine-readable JSON format:
+python scripts/inspect_meta_project.py --json
+```
+
+---
+
 ## Meta-Project Components
 
 - **`templates/`**:
@@ -99,9 +130,12 @@ After initialization, the following standardized structure is created in any tar
   - `skills/record-observation/` — Skill for categorized logging of observations into `observations.md` with duplicate suppression and compaction triggers.
   - `skills/sync-architecture/` — Skill for structural manifest analysis and component map synchronization.
 - **`scripts/`**:
+  - `scripts/inspect_meta_project.py` — Zero-dependency deterministic inspection engine evaluating the 7 canonical repository states, capability matrix, and worktree awareness (supports `--json` and `--read-only`).
   - `scripts/check_boundaries.py` — Zero-dependency Boundary Gate CLI enforcing Green/Yellow/Red zones and Default Deny (Black Zone) on Git diffs locally and in GitHub Actions CI (supports `--audit-tree` for 100% path coverage and `--install-hook` for pre-commit installation).
-  - `scripts/compact_memory.py` — Context Rot Shield utility automatically rotating oversized observation tables (>20 rows) and completed tasks into `.agents/project_knowledge/archive/`, retaining permanent `[pin]` invariants.
+  - `scripts/compact_memory.py` — Context Rot Shield utility automatically rotating oversized observation tables (>20 rows) and completed tasks into `.agents/project_knowledge/archive/`, retaining permanent `[pin]` invariants with cross-platform file locking (`msvcrt`/`fcntl`).
   - `scripts/sync_templates.py` — Zero-dependency utility synchronizing canonical templates into embedded skills and maintaining 1-to-1 parity between `skills/` and `.agents/skills/` (with `--check` mode for CI).
+  - `scripts/record_obs.py` — Zero-dependency CLI for atomic observation logging into `observations.md` with category validation, Markdown pipe escaping, `--actor-id` attribution, and file locking.
+  - `scripts/verify_identity.py` — Zero-dependency multi-harness identity validator verifying `.agents/meta-project.json` registry, qualified `actor_id` bindings, and role profile synchronization.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — Architecture Decision Records (ADR #1–#8 + Polyglot Monorepo Incident) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.

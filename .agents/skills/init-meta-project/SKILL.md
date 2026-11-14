@@ -22,35 +22,38 @@ Relies on the principle of continuous/opportunistic refresh: when accessing meta
 
 ## Execution steps
 
-### Phase 0: Check Existing Meta-Project Environment
+### Phase 1: Survey and Deterministic Inspection (Zero-Write Phase)
 
-Before performing any writes, check for the presence of meta-project components:
-1. Check for `AGENTS.md` at the repository root.
-2. Check for `.agents/project_knowledge/` and `.agents/skills/` directories.
+The initialization skill strictly enforces the **Survey-First Zero-Write Invariant**: Phase 1 performs only discovery and diagnosis. It is strictly prohibited from creating files, writing telemetry, generating `.lock` files, or running untrusted scripts or hooks found in the repository.
 
-### Scenario A: Structure Already Exists (Audit & Safe Upgrade Mode)
-If `AGENTS.md` or `.agents/` folder is already present in the repository:
-1. **Prohibition on Destructive Overwrite:**
-   - Strictly prohibited from deleting or overwriting `observations.md` — all accumulated observations must be preserved.
-   - Prohibited from deleting custom invariants and user descriptions from the existing `AGENTS.md`.
-2. **Standards Compliance Audit:**
-   - Check `AGENTS.md` for the "Principles and Architectural Orientations (North Stars)" section. If missing, add it without modifying the service purpose and invariants.
-   - Check `AGENTS.md` for the directive protocol with the "access + opportunistic refresh" link. If outdated, update the section.
-   - Check `boundaries.md` for glob pattern usage, data directory protection (`data/**`, `*.db`), assigning formatting/rendering modules to the Yellow zone, and presence of the Default Deny (Black Zone) invariant.
-   - Check the `observations.md` table for the `Category` column. If using the legacy 4-column format, update the table header without deleting data rows.
-   - Verify freshness of `SKILL.md` files in `.agents/skills/` (`record-observation`, `sync-architecture`, `ground-meta-project`).
-3. **Safe Enhancement:**
-   - Create missing slices (for example, if `weak_spots.md` is absent).
-   - Supplement the skill registry in `AGENTS.md` with new specialized stack skills for the repository.
-4. **Upgrade Report:**
-   - Inform the user: "Existing meta-project detected. Audited and upgraded to the latest standard without loss of accumulated data."
+1. **Execute Deterministic Inspection:**
+   Run the zero-dependency inspection utility:
+   ```bash
+   python scripts/inspect_meta_project.py --json
+   ```
+   *(If `scripts/inspect_meta_project.py` is not yet present, perform equivalent read-only inspection using pure Python stdlib without writing to disk).*
+2. **Determine Canonical State:**
+   Classify repository into one of the 7 canonical states:
+   - `NONE`: No agent scaffolding or recognized instructions found.
+   - `FOREIGN_RULES`: Foreign instructions present (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, foreign `AGENTS.md`).
+   - `HEALTHY_REGISTERED`: Meta-Project intact and active for current harness installation.
+   - `HEALTHY_NEW_HARNESS`: Meta-Project intact, but target harness/installation is not yet registered or is marked `planned`.
+   - `LEGACY_UNREGISTERED`: Legacy Meta-Project structure without `.agents/meta-project.json` registry.
+   - `PARTIAL_CORRUPTED`: Incomplete, corrupted, or missing critical slices/boundaries.
+   - `INCOMPATIBLE_SCHEMA`: Schema version of `.agents/meta-project.json` is incompatible with current tooling.
+3. **Evaluate Capability Matrix:**
+   Review readiness levels across: `read_instructions`, `local_checks`, `skills`, `roles`, `hooks` (`available`, `unavailable`, `untested`).
+4. **Select Execution Strategy:**
+   Route to the corresponding scenario in Phase 2 below.
 
 ---
 
-### Scenario B: Initial Setup (Clean Scaffold Mode)
+### Phase 2: Execution by Canonical State
+
+#### Scenario 1: State `NONE` (Clean Scaffold Mode)
 If no structure exists, execute the standard two-pass algorithm:
 
-#### Pass 1: Express Scan and Skeleton Generation (Fast & High-Level)
+##### Pass 1: Express Scan and Skeleton Generation (Fast & High-Level)
 1. **Express inspection of repository root:**
    List the root directory and identify:
    - Manifests: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `requirements.txt`, `pom.xml`, `docker-compose.yml`.
@@ -78,6 +81,7 @@ If no structure exists, execute the standard two-pass algorithm:
    - .agents/skills/sync-architecture/SKILL.md
    - .agents/skills/ground-meta-project/SKILL.md
    Deploy zero-dependency automation and runtime scripts to repository scripts/:
+   - scripts/inspect_meta_project.py (Deterministic Repository Survey & Capability Matrix CLI)
    - scripts/check_boundaries.py (Boundary Gate CLI)
    - scripts/compact_memory.py (Context Rot Shield & Memory Compactor)
    - scripts/record_obs.py (Observation Logger CLI with cross-platform locking)
@@ -92,7 +96,8 @@ If no structure exists, execute the standard two-pass algorithm:
    - weak_spots.md (baseline risk registry structure).
    - architecture.md (baseline architecture scaffold).
    - tasks.md (active objective, team checklist, and delegation registry).
-#### Pass 2: Repository Deep-Dive, Principles & Shell Skills
+
+##### Pass 2: Repository Deep-Dive, Principles & Shell Skills
 
 1. **Mandatory Core Inspection Checklist:**
    *Prohibited from populating `weak_spots.md` and `architecture.md` with boilerplate templates without reading source code of key modules!* The agent must execute `read_file` calls for the following critical areas:
@@ -151,6 +156,38 @@ If no structure exists, execute the standard two-pass algorithm:
    - Step A: Pre-installed skills (`.agents/skills/record-observation/`, `sync-architecture/`, and `ground-meta-project/`) and automation scripts (`scripts/check_boundaries.py`, `scripts/compact_memory.py` if shared repository setup).
    - Step B: Knowledge slices (`observations.md` -> `boundaries.md` -> `weak_spots.md` -> `architecture.md`).
    - Step C: Root passport (`AGENTS.md`) — strictly last, as the aggregator of references to slices and stack skills.
+
+#### Scenario 2: State `FOREIGN_RULES` (Preserve & Merge Mode)
+1. **Preserve Foreign Rules:** Strictly forbid deleting or modifying `.cursorrules`, `CLAUDE.md`, `.windsurfrules`, or foreign `AGENTS.md`.
+2. **Map Boundaries:** In `.agents/project_knowledge/boundaries.md`, explicitly map foreign rule files into Yellow or Green zones to avoid false Red Zone triggers.
+3. **Scaffold Non-Destructive Wrapper:** Create `.agents/` structure and initialize Meta-Project. Incorporate foreign instructions into `AGENTS.md` by explicit reference or designated coexistence section without destructive overwriting.
+
+#### Scenario 3: State `HEALTHY_REGISTERED` (Pass-Through / No-Op Mode)
+1. **Zero-Diff Verification:** Running on a healthy, registered installation produces **0 modified files**, no temporary files, and no locks.
+2. **Capability Reporting:** Report verified status to user: "Meta-Project is intact, verified, and active for current harness. All capability levels operational. Ready for work."
+
+#### Scenario 4: State `HEALTHY_NEW_HARNESS` (Multi-Harness Adaptation Mode)
+1. **Preserve Existing Installations:** Strictly forbidden to delete, disconnect, or alter active installations in `.agents/meta-project.json`.
+2. **Register Target Installation:** Add the new harness installation (e.g., `zc-main` / `zcode`) to `.agents/meta-project.json` with active status.
+3. **Scaffold Role Bindings:** Configure role profile bindings in `.agents/team/` for the new harness while maintaining qualified `actor_id` coordinates.
+
+#### Scenario 5: State `LEGACY_UNREGISTERED` (Legacy Adoption Mode)
+1. **Prohibition on Destructive Overwrite:** Strictly preserve existing `observations.md` (all historical rows) and `tasks.md`.
+2. **Upgrade Standards:**
+   - Check `AGENTS.md` for North Stars and directive protocol; upgrade sections without deleting custom user invariants.
+   - Ensure `boundaries.md` has Default Deny / Black Zone rule and 100% path coverage.
+   - Ensure `observations.md` table has 5-column format with `Category` column.
+3. **Deploy Registry & Identity Engine:**
+   - Generate `.agents/meta-project.json` registering the active installation.
+   - Deploy runtime utilities: `scripts/inspect_meta_project.py`, `scripts/verify_identity.py`, `scripts/record_obs.py`.
+
+#### Scenario 6: State `PARTIAL_CORRUPTED` (Diagnose & Repair Mode)
+1. **Targeted Discrepancy Reporting:** Report exact missing components or syntax errors from inspection report (`missing_components`, `conflicts`).
+2. **Surgical Repair:** Recreate only missing slices or corrupted files without touching intact knowledge bases or profiles.
+
+#### Scenario 7: State `INCOMPATIBLE_SCHEMA` (Read-Only Fallback Mode)
+1. **Fail-Closed Protection:** Prohibit automatic writes when `schema_version` of `.agents/meta-project.json` is incompatible.
+2. **Diagnostic Report:** Report schema mismatch, enter read-only inspection mode, and provide manual migration instructions.
 
 ---
 
@@ -380,18 +417,50 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 {{STACK_SKILLS}}
 *(Managing build, linting, testing, and framework specifics is delegated to these skills)*
 
-## 5. Base Working Protocol
+## 5. Local Verification Tooling & Autonomous Fallback
+If global agent skills (such as `python-pro` or Meta-Project skills) are unavailable in the host harness, the agent operates in **Base Fallback Mode** using zero-dependency Python 3.10+ stdlib utilities:
+- **Repository Inspection & Capability Audit:**
+  `python scripts/inspect_meta_project.py --json`
+- **Role Identity & Binding Verification:**
+  `python scripts/verify_identity.py --check`
+- **Boundary Gate & Responsibility Audit:**
+  `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree`
+- **Working Tree Diff Verification:**
+  `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --diff HEAD --allow-red-zone`
+- **Memory Compaction Check:**
+  `python scripts/compact_memory.py --dry-run`
+- **Atomic Observation Logging:**
+  `python scripts/record_obs.py --category <cat> --component <path> --issue <text> --solution <text>`
+
+### Read-Only Exploration Mode
+When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:
+- Do NOT generate temporary files, `.lock` files, or intermediate scratchpads.
+- Do NOT add telemetry rows to role profiles or tasks to `tasks.md`.
+- Use `python scripts/inspect_meta_project.py --read-only --json` for safe discovery.
+
+## 6. Base Working Protocol
 1. Verify against Section 1: ensure the planned solution does not contradict project principles and invariants.
 2. Consult the target slice from Section 3; update the slice immediately upon discovering gaps or inaccuracies.
-3. Apply stack skills from Section 4 to modify code and run tests.
+3. Apply stack skills from Section 4 (or local stdlib tools from Section 5 in Base Fallback Mode) to inspect code and run tests.
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
-5. When encountering hidden environment quirks, record the fact via `record-observation`.
+5. When encountering hidden environment quirks, record the fact via `record-observation` (or `scripts/record_obs.py`).
 
-## 6. Project Agent Team & Multi-Harness Identity
+## 7. Project Agent Team & Multi-Harness Identity
 Project roles and multi-harness bindings are authoritative in `.agents/meta-project.json`.
 - **Identity Determination Protocol:** Every agent operating in the repository must resolve its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` using `scripts/verify_identity.py`.
 - **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be verified, the agent must fail closed and report an unresolved identity.
 - **Active Team Roster:**
 {{TEAM_ROSTER}}
+
+## 8. Dual-Entry & Canonical Repository Badge
+For shared discovery across human operators and external agent harnesses, `README.md` incorporates the canonical block:
+```markdown
+<!-- META-PROJECT:ENTRY:BEGIN -->
+[![Built with Meta-Project](https://img.shields.io/badge/Built%20with-Meta--Project-blueviolet)](https://github.com/vlv-code/meta-project)
+
+Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/boundaries.md](.agents/project_knowledge/boundaries.md)
+*To inspect, configure, or adapt your environment, run `python scripts/inspect_meta_project.py` or invoke the `init-meta-project` skill.*
+<!-- META-PROJECT:ENTRY:END -->
+```
 ```
 <!-- TEMPLATE:END AGENTS.md -->

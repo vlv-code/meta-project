@@ -9,6 +9,13 @@
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#поддержать-проект)
 
+<!-- META-PROJECT:ENTRY:BEGIN -->
+[![Built with Meta-Project](https://img.shields.io/badge/Built%20with-Meta--Project-blueviolet)](https://github.com/vlv-code/meta-project)
+
+Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/boundaries.md](.agents/project_knowledge/boundaries.md)  
+*To inspect, configure, or adapt your environment, run `python scripts/inspect_meta_project.py` or invoke the `init-meta-project` skill.*
+<!-- META-PROJECT:ENTRY:END -->
+
 Система организации контекста и разделения ответственности между постоянными правилами (`AGENTS.md`), целевыми срезами мета-знаний (`project_knowledge/`) и процедурными навыками (`skills/`) в Google Antigravity и совместимых агентных средах.
 
 > [!WARNING]
@@ -23,6 +30,7 @@
 
 - [Архитектурные принципы](#архитектурные-принципы)
 - [Структура целевого репозитория](#структура-целевого-репозитория)
+- [Обследование репозитория и 7 канонических состояний](#обследование-репозитория-и-7-канонических-состояний)
 - [Компоненты репозитория Meta-Project](#компоненты-репозитория-meta-project)
 - [Быстрый старт (Quickstart)](#быстрый-старт-quickstart)
 - [Тестирование и валидация](#тестирование-и-валидация)
@@ -81,6 +89,29 @@
 
 ---
 
+## Обследование репозитория и 7 канонических состояний
+
+Meta-Project включает детерминированный движок неразрушающего обследования (`scripts/inspect_meta_project.py`), работающий исключительно на стандартной библиотеке Python 3.10+. Он классифицирует любой репозиторий в одно из 7 канонических состояний и оценивает матрицу готовности по 5 измерениям (`read_instructions`, `local_checks`, `skills`, `roles`, `hooks`):
+
+| Код состояния | Каноническое состояние | Критерии и сигнатуры | Стратегия и действие |
+| :--- | :--- | :--- | :--- |
+| `NONE` | Обвязки нет (Greenfield) | Отсутствуют `AGENTS.md`, каталог `.agents/` и распознаваемые инструкции. | **Чистая инициализация:** Генерация полного каркаса Meta-Project под стек проекта. |
+| `FOREIGN_RULES` | Чужие инструкции агентов | Обнаружены сторонние файлы (`.cursorrules`, `CLAUDE.md`, `.windsurfrules` или сторонний `AGENTS.md`). | **Сохранение и сосуществование:** Неразрушающее оборачивание без удаления чужих инструкций. |
+| `HEALTHY_REGISTERED` | Meta-Project исправен (активен) | Полный комплект (`AGENTS.md`, `.agents/meta-project.json`, `boundaries.md`, скрипты); текущий харнесс активен. | **Пропуск без изменений:** Нулевой diff, отсутствие блокировок, отчёт о готовности. |
+| `HEALTHY_NEW_HARNESS` | Подключение нового харнесса | Meta-Project исправен; целевой харнесс не зарегистрирован или имеет статус `planned`. | **Привязка харнесса:** Генерация привязок ролей и адаптера без затрагивания активных харнессов. |
+| `LEGACY_UNREGISTERED` | Legacy-обвязка без реестра | Предыдущая структура Meta-Project без `.agents/meta-project.json` или движка идентичности. | **Модернизация:** Обновление заголовков таблиц, генерация реестра с сохранением истории. |
+| `PARTIAL_CORRUPTED` | Частичная или повреждённая | Отсутствуют критические компоненты (нет `boundaries.md`, повреждён JSON или скрипты). | **Диагностика и восстановление:** Точечный план восстановления без перезаписи исправных срезов. |
+| `INCOMPATIBLE_SCHEMA` | Несовместимая схема реестра | Реестр `.agents/meta-project.json` присутствует, но его версия несовместима с текущим тулингом. | **Только чтение:** Блокировка в режиме аудита, отказ от слепой записи до миграции схемы. |
+
+Для запуска обследования репозитория без изменения файлов:
+```bash
+python scripts/inspect_meta_project.py --read-only
+# Или в машинно-читаемом формате JSON:
+python scripts/inspect_meta_project.py --json
+```
+
+---
+
 ## Компоненты репозитория Meta-Project
 
 - **`templates/`**:
@@ -99,9 +130,12 @@
   - `skills/record-observation/` — навык категоризированной записи наблюдений в `observations.md` с контролем дубликатов и триггерами компакции памяти.
   - `skills/sync-architecture/` — навык структурного анализа манифестов и актуализации карты компонентов.
 - **`scripts/`**:
+  - `scripts/inspect_meta_project.py` — детерминированный движок обследования на Python stdlib, выполняющий классификацию репозитория по 7 каноническим состояниям, проверку матрицы готовности и учёт git worktree (поддерживает `--json` и `--read-only`).
   - `scripts/check_boundaries.py` — автономный CLI гейта границ (Boundary Gate) на Python stdlib, обеспечивающий принудительный машинный контроль зон (Green/Yellow/Red) и инварианта Default Deny локально и в GitHub Actions CI (поддерживает `--audit-tree` для 100% покрытия дерева и `--install-hook` для настройки pre-commit).
-  - `scripts/compact_memory.py` — утилита защиты контекста (Context Rot Shield), автоматически архивирующая разросшиеся таблицы наблюдений (>20 записей) и выполненные задачи в `.agents/project_knowledge/archive/`, с сохранением постоянных инвариантов `[pin]`.
+  - `scripts/compact_memory.py` — утилита защиты контекста (Context Rot Shield), автоматически архивирующая разросшиеся таблицы наблюдений (>20 записей) и выполненные задачи в `.agents/project_knowledge/archive/`, с сохранением постоянных инвариантов `[pin]` и кроссплатформенной файловой блокировкой (`msvcrt`/`fcntl`).
   - `scripts/sync_templates.py` — утилита инъекции канонических шаблонов во встроенные скиллы и валидации 1-в-1 паритета навыков между `skills/` и `.agents/skills/` (режим `--check` для CI).
+  - `scripts/record_obs.py` — автономная CLI-утилита атомарного логирования наблюдений в `observations.md` с валидацией категорий, экранированием пайпов Markdown, указанием `--actor-id` и блокировкой файлов.
+  - `scripts/verify_identity.py` — валидатор многохарнессной идентичности на Python stdlib, проверяющий реестр `.agents/meta-project.json`, квалифицированные привязки `actor_id` и синхронизацию профилей ролей.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (ADR #1–#8 + Polyglot Monorepo Incident) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
