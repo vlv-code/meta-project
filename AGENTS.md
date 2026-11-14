@@ -17,7 +17,7 @@
 - Canonical Templates: `templates/` (`templates/AGENTS.md`, `templates/project_knowledge/`, `templates/team/`)
 - CI/CD & Ownership: `.github/workflows/ci.yml`, `.github/CODEOWNERS`
 - Integrity Tests: `tests/test_integrity.py`
-- Automation Scripts: `scripts/check_boundaries.py`, `scripts/compact_memory.py`, `scripts/sync_templates.py`, `scripts/record_obs.py`
+- Automation Scripts: `scripts/check_boundaries.py`, `scripts/compact_memory.py`, `scripts/sync_templates.py`, `scripts/record_obs.py`, `scripts/verify_identity.py`, `scripts/inspect_meta_project.py`
 - Documentation and Decisions: `docs/decisions_and_roadmap.md`, `README.md`, `CHANGELOG.md`
 
 ## 3. Directive Meta-Knowledge Protocol
@@ -59,14 +59,35 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `code-reviewer` — verification of code and template quality prior to commit.
 *(Managing build, linting, testing, and framework specifics is delegated to these skills)*
 
-## 5. Base Working Protocol
+## 5. Local Verification Tooling & Autonomous Fallback
+If global agent skills (such as `python-pro` or Meta-Project skills) are unavailable in the host harness, the agent operates in **Base Fallback Mode** using zero-dependency Python 3.10+ stdlib utilities:
+- **Repository Inspection & Capability Audit:**
+  `python scripts/inspect_meta_project.py --json`
+- **Role Identity & Binding Verification:**
+  `python scripts/verify_identity.py --check`
+- **Boundary Gate & Responsibility Audit:**
+  `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree`
+- **Working Tree Diff Verification:**
+  `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --diff HEAD --allow-red-zone`
+- **Memory Compaction Check:**
+  `python scripts/compact_memory.py --dry-run`
+- **Atomic Observation Logging:**
+  `python scripts/record_obs.py --category <cat> --component <path> --issue <text> --solution <text>`
+
+### Read-Only Exploration Mode
+When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:
+- Do NOT generate temporary files, `.lock` files, or intermediate scratchpads.
+- Do NOT add telemetry rows to role profiles or tasks to `tasks.md`.
+- Use `python scripts/inspect_meta_project.py --read-only --json` for safe discovery.
+
+## 6. Base Working Protocol
 1. Verify against Section 1: ensure the planned solution does not contradict project principles and invariants.
 2. Consult the target slice from Section 3; update the slice immediately upon discovering gaps or inaccuracies.
-3. Apply stack skills from Section 4 to modify code and run tests.
+3. Apply stack skills from Section 4 (or local stdlib tools from Section 5 in Base Fallback Mode) to inspect code and run tests.
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
-5. When encountering hidden environment quirks, record the fact via `record-observation`.
+5. When encountering hidden environment quirks, record the fact via `record-observation` (or `scripts/record_obs.py`).
 
-## 6. Project Agent Team & Multi-Harness Identity (.agents/team/)
+## 7. Project Agent Team & Multi-Harness Identity (.agents/team/)
 Authoritative role bindings and installation identities are defined in `.agents/meta-project.json`.
 - **Identity Determination Protocol:** In runtime execution, every active agent determines its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` and verifies integrity via `scripts/verify_identity.py --check`.
 - **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be validated against `.agents/meta-project.json`, the agent must fail closed and report an unresolved identity.
@@ -74,3 +95,14 @@ Authoritative role bindings and installation identities are defined in `.agents/
 - [Quality & Meta-Architecture Guardian](.agents/team/agent-quality-guardian/profile.md) — Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing (invoked by: "verify meta-project structure", "run tests", "audit passport", "audit knowledge base", "check links", "check dead code")
 - [GitHub Steward & Release Captain](.agents/team/agent-github-steward/profile.md) — Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity (invoked by: "git hygiene", "audit ci", "prepare release", "check readme parity", "conventional commit")
 *(Granular legacy roles archived in `.agents/team/archive/`)*
+
+## 8. Dual-Entry & Canonical Repository Badge
+For shared discovery across human operators and external agent harnesses, `README.md` incorporates the canonical block:
+```markdown
+<!-- META-PROJECT:ENTRY:BEGIN -->
+[![Built with Meta-Project](https://img.shields.io/badge/Built%20with-Meta--Project-blueviolet)](https://github.com/vlv-code/meta-project)
+
+Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/boundaries.md](.agents/project_knowledge/boundaries.md)
+*To inspect, configure, or adapt your environment, run `python scripts/inspect_meta_project.py` or invoke the `init-meta-project` skill.*
+<!-- META-PROJECT:ENTRY:END -->
+```

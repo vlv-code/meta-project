@@ -41,6 +41,8 @@ The skill features automatic dual-tier source resolution (GitHub Raw with timeou
 
 ### Phase 2: Pre-Flight Safety & Local Data Harvesting
 
+0. **Pre-Flight Repository Survey:**
+   - Run `python scripts/inspect_meta_project.py --json` to diagnose repository state and schema compatibility before applying updates. If the repository is in `INCOMPATIBLE_SCHEMA`, halt and report required schema migration to the user.
 1. **Working Tree Inspection:**
    - Run `git status -s` to ensure there are no uncommitted collisions in target update areas.
 2. **Harvest Local Adaptations (`local_repo_data`):**

@@ -56,16 +56,48 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 {{STACK_SKILLS}}
 *(Managing build, linting, testing, and framework specifics is delegated to these skills)*
 
-## 5. Base Working Protocol
+## 5. Local Verification Tooling & Autonomous Fallback
+If global agent skills (such as `python-pro` or Meta-Project skills) are unavailable in the host harness, the agent operates in **Base Fallback Mode** using zero-dependency Python 3.10+ stdlib utilities:
+- **Repository Inspection & Capability Audit:**
+  `python scripts/inspect_meta_project.py --json`
+- **Role Identity & Binding Verification:**
+  `python scripts/verify_identity.py --check`
+- **Boundary Gate & Responsibility Audit:**
+  `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree`
+- **Working Tree Diff Verification:**
+  `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --diff HEAD --allow-red-zone`
+- **Memory Compaction Check:**
+  `python scripts/compact_memory.py --dry-run`
+- **Atomic Observation Logging:**
+  `python scripts/record_obs.py --category <cat> --component <path> --issue <text> --solution <text>`
+
+### Read-Only Exploration Mode
+When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:
+- Do NOT generate temporary files, `.lock` files, or intermediate scratchpads.
+- Do NOT add telemetry rows to role profiles or tasks to `tasks.md`.
+- Use `python scripts/inspect_meta_project.py --read-only --json` for safe discovery.
+
+## 6. Base Working Protocol
 1. Verify against Section 1: ensure the planned solution does not contradict project principles and invariants.
 2. Consult the target slice from Section 3; update the slice immediately upon discovering gaps or inaccuracies.
-3. Apply stack skills from Section 4 to modify code and run tests.
+3. Apply stack skills from Section 4 (or local stdlib tools from Section 5 in Base Fallback Mode) to inspect code and run tests.
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
-5. When encountering hidden environment quirks, record the fact via `record-observation`.
+5. When encountering hidden environment quirks, record the fact via `record-observation` (or `scripts/record_obs.py`).
 
-## 6. Project Agent Team & Multi-Harness Identity
+## 7. Project Agent Team & Multi-Harness Identity
 Project roles and multi-harness bindings are authoritative in `.agents/meta-project.json`.
 - **Identity Determination Protocol:** Every agent operating in the repository must resolve its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` using `scripts/verify_identity.py`.
 - **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be verified, the agent must fail closed and report an unresolved identity.
 - **Active Team Roster:**
 {{TEAM_ROSTER}}
+
+## 8. Dual-Entry & Canonical Repository Badge
+For shared discovery across human operators and external agent harnesses, `README.md` incorporates the canonical block:
+```markdown
+<!-- META-PROJECT:ENTRY:BEGIN -->
+[![Built with Meta-Project](https://img.shields.io/badge/Built%20with-Meta--Project-blueviolet)](https://github.com/vlv-code/meta-project)
+
+Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/boundaries.md](.agents/project_knowledge/boundaries.md)
+*To inspect, configure, or adapt your environment, run `python scripts/inspect_meta_project.py` or invoke the `init-meta-project` skill.*
+<!-- META-PROJECT:ENTRY:END -->
+```

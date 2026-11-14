@@ -27,6 +27,7 @@
   - `scripts/sync_templates.py` — zero-dependency template injection and skill parity synchronizer (`--check` and `--write`).
   - `scripts/record_obs.py` — zero-dependency CLI utility appending validated, escaped observation rows to `observations.md` with cross-platform file locking (`msvcrt` / `fcntl`) and qualified `--actor-id` attribution.
   - `scripts/verify_identity.py` — zero-dependency CLI validator for multi-harness identity registry (`.agents/meta-project.json`) and role profile bindings (`--check` and `--actor`).
+  - `scripts/inspect_meta_project.py` — zero-dependency CLI survey utility evaluating repository state across 7 canonical states, detecting git worktrees, calculating 5-dimension Capability Matrix, and enforcing zero-write inspection.
 - **Verification Layer (`tests/`):**
   - `tests/test_integrity.py` — YAML frontmatter validation, mandatory procedural sections, CI configuration, and canonical template checks.
   - `tests/test_check_boundaries.py` — unit tests for boundary gate parser, zone classification engine, and CLI exit codes.
@@ -34,6 +35,7 @@
   - `tests/test_sync_templates.py` — unit tests for template injection, embedded backtick handling, and parity validation.
   - `tests/test_record_obs.py` — unit and adversarial tests for observation entry validation, pipe escaping, and file locking.
   - `tests/test_verify_identity.py` — unit and adversarial tests for multi-harness identity registry, actor_id format, duplicate detection, and planned installation constraints.
+  - `tests/test_inspect_meta_project.py` — unit and adversarial tests for deterministic survey CLI, 7 canonical states, worktree handling, Capability Matrix, and zero-write invariant.
 - **CI/CD Layer (`.github/`):**
   - `.github/workflows/ci.yml` — matrix testing across Python 3.10, 3.11, 3.12, and 3.13 with automated Boundary Gate verification step in GitHub Actions.
   - `.github/CODEOWNERS` — branch protection and code ownership for Red Zone security gates and boundary policy files.

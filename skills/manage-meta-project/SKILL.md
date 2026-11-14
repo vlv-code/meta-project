@@ -24,6 +24,7 @@ The skill analyzes repository structure, identifies required specializations (Gi
 ### Phase 1: Rapid Repository Scan (Marker Inspection)
 
 Before defining roles, the agent must inspect key project markers:
+0. **Deterministic Repository Survey:** Run `python scripts/inspect_meta_project.py --json` (or inspect via stdlib). Verify repository state (`HEALTHY_REGISTERED` or `HEALTHY_NEW_HARNESS`) and check `capabilities['roles']`. If the repository is in `PARTIAL_CORRUPTED` or `NONE`, recommend running `init-meta-project` first before configuring roles.
 1. **Hosting and CI Infrastructure:** Presence of `.github/` directory, workflows, pull request templates, issue templates.
 2. **Licenses and Open Source Governance:** Presence of `LICENSE`, copyrights, `CONTRIBUTING.md`, dependency manifests.
 3. **Containerization and Orchestration:** `Dockerfile`, `docker-compose*.yml`, `k8s/`, `helm/`.
