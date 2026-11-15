@@ -1363,6 +1363,108 @@ class TestCanonicalDocsMatchCLI(unittest.TestCase):
             f"canonical docs reference nonexistent record_obs.py flags: {offenders}",
         )
 
+    def test_no_mechanical_edit_counter_in_canon(self):
+        """Roadmap decision (2026-11-12 note to §7.1): the mechanical edit-count
+        Circuit Breaker was rejected; canonical docs must carry the SEMANTIC
+        trigger only (repeatedly failing edits on one defect / new adjacent
+        regressions), never a '2nd attempt' counter."""
+        canon = [
+            REPO_ROOT / "AGENTS.md",
+            REPO_ROOT / "templates" / "AGENTS.md",
+            REPO_ROOT / "templates" / "global" / "AGENTS.md",
+            REPO_ROOT / "templates" / "team" / "system_prompt.md",
+            REPO_ROOT / "skills" / "manage-meta-project" / "SKILL.md",
+        ]
+        banned = ("2nd consecutive", "second attempt", "Stop-Work on 2nd",
+                  "2 consecutive failed attempts")
+        offenders = []
+        for doc in canon:
+            text = doc.read_text(encoding="utf-8")
+            for phrase in banned:
+                if phrase.lower() in text.lower():
+                    offenders.append((str(doc), phrase))
+        self.assertFalse(offenders, f"mechanical edit counter still in canon: {offenders}")
+
+
+GROUND_SKILL = REPO_ROOT / "skills" / "ground-meta-project" / "SKILL.md"
+
+
+class TestGroundSkillContracts(unittest.TestCase):
+    """Wave 0.9.0 Part 2 (roadmap §6–§8): semantic triggers, dual-mode
+    operation, conditional continuation, validator-based identity."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = GROUND_SKILL.read_text(encoding="utf-8")
+
+    def test_no_mechanical_trigger(self):
+        self.assertNotIn(
+            "2 consecutive failed attempts", self.text,
+            "ground still carries the mechanical 2-attempt trigger",
+        )
+
+    def test_no_unconditional_halt(self):
+        self.assertNotIn(
+            "MUST halt and wait for user confirmation before taking any further code action",
+            self.text,
+            "ground still ends with an unconditional halt",
+        )
+
+    def test_dual_mode_declared(self):
+        self.assertIn("Recovery", self.text)
+        self.assertIn("Drift", self.text)
+
+    def test_identity_via_validator_not_guessing(self):
+        self.assertIn("verify_identity", self.text)
+        self.assertIn("--actor", self.text)
+        self.assertNotIn("never infer or adopt a role from invoked skills or read files", self.text)
+
+    def test_conditional_continuation_declared(self):
+        for phrase in ("continue", "one concrete question"):
+            self.assertIn(phrase, self.text.lower())
+
+
+TUNE_SKILL = REPO_ROOT / "skills" / "tune-meta-project" / "SKILL.md"
+
+
+class TestTuneSkillContracts(unittest.TestCase):
+    """Wave 0.9.0 Part 3 (roadmap tune §1–§10): evidence over heuristics,
+    total-set North Stars limit, effect verification, repeatability."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = TUNE_SKILL.read_text(encoding="utf-8")
+
+    def test_no_mechanical_heuristics(self):
+        for banned in ("3+ times consecutively", "30 days",
+                       "git log -n 15", "Repeated `Circuit Breaker` triggers"):
+            self.assertNotIn(banned, self.text, f"mechanical heuristic remains: {banned}")
+
+    def test_evidence_hypothesis_separation_declared(self):
+        self.assertIn("hypothesis", self.text.lower())
+        self.assertIn("evidence", self.text.lower())
+
+    def test_north_stars_limit_is_total_set(self):
+        self.assertNotIn("at most 3", self.text.lower())
+        self.assertTrue(
+            "total active set" in self.text.lower()
+            or "active set" in self.text.lower(),
+            "North Stars limit must apply to the total active set, not per-run additions",
+        )
+
+    def test_effect_verification_declared(self):
+        for phrase in ("not verified", "no-effect", "regression"):
+            self.assertIn(phrase, self.text.lower())
+
+    def test_repeatability_declared(self):
+        self.assertIn("rejected proposals", self.text.lower())
+
+    def test_read_only_analysis_declared(self):
+        self.assertIn("read-only", self.text.lower())
+
+    def test_no_scan_writing_scenario_invoked(self):
+        self.assertNotIn("scan-meta-project", self.text)
+
 
 if __name__ == "__main__":
     unittest.main()
