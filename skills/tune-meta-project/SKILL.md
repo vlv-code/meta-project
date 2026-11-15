@@ -1,105 +1,92 @@
 ---
 name: tune-meta-project
 description: >-
-  Calibrate and optimize the repository agent environment: analyze git friction and telemetry,
-  adapt role topology, adjust boundary zones, and crystallize core project invariants.
+  Evidence-based calibration of the installed agent environment: analyzes
+  actual work evidence (tasks, telemetry, observations, reports, history),
+  forms verifiable improvement proposals with explicit effect verification,
+  and routes changes through manage / decommission / update mechanisms.
 ---
 
 # Repository Agent Environment Tuner (Tune Meta-Project)
 
-Autonomous meta-reflection and calibration skill for evaluating how effectively agents operate within the repository, detecting friction between the framework and real code, and safely tuning the local instance.
-
-The skill evaluates historical commit friction, role telemetry, and boundary exceptions, and produces a structured calibration plan covering team topology, boundary mappings, and core invariants with strict safeguards against context bloat.
-
----
+Turns project experience into VERIFIABLE improvements: fewer wasted actions,
+less context loss, fewer unnecessary handoffs — while preserving verification
+quality, the project's meta-vision, and agreed authorities.
 
 ## When to invoke skill
 
-* The user requests: "tune-meta-project", "tune meta project", "калибровка обвязки", "прокачай инстанс", "устрани трение", "оптимизируй команду", "recalibrate environment".
-* Repeated `Circuit Breaker` triggers or recurring bug regressions in the same files across recent commits.
-* A single agent role is overloaded with heterogeneous technologies (e.g., Python backend + React UI + C++ bindings).
-* Boundary Gate (`check_boundaries.py`) repeatedly reports unmapped paths during development.
-
----
+* The user requests: "tune-meta-project", "калибровка обвязки", "прокачай инстанс", "устрани трение", "оптимизируй команду", "recalibrate environment".
+* Accumulated friction is SUSPECTED (wasted handoffs, repeated context loss) — as a question to investigate, not a verdict.
 
 ## Execution steps
 
-### Phase 1: Friction Diagnostics
+### Phase 1: Configuration Survey (read-only analysis)
+Establish the frame with canonical utilities — calling them directly, never
+via scan's writing scenario:
+- `python scripts/inspect_meta_project.py --json --harness <h> --installation <i>`
+- `python scripts/verify_identity.py --check`
+- `python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree`
+- installed framework state: `.agents/framework-lock.json` when present;
+  unfinished updates halt tuning of affected components.
+Record: agreed scenario, active installations and capabilities, roles and
+bindings, verification policy, calibration scope (whole project or one
+installation). Calibrating ONE installation never changes shared rules of
+another; common parts consider both.
 
-1. **Commit History & Circuit Breaker Tracing:**
-   - Execute `git log -n 15 --stat -p` to inspect recent commit dynamics.
-   - Detect "hotspot" files touched 3+ times consecutively for bugfixes (symptom of surface patching rather than root-cause resolution).
-   - Detect cross-component regression loops (fixes in Module A causing defects in Module B).
-2. **Staging & Working Tree Hygiene:**
-   - Execute `git status -s` to inspect untracked files, uncommitted temporary artifacts, or files falling outside `boundaries.md` mappings.
-3. **Role Telemetry & Workload Balance:**
-   - Inspect the `Role Invocation Log (Telemetry)` in all active `.agents/team/*/profile.md` files.
-   - Detect role imbalances:
-     * High invocation volume on a single role attempting to juggle multiple unrelated stacks.
-     * Inactive roles that have not been invoked for >30 days.
-4. **Knowledge Base Review:**
-   - Read `.agents/project_knowledge/observations.md` and `weak_spots.md` to identify unresolved structural debt.
+### Phase 2: Evidence Analysis (not heuristics)
+Use existing data: tasks.md, observations, reports, checks, change history,
+telemetry WITH confirmed identity. Interpretation rules (mandatory):
+- repeated edits of one file are a signal TO STUDY — normal TDD is not a verdict;
+- thirty days without invocations does not prove a role useless;
+- frequent gate blocks may be CORRECT protection;
+- frequent ground calls may follow session churn;
+- git authorship does not determine the project role;
+- missing telemetry means insufficient data — state it, don't guess.
+Choose the analysis window per question (period / completed-task set /
+installation); a fixed short commit window is only an optional overview.
+Separate FACTS (e.g. "five handoffs between roles") from HYPOTHESES
+(e.g. "the dispatcher allocates poorly" — needs verification).
 
----
+### Phase 3: Verifiable Proposals
+For each proposal record EXACTLY:
+Наблюдаемая проблема / Свидетельства и ограничения данных / Предполагаемая
+причина (hypothesis) / Предлагаемое изменение и область / Ожидаемый эффект /
+Способ проверки / Сохраняемые ограничения / Способ отмены / Исполнитель
+(own the fact–hypothesis split). Select a SMALL set with the highest expected
+value. "No justified proposals" is a normal result — say so explicitly.
 
-### Phase 2: Calibration Proposal (Advisory Gate)
+### Phase 4: Instruction & Context-Cost Calibration
+Check: duplicate rules across passport / skills / system prompts; scenario↔
+instruction contradictions; procedures loaded constantly but rarely needed;
+rules without observable behavioral impact; stale temporary workarounds;
+excessive mandatory reporting/confirmations. The North Stars limit applies
+to the TOTAL active set — propose consolidation (tactical details move to
+skills/knowledge); never delete accepted restrictions to hit a number; a new
+rule must state its application situation and expected behavior change.
 
-The agent MUST NOT autonomously alter critical rules without user alignment. Synthesize a concise `Tuning Advisory Report` divided into 4 focus areas:
+### Phase 5: Application via Mechanisms (after user confirmation)
+roles → manage-meta-project; binding disable / archive → decommission;
+framework → update-meta-project; local instructions → `local_repo_data`
+mechanism; boundaries → existing permission policy (never weaken protection
+to bypass a defect — a framework defect is recorded and fixed, not routed
+around). Do not re-confirm already-granted authorities; before requesting a
+NEW permission present a concrete diff and available checks. A rarely-used
+role is judged by purpose (independent verification may stay mandatory).
 
-1. **Team Topology Recommendation:**
-   - If workload overload or a new polyglot stack is identified ➔ Recommend invoking `manage-meta-project` to materialize a specialized role.
-   - If a role is obsolete ➔ Recommend invoking `decommission-meta-project` to safely archive it.
-   - *The `tune-meta-project` skill does not create or delete role folders directly; it delegates execution to dedicated skills.*
-2. **Boundary Refinement (`boundaries.md`):**
-   - Identify unmapped directories or files requiring explicit classification.
-   - **Hard Invariant (Red Zone Protection):** Autonomous downgrading of paths from Red Zone to Yellow or Green Zone is strictly prohibited. Any change reducing Red Zone restrictions requires explicit human confirmation.
-3. **Core Invariant Crystallization (Anti-Bloat Barrier):**
-   - **Strict Limit:** Allowed to propose adding **at most 3 fundamental invariants** to Section 1 of `AGENTS.md` ("Principles and Architectural Orientations (North Stars)").
-   - Each invariant MUST fit in exactly 1 concise sentence:
-     `- **<Invariant Name>:** <1 concise sentence defining non-negotiable rule>.`
-   - All tactical lessons, environment quirks, and temporary workarounds MUST be routed to `observations.md` and `weak_spots.md`, NOT `AGENTS.md`.
-4. **System Prompt & Trigger Tuning:**
-   - Suggest targeted additions to `.agents/team/*/system_prompt.md` to guide role behavior during recurring tasks.
+### Phase 6: Effect Verification Record
+Persist per applied change: original observation / expected result /
+re-evaluation condition / actual result / significant condition changes.
+Statuses: applied-not-verified (applied, not verified) | confirmed | no-effect | regression.
+If framework version, harness, and task type all changed, do not attribute
+the result to one setting without grounds. Re-evaluate on comparable tasks
+or the next tune run; no background observation needed. Rollback restores
+only the corresponding change, preserving subsequent user work.
 
----
-
-### Phase 3: Safe Materialization & Marking (`local_repo_data`)
-
-After receiving user confirmation, apply approved modifications using strict isolation tags:
-
-1. **Format Standards for Local Adaptations:**
-   - **For Markdown files (`.md`):**
-     ```markdown
-     <!-- local_repo_data:TAG -->
-     ... adapted local rules / roles / boundaries ...
-     <!-- /local_repo_data:TAG -->
-     ```
-   - **For YAML, Python, Shell, TOML files (`.yml`, `.yaml`, `.py`, `.sh`, `.toml`):**
-     ```yaml
-     # local_repo_data:TAG
-     ... adapted local rules / roles / boundaries ...
-     # /local_repo_data:TAG
-     ```
-2. **Apply Verified Updates:**
-   - Insert marked blocks into `boundaries.md`, `system_prompt.md`, or `AGENTS.md`.
-   - Never overwrite existing unrelated content.
-
----
-
-### Phase 4: Post-Tuning Verification
-
-1. **Verify Boundary Integrity:**
-   - Run the Boundary Gate audit:
-     ```bash
-     python .agents/scripts/check_boundaries.py --audit-tree
-     # Fallback: python scripts/check_boundaries.py --audit-tree
-     ```
-   - Ensure 100% path coverage is maintained.
-2. **Run Integrity & Test Suites:**
-   - Execute repository tests:
-     ```bash
-     python -m unittest discover -s tests -p "test_*.py" -v
-     ```
-3. **Log Telemetry & Observation:**
-   - Record the tuning session in `.agents/project_knowledge/observations.md` under category `[orchestration]` using the `record-observation` skill.
-   - Display a compact summary of calibrated components to the user.
+### Phase 7: Repeatability
+Same inputs → no new rules for the sake of running; no repeating rejected
+proposals without new grounds; no duplicate observations; no team rebuild;
+no files written in analysis mode. Store accepted AND rejected proposals
+with rationale and scope (local knowledge slice, via the tuning report and
+`local_repo_data`). Local calibration is an adaptation of the installed
+instance — it never bumps the upstream framework version and MUST be
+preserved by update-meta-project.
