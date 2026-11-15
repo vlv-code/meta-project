@@ -213,8 +213,68 @@ class TestManageReports(unittest.TestCase):
         self.assertTrue(verify_info.get("valid"))
 
     def test_cli_manage_create_and_verify(self):
-        """Verifies CLI execution for creating and verifying manage reports."""
+        """Verifies CLI execution for creating and verifying manage reports.
+
+        Audit §5 + Guardian Step 64: manage create is admitted only by an
+        existing, admitted init report for the installation (fail-closed
+        intake via evaluate_manage_intake)."""
         cli_script = REPO_ROOT / "scripts" / "manage_reports.py"
+
+        # Intake-valid context: registry with an active ag-main installation
+        # and an admitted init report for the referenced run.
+        registry = {
+            "schema_version": "1.1.0",
+            "project_id": "vlv-code/meta-project",
+            "installations": {
+                "ag-main": {
+                    "harness_id": "antigravity",
+                    "status": "active",
+                    "description": "fixture",
+                }
+            },
+            "roles": {
+                "agent-dev-lead": {
+                    "description": "fixture role",
+                    "bindings": {
+                        "ag-main": {
+                            "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+                            "status": "active",
+                            "profile_path": ".agents/team/agent-dev-lead/profile.md",
+                        }
+                    },
+                }
+            },
+        }
+        agents_dir = self.root / ".agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        (agents_dir / "meta-project.json").write_text(
+            json.dumps(registry, indent=2), encoding="utf-8"
+        )
+        profile_path = agents_dir / "team" / "agent-dev-lead" / "profile.md"
+        profile_path.parent.mkdir(parents=True, exist_ok=True)
+        profile_path.write_text(
+            "---\n"
+            'name: "Dev Lead"\n'
+            'role_id: "agent-dev-lead"\n'
+            'harness_id: "antigravity"\n'
+            'installation_id: "ag-main"\n'
+            'actor_id: "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead"\n'
+            "---\n# Role Passport\n",
+            encoding="utf-8",
+        )
+        init_data = create_init_report(
+            repo_root=self.root,
+            installation_id="ag-main",
+            harness_id="antigravity",
+            actor_id="vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+            project_id="vlv-code/meta-project",
+            status="completed",
+            scenario=self.valid_init_data["scenario"],
+            next_step_readiness=self.valid_init_data.get("next_step_readiness"),
+            run_id="20261115T005300Z-a1b2c3d4",
+        )
+        save_report(self.root, "ag-main", "init", init_data)
+
         data_file = self.root / "manage_data.json"
         with open(data_file, "w", encoding="utf-8") as f:
             json.dump(

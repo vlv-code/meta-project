@@ -517,55 +517,99 @@ def resolve_team_topology(
     scenario: Dict[str, Any], loc_estimate: int = 0
 ) -> Dict[str, Any]:
     """
-    Map scenario configuration to recommended agent team topology according to Phase 2 of manage-meta-project.
+    Map scenario configuration to recommended agent team topology.
+
+    Decision precedence (audit §5/§6):
+    1. An explicitly agreed collaboration_model is a USER DECISION and always
+       wins; size heuristics (LOC) must never silently downgrade it.
+    2. Contradictory wishes (e.g. 'solo' + strict_independent verification)
+       surface a non-empty 'conflicts' list for explicit resolution instead
+       of a silent choice.
+    3. 'specialized_swarm' is declared but NOT YET IMPLEMENTED: the result
+       carries "supported": False and must be resolved with the user.
+    4. Without an explicit choice, the profile/verification rules apply and
+       LOC is only a secondary sizing guideline.
     Returns:
     {
         "target_topology": "solo" | "duo" | "triad" | "specialized_swarm",
         "suggested_roles": [...],
-        "rationale": "..."
+        "rationale": "...",
+        "supported": bool,            # always present
+        "conflicts": [str, ...],      # always present
     }
     """
     profile = scenario.get("profile", "active_development")
     collab = scenario.get("collaboration_model", "")
     verification = scenario.get("verification_policy", "")
 
-    if profile in ("documentation", "research") or collab == "solo":
+    conflicts: List[str] = []
+
+    def _result(topology: str, roles: List[str], rationale: str,
+                supported: bool = True) -> Dict[str, Any]:
         return {
-            "target_topology": "solo",
-            "suggested_roles": ["agent-general-worker"],
-            "rationale": f"Solo Executor deployed for '{profile}' profile to prevent multi-agent handoff overhead.",
+            "target_topology": topology,
+            "suggested_roles": roles,
+            "rationale": rationale,
+            "supported": supported,
+            "conflicts": conflicts,
         }
 
-    if (
-        profile == "maintenance"
-        or (0 < loc_estimate < 3000)
-        or collab == "duo"
-    ):
-        return {
-            "target_topology": "duo",
-            "suggested_roles": ["agent-dev-lead", "agent-quality-guardian"],
-            "rationale": "Micro-Mini Duo deployed for maintenance/compact repository with 2-stage handoff.",
-        }
+    # 1. Explicit user decision takes precedence.
+    if collab == "solo":
+        if verification == "strict_independent":
+            conflicts.append(
+                "collaboration_model 'solo' conflicts with verification_policy "
+                "'strict_independent': independent verification requires a "
+                "second role; resolve explicitly with the user"
+            )
+        return _result(
+            "solo", ["agent-general-worker"],
+            f"Solo Executor honored as explicit user decision (profile '{profile}').",
+        )
+    if collab == "duo":
+        return _result(
+            "duo", ["agent-dev-lead", "agent-quality-guardian"],
+            "Micro-Mini Duo honored as explicit user decision (2-stage handoff).",
+        )
+    if collab == "triad":
+        return _result(
+            "triad",
+            ["agent-dev-lead", "agent-quality-guardian", "agent-github-steward"],
+            "Canonical Compact Trio honored as explicit user decision; "
+            "LOC estimates do not override agreed collaboration models.",
+        )
+    if collab == "specialized_swarm":
+        return _result(
+            "specialized_swarm", [],
+            "specialized_swarm was requested but is NOT YET IMPLEMENTED; "
+            "present the user with an explicit choice (proceed as triad now "
+            "or defer until swarm support lands).",
+            supported=False,
+        )
 
-    if (
-        profile == "active_development"
-        and verification == "strict_independent"
-    ) or collab == "triad":
-        return {
-            "target_topology": "triad",
-            "suggested_roles": [
-                "agent-dev-lead",
-                "agent-quality-guardian",
-                "agent-github-steward",
-            ],
-            "rationale": "Canonical Compact Trio deployed for active development with strict independent verification.",
-        }
-
-    return {
-        "target_topology": "triad" if collab == "triad" else "duo",
-        "suggested_roles": ["agent-dev-lead", "agent-quality-guardian"],
-        "rationale": "Standard development team configuration.",
-    }
+    # 2. No explicit choice: profile/verification rules; LOC is secondary.
+    if profile in ("documentation", "research"):
+        return _result(
+            "solo", ["agent-general-worker"],
+            f"Solo Executor derived for '{profile}' profile (no explicit model agreed).",
+        )
+    if verification == "strict_independent":
+        return _result(
+            "triad",
+            ["agent-dev-lead", "agent-quality-guardian", "agent-github-steward"],
+            "Triad derived from strict_independent verification (independent "
+            "verifier + release governance), regardless of repository size.",
+        )
+    if profile == "maintenance" or (0 < loc_estimate < 3000):
+        return _result(
+            "duo", ["agent-dev-lead", "agent-quality-guardian"],
+            "Micro-Mini Duo derived for maintenance/compact repository "
+            f"(profile '{profile}', LOC estimate {loc_estimate}).",
+        )
+    return _result(
+        "duo", ["agent-dev-lead", "agent-quality-guardian"],
+        "Standard development team configuration.",
+    )
 
 
 def check_report_staleness(
@@ -1063,6 +1107,37 @@ def main() -> int:
             if pid_err:
                 sys.stderr.write(f"Error: {pid_err}\n")
                 return 2
+
+            # Intake admission (audit §5 + Guardian Step 64 finding): a
+            # manage operation is authorized ONLY by an admitted init report
+            # for this installation. The referenced init run must exist and
+            # pass evaluate_manage_intake; hand-built or foreign init
+            # references fail closed.
+            init_file = (
+                get_report_dir(repo_root, args.installation, "init")
+                / f"{args.init_run_id}.json"
+            )
+            if not init_file.is_file():
+                sys.stderr.write(
+                    f"Error: referenced init run '{args.init_run_id}' not found "
+                    f"at {init_file}\n"
+                )
+                return 1
+            intake_errors = evaluate_manage_intake(
+                repo_root=repo_root,
+                installation_id=args.installation,
+                harness_id=args.harness,
+                actor_id=args.actor,
+                report_path=init_file,
+            )
+            if intake_errors:
+                sys.stderr.write(
+                    "Error: manage intake rejected "
+                    f"({len(intake_errors)} issue(s)):\n"
+                )
+                for e in intake_errors:
+                    sys.stderr.write(f"  * {e}\n")
+                return 1
 
             extra_data = {}
             if args.data_file:

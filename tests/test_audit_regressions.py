@@ -61,6 +61,7 @@ from scripts.manage_reports import (
     check_report_staleness,
     create_init_report,
     find_latest_report,
+    resolve_team_topology,
     save_report,
     validate_report,
 )
@@ -715,6 +716,68 @@ class TestReportIntakeRegressions(TempRootTestCase):
             f"uncommitted boundaries change not detected by intake: {errors!r}",
         )
 
+    def test_manage_create_cli_enforces_intake(self):
+        """Guardian Step 64 finding (locked post-fix): `manage --action
+        create` must fail closed without an existing, admitted init report —
+        the CLI is the machine gate, hand-built reports are not a bypass."""
+        init_dir = self.repo / ".agents" / "reports" / "ag-main" / "init"
+        init_dir.mkdir(parents=True, exist_ok=True)
+        # Materialize a completed init run for the happy path reference.
+        good_run = "init-20260101T000000Z-cli00001"
+        (init_dir / f"{good_run}.json").write_text(
+            json.dumps(self.base_report, indent=2), encoding="utf-8"
+        )
+        # And a blocked init run.
+        blocked_run = "init-20260101T000000Z-block001"
+        blocked_report = json.loads(json.dumps(self.base_report))
+        blocked_report["status"] = "blocked"
+        (init_dir / f"{blocked_run}.json").write_text(
+            json.dumps(blocked_report, indent=2), encoding="utf-8"
+        )
+
+        def _create(init_run_id: str):
+            return subprocess.run(
+                [
+                    sys.executable,
+                    str(MANAGE_REPORTS_SCRIPT),
+                    "manage",
+                    "--action",
+                    "create",
+                    "--repo-root",
+                    str(self.repo),
+                    "--installation",
+                    "ag-main",
+                    "--harness",
+                    "antigravity",
+                    "--actor",
+                    self.ACTOR,
+                    "--init-run-id",
+                    init_run_id,
+                    "--status",
+                    "completed",
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+        # 1. Referenced init run does not exist -> fail closed.
+        res_missing = _create("init-20260101T000000Z-MISSING0")
+        self.assertNotEqual(res_missing.returncode, 0)
+        self.assertIn("not found", res_missing.stderr)
+
+        # 2. Referenced init run is blocked -> intake refusal.
+        res_blocked = _create(blocked_run)
+        self.assertNotEqual(res_blocked.returncode, 0)
+        combined = res_blocked.stdout + res_blocked.stderr
+        self.assertTrue(
+            "intake rejected" in combined.lower() or "status" in combined.lower(),
+            f"blocked init run not refused by CLI intake: {combined!r}",
+        )
+
+        # 3. Admitted init run -> creation succeeds.
+        res_ok = _create(good_run)
+        self.assertEqual(res_ok.returncode, 0, f"admitted create failed: {res_ok.stderr}")
+
 
 class TestReportStorageRegressions(TempRootTestCase):
     """Audit §5: storage, pointers, latest semantics, default identity,
@@ -858,6 +921,51 @@ class TestReportStorageRegressions(TempRootTestCase):
         self.assertTrue(
             is_stale,
             f"uncommitted boundaries change not detected: {details!r}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Section I - Team topology selection (audit §5/§6)
+# ---------------------------------------------------------------------------
+
+
+class TestTopologyRegressions(TempRootTestCase):
+    """Audit §5/§6: agreed user decisions must not be silently overridden by
+    size heuristics; unsupported models must be explicit; contradictory
+    wishes must surface a conflict instead of a silent choice."""
+
+    def test_explicit_triad_not_downgraded_by_loc(self):
+        result = resolve_team_topology(
+            {"profile": "active_development", "collaboration_model": "triad"},
+            loc_estimate=500,
+        )
+        self.assertEqual(
+            result["target_topology"],
+            "triad",
+            f"agreed triad silently downgraded by LOC heuristic: {result!r}",
+        )
+
+    def test_specialized_swarm_explicitly_unsupported(self):
+        result = resolve_team_topology(
+            {"profile": "active_development", "collaboration_model": "specialized_swarm"}
+        )
+        self.assertEqual(result["target_topology"], "specialized_swarm")
+        self.assertFalse(
+            result.get("supported", True),
+            "specialized_swarm must be explicitly marked as not yet implemented",
+        )
+
+    def test_contradictory_wishes_surface_conflict(self):
+        result = resolve_team_topology(
+            {
+                "profile": "active_development",
+                "collaboration_model": "solo",
+                "verification_policy": "strict_independent",
+            }
+        )
+        self.assertTrue(
+            result.get("conflicts"),
+            "contradictory scenario resolved silently instead of surfacing a conflict",
         )
 
 
