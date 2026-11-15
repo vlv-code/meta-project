@@ -336,6 +336,102 @@ class TestManageReports(unittest.TestCase):
         verify_info = json.loads(proc_verify.stdout)
         self.assertTrue(verify_info.get("valid"))
 
+    def test_update_report_type_validates(self):
+        """Wave 0.9.0 Task C3: the 'update' report type validates against the
+        canonical template; mandatory update fields are enforced fail-closed
+        and 'completed' with unresolved conflicts is refused."""
+        self.assertIsNotNone(validate_report, "manage_reports module must be implemented")
+        update_template_path = REPO_ROOT / "templates" / "reports" / "update_report.json"
+        with open(update_template_path, "r", encoding="utf-8") as f:
+            valid_update_data = json.load(f)
+
+        # 1. Canonical template passes validation.
+        errors = validate_report(valid_update_data, expected_type="update")
+        self.assertEqual(errors, [], f"Validation failed with errors: {errors}")
+
+        # 2. Missing mandatory update fields fail.
+        mandatory_fields = ["versions", "source", "affected_components"]
+        for field in mandatory_fields:
+            corrupted_data = dict(valid_update_data)
+            del corrupted_data[field]
+            errors = validate_report(corrupted_data, expected_type="update")
+            self.assertTrue(
+                any(field in err for err in errors),
+                f"Expected validation error mentioning missing field '{field}', got: {errors}",
+            )
+
+        # 3. 'completed' with non-empty conflicts is invalid (must be
+        #    'awaiting_decision'); 'awaiting_decision' with conflicts is valid.
+        conflicted_data = dict(valid_update_data)
+        conflicted_data["conflicts"] = [
+            {"path": "scripts/x.py", "reason": "unmarked local edit"}
+        ]
+        errors = validate_report(conflicted_data, expected_type="update")
+        self.assertTrue(
+            any("awaiting_decision" in err for err in errors),
+            f"Completed update report with conflicts must be refused, got: {errors}",
+        )
+        conflicted_data["status"] = "awaiting_decision"
+        errors = validate_report(conflicted_data, expected_type="update")
+        self.assertEqual(
+            errors, [], f"awaiting_decision update report with conflicts must be valid: {errors}"
+        )
+
+    def test_tune_report_type_validates(self):
+        """Wave 0.9.0 Task T3: the 'tune' report type validates against the
+        canonical template; proposals are a mandatory non-empty list, every
+        proposal carries a decision, rejected proposals carry rationale, and
+        'completed' with an undecided proposal is refused."""
+        self.assertIsNotNone(validate_report, "manage_reports module must be implemented")
+        tune_template_path = REPO_ROOT / "templates" / "reports" / "tune_report.json"
+        with open(tune_template_path, "r", encoding="utf-8") as f:
+            valid_tune_data = json.load(f)
+
+        # 1. Canonical template passes validation.
+        errors = validate_report(valid_tune_data, expected_type="tune")
+        self.assertEqual(errors, [], f"Validation failed with errors: {errors}")
+
+        # 2. Missing 'proposals' fails (mandatory non-empty list).
+        corrupted = dict(valid_tune_data)
+        del corrupted["proposals"]
+        errors = validate_report(corrupted, expected_type="tune")
+        self.assertTrue(
+            any("proposals" in err for err in errors),
+            f"Expected validation error mentioning missing field 'proposals', got: {errors}",
+        )
+
+        # 3. A proposal without 'decision' fails.
+        corrupted = json.loads(json.dumps(valid_tune_data))
+        del corrupted["proposals"][0]["decision"]
+        errors = validate_report(corrupted, expected_type="tune")
+        self.assertTrue(
+            any("decision" in err for err in errors),
+            f"Expected validation error mentioning missing 'decision', got: {errors}",
+        )
+
+        # 4. 'completed' with an undecided ('proposed') proposal fails.
+        corrupted = json.loads(json.dumps(valid_tune_data))
+        corrupted["proposals"][0]["decision"] = "proposed"
+        errors = validate_report(corrupted, expected_type="tune")
+        self.assertTrue(
+            any("undecided" in err.lower() for err in errors),
+            f"Completed tune report with undecided proposal must be refused, got: {errors}",
+        )
+
+        # 5. A rejected proposal without 'rationale' fails.
+        rejected_idx = next(
+            i
+            for i, p in enumerate(valid_tune_data["proposals"])
+            if p.get("decision") == "rejected"
+        )
+        corrupted = json.loads(json.dumps(valid_tune_data))
+        del corrupted["proposals"][rejected_idx]["rationale"]
+        errors = validate_report(corrupted, expected_type="tune")
+        self.assertTrue(
+            any("rationale" in err for err in errors),
+            f"Rejected proposal without rationale must be refused, got: {errors}",
+        )
+
     def test_find_latest_report(self):
         """Verifies finding the latest report when multiple reports exist."""
         self.assertIsNotNone(save_report, "manage_reports module must be implemented")

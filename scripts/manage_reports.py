@@ -37,8 +37,9 @@ except ImportError:  # direct script execution: python scripts/manage_reports.py
         resolve_actor_binding = None
 
 SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.0", "1"}
-VALID_REPORT_TYPES = {"init", "manage"}
+VALID_REPORT_TYPES = {"init", "manage", "update", "tune"}
 VALID_REPORT_STATUSES = {"completed", "awaiting_decision", "blocked"}
+VALID_TUNE_DECISIONS = {"proposed", "accepted", "rejected"}
 
 # Essential decision inputs fingerprinted into every report (audit §5
 # freshness). Reports and runtime logs are intentionally excluded.
@@ -265,6 +266,86 @@ def validate_report(
         bindings = data.get("bindings")
         if not isinstance(bindings, dict):
             errors.append("Missing or invalid field 'bindings' in manage report")
+
+    elif report_type == "update":
+        versions = data.get("versions")
+        if (
+            not isinstance(versions, dict)
+            or not str(versions.get("before", "")).strip()
+            or not str(versions.get("after", "")).strip()
+        ):
+            errors.append(
+                "Missing or invalid field 'versions' in update report "
+                "(must be an object with non-empty 'before' and 'after')"
+            )
+
+        source = data.get("source")
+        if not isinstance(source, dict):
+            errors.append(
+                "Missing or invalid field 'source' in update report "
+                "(must be an object)"
+            )
+        else:
+            for sub_field in ("ref", "commit_sha", "origin"):
+                if not str(source.get(sub_field, "")).strip():
+                    errors.append(
+                        f"Missing or invalid field 'source.{sub_field}' "
+                        "in update report"
+                    )
+
+        affected = data.get("affected_components")
+        if not isinstance(affected, list) or not affected:
+            errors.append(
+                "Missing or invalid field 'affected_components' in update "
+                "report (must be a non-empty list)"
+            )
+
+        conflicts = data.get("conflicts")
+        if status == "completed" and isinstance(conflicts, list) and conflicts:
+            errors.append(
+                "Completed update report must not carry unresolved conflicts: "
+                "use status 'awaiting_decision' until conflicts are resolved"
+            )
+
+    elif report_type == "tune":
+        proposals = data.get("proposals")
+        if not isinstance(proposals, list) or not proposals:
+            errors.append(
+                "Missing or invalid field 'proposals' in tune report "
+                "(must be a non-empty list)"
+            )
+        else:
+            for idx, proposal in enumerate(proposals):
+                if not isinstance(proposal, dict):
+                    errors.append(
+                        f"Invalid proposal at index {idx} in tune report "
+                        "(must be an object)"
+                    )
+                    continue
+                decision = str(proposal.get("decision", "")).strip()
+                if not decision:
+                    errors.append(
+                        f"Proposal {idx} in tune report is missing required "
+                        "field 'decision'"
+                    )
+                elif decision not in VALID_TUNE_DECISIONS:
+                    errors.append(
+                        f"Invalid decision '{decision}' for proposal {idx} in "
+                        f"tune report. Allowed: {sorted(list(VALID_TUNE_DECISIONS))}"
+                    )
+                if (
+                    decision == "rejected"
+                    and not str(proposal.get("rationale", "")).strip()
+                ):
+                    errors.append(
+                        f"Rejected proposal {idx} in tune report must carry "
+                        "a non-empty 'rationale'"
+                    )
+                if status == "completed" and decision in ("", "proposed"):
+                    errors.append(
+                        f"Completed tune report requires a recorded decision "
+                        f"for every proposal; proposal {idx} is undecided"
+                    )
 
     return errors
 
@@ -904,7 +985,10 @@ def build_cli_parser() -> argparse.ArgumentParser:
         "--installation", required=True, help="Installation ID"
     )
     p_latest.add_argument(
-        "--type", choices=["init", "manage"], required=True, help="Report type"
+        "--type",
+        choices=["init", "manage", "update", "tune"],
+        required=True,
+        help="Report type",
     )
     p_latest.add_argument(
         "--json", action="store_true", help="Output machine-readable JSON"
@@ -917,7 +1001,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
     p_verify.add_argument("--report", required=True, help="Path to report file")
     p_verify.add_argument(
         "--type",
-        choices=["init", "manage"],
+        choices=["init", "manage", "update", "tune"],
         help="Expected report type (optional)",
     )
     p_verify.add_argument(
