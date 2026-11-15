@@ -417,6 +417,6 @@
 
 ### 4. Остаточные пункты (не закрыты этим циклом)
 - **[Требует действия владельца]** Branch Protection на `main` фактически не настроен (`protected: false` по состоянию на 2026-11-15): отсутствуют required status checks матрицы `Validate Skills & Templates Integrity (3.10–3.13)`, обязательный review с dismissal устаревших одобрений по `CODEOWNERS` и запрет force-push. YAML и `CODEOWNERS` доказательством защиты не являются (отчёт agent-github-steward, Steps 62–64 closeout).
-- Исправление обхода движка допуска в CLI `manage --action create` (weak_spots §3).
+- [ЗАКРЫТО 2026-11-15, Step 65 — коммит `81a7977`] Исправление обхода движка допуска в CLI `manage --action create` (weak_spots §3 → RESOLVED).
 - Механизм SHA-привязанной авторизации санкционированных Red Zone правок (§7.2.2, пункт 4).
 
