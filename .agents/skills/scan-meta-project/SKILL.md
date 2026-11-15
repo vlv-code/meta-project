@@ -30,9 +30,12 @@ The skill operates in two modes:
 1. Identify invocation mode from user prompt or default to `--shallow`:
    - `--shallow`: Routine integrity check, boundary coverage validation, task freshness.
    - `--deep`: Full architectural drift detection, Core Inspection Checklist, test execution.
-2. Locate the Boundary Gate script:
-   - Prefer `.agents/scripts/check_boundaries.py` (target repository layout).
-   - Fallback to `scripts/check_boundaries.py` (meta-project layout).
+2. Locate the Boundary Gate script deterministically:
+   1. Canonical location first: `scripts/check_boundaries.py`.
+   2. Legacy `.agents/scripts/check_boundaries.py` is supported ONLY as an explicit migration candidate: if found, compare with the canonical copy.
+      - No canonical copy → schedule migration (move legacy ➔ `scripts/`).
+      - Both exist and are IDENTICAL → migrate (delete legacy) at next update.
+      - Both exist and DIVERGE → HALT and report both paths with hashes; never silently use the first found.
    - If neither script exists, verify boundaries manually against `boundaries.md` glob patterns.
 
 ---
@@ -51,10 +54,15 @@ The skill operates in two modes:
      * `observations.md` (5-column observation table).
      * `tasks.md` (active objective and checklists).
 3. **Boundary Coverage (Zero Unmapped Dirs Rule):**
-   - Run the automated Boundary Gate audit:
+   - Locate the Boundary Gate utility deterministically:
+     1. Canonical location first: `scripts/check_boundaries.py`.
+     2. Legacy `.agents/scripts/check_boundaries.py` is supported ONLY as an explicit migration candidate: if found, compare with the canonical copy.
+        - No canonical copy → schedule migration (move legacy ➔ `scripts/`).
+        - Both exist and are IDENTICAL → migrate (delete legacy) at next update.
+        - Both exist and DIVERGE → HALT and report both paths with hashes; never silently use the first found.
+   - Run the automated Boundary Gate audit with the resolved copy:
      ```bash
-     python .agents/scripts/check_boundaries.py --audit-tree
-     # Fallback: python scripts/check_boundaries.py --audit-tree
+     python scripts/check_boundaries.py --audit-tree
      ```
    - If any unmapped files or directories are reported, treat them as Black Zone breaches. Flag them immediately for inclusion in `boundaries.md`.
 4. **Task Register Check (`tasks.md`):**

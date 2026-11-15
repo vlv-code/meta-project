@@ -38,7 +38,7 @@ Perform silent internal verification before your first tool call or answer:
    - *Step B (Risk Ledger):* If new fragile couplings or technical debts were identified, log them in `.agents/project_knowledge/weak_spots.md`; if an existing tracked debt was resolved, mark it resolved.
    - *Step C (Observations):* If you resolved an undocumented environment quirk, compiler/runtime issue, or non-obvious solution, log it into `.agents/project_knowledge/observations.md` via `record-observation`.
    - *Step D (Telemetry Closeout):* Add strictly 1 concise summary entry per completed task to the telemetry log table in `.agents/team/agent-quality-guardian-zc/profile.md` upon final task closeout (no intermediate micro-step spam; detailed step tracking belongs in `tasks.md`).
-6. **Circuit Breaker (Stop-Work on 2nd Iteration):** If a bugfix requires a second attempt in the same module or produces a secondary regression in adjacent code, CEASE code modifications immediately. Zoom out, trace the full data lifecycle from origin to consumer, identify the architectural root cause, and present a systemic analysis before proposing any new diff.
+6. **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, or new regressions appearing in adjacent code while fixing it, are a semantic signal to STOP editing and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
 7. **Target State Audit:** Before modifying non-trivial modules in Yellow or Red zones, determine:
    - *Single Source of Truth:* Who authoratively owns this state?
    - *Persistence & Cache:* Where does state persist (disk, memory, `%APPDATA%`, registry) and how is it invalidated?

@@ -1,15 +1,17 @@
 ---
 name: update-meta-project
 description: >-
-  Safely update meta-project canonical skills, templates, and scripts from upstream GitHub
-  or local cache, preserving all local_repo_data adaptations and knowledge slices.
+  Safely update an installed meta-project framework (skills, templates, scripts)
+  by driving the managed update engine scripts/update_meta_project.py:
+  read-only check and plan, user alignment, atomic journaled apply, and
+  restore; preserves local_repo_data adaptations and knowledge slices.
 ---
 
-# Upstream Meta-Project Updater (Update Meta-Project)
+# Managed Framework Updater (Update Meta-Project)
 
-Autonomous non-destructive skill for updating procedural skills, runtime scripts, and canonical templates from the upstream official `meta-project` framework into a target repository.
+Autonomous non-destructive skill for updating procedural skills, runtime scripts, and canonical templates in a target repository, driven by the SHA-pinned, atomic, crash-recoverable engine `scripts/update_meta_project.py` (subcommands: `check | plan | apply | restore`).
 
-The skill features automatic dual-tier source resolution (GitHub Raw with timeout fallback to local cache), preserves all locally adapted blocks marked with `local_repo_data`, strictly shields project knowledge slices from overwrite, and performs post-update Boundary Gate validation.
+**Division of responsibility:** the engine owns resolution, merging, atomic replacement, the journal, the framework lock, and update reports. The AGENT owns context inspection, conflict/protected/needs-base analysis, user alignment, and post-update verification. The agent never copies framework files manually.
 
 ---
 
@@ -23,91 +25,86 @@ The skill features automatic dual-tier source resolution (GitHub Raw with timeou
 
 ## Execution steps
 
-### Phase 1: Upstream Source Discovery & Resolution
+### Phase 1: Pre-Flight — Context Inspection & Availability Check
 
-1. **Dual-Tier Source Selection:**
-   - **Tier 1 (Online Upstream — Primary):**
-     Attempt to fetch latest manifest and skill files from the official upstream repository:
-     `https://raw.githubusercontent.com/vlv-code/meta-project/main/`
-     *Connection constraint:* Enforce a strict **3-second timeout** per request using pure standard library (`urllib.request`).
-   - **Tier 2 (Offline Local Cache — Fallback):**
-     If network access fails (timeout, `URLError`, offline sandbox, airgapped environment) or if invoked with `--offline`, seamlessly fallback to the local global skills cache:
-     `~/.gemini/config/skills/` (Windows: `%USERPROFILE%\.gemini\config\skills\`).
-2. **Determine Target Repository Context:**
-   - If running inside the core `meta-project` repository itself: inform the user that upstream updates are managed via git pull/checkout on `main`, not via self-overwrite.
-   - If running inside a target application repository: proceed with the Three-Way Safe Merge below.
-
----
-
-### Phase 2: Pre-Flight Safety & Local Data Harvesting
-
-0. **Pre-Flight Repository Survey:**
-   - Run `python scripts/inspect_meta_project.py --json` to diagnose repository state and schema compatibility before applying updates. If the repository is in `INCOMPATIBLE_SCHEMA`, halt and report required schema migration to the user.
-1. **Working Tree Inspection:**
-   - Run `git status -s` to ensure there are no uncommitted collisions in target update areas.
-2. **Harvest Local Adaptations (`local_repo_data`):**
-   - Scan all existing files in `.agents/skills/`, `.agents/scripts/`, `boundaries.md`, `system_prompt.md`, and `AGENTS.md`.
-   - Extract and store in memory all customized blocks enclosed by:
-     * **Markdown markers:**
-       ```markdown
-       <!-- local_repo_data:TAG -->
-       ...
-       <!-- /local_repo_data:TAG -->
-       ```
-     * **Code / Config markers:**
-       ```yaml
-       # local_repo_data:TAG
-       ...
-       # /local_repo_data:TAG
-       ```
-3. **Establish Inviolability Perimeter:**
-   - The `.agents/project_knowledge/` directory (accumulated observations, weak spots, tasks, architecture history) and role private notes `.agents/team/*/notes.md` are **strictly protected from destructive overwrite**.
-   - Only non-destructive opportunistic schema additions (e.g. adding a new standard column header) are permitted.
-
----
-
-### Phase 3: Three-Way Safe Merge & Rollout
-
-1. **Update Procedural Skills:**
-   - Copy or download updated `SKILL.md` files into `.agents/skills/<skill>/SKILL.md`.
-   - Restore any harvested `local_repo_data` blocks into their respective skills.
-2. **Update Runtime Scripts (single canonical location `scripts/`):**
-   - Copy or download updated zero-dependency scripts VERBATIM into the repository's `scripts/` directory — the one canonical runtime location (a diverged second copy is a defect):
-     * `scripts/check_boundaries.py`
-     * `scripts/compact_memory.py`
-     * `scripts/record_obs.py`
-     * `scripts/verify_identity.py`
-     * `scripts/inspect_meta_project.py`
-     * `scripts/manage_reports.py`
-     * `scripts/sync_templates.py` (when the target repository maintains canonical skills)
-   - **Legacy Migration (explicit):** if a previous deployment used the old `.agents/scripts/` location, migrate it explicitly — move updated scripts into `scripts/`, then remove the legacy copies ONLY after confirming no `local_repo_data` blocks and no local divergences remain unharvested (Phase 2 harvest runs first). Never leave two diverging executable versions.
-   - Existing pre-commit hooks referencing `.agents/scripts/check_boundaries.py` must be reinstalled via `python scripts/check_boundaries.py --install-hook` (the dispatcher prefers `scripts/` and treats the old path as legacy).
-3. **Synchronize Canonical Templates & Passport:**
-   - If upstream introduces new canonical invariants or sections, merge them into `boundaries.md` or `AGENTS.md`, immediately re-inserting preserved local blocks at their marked locations.
-
----
-
-### Phase 4: Post-Update Validation
-
-1. **Run Boundary Gate Audit:**
-   - Verify that updated skills and scripts maintain 100% boundary mapping coverage:
-     ```bash
-     python scripts/check_boundaries.py --audit-tree
-     # Legacy fallback (pre-migration deployments only): python .agents/scripts/check_boundaries.py --audit-tree
-     ```
-2. **Execute Repository Test Suite:**
-   - Verify that test assertions pass without regression:
-     ```bash
-     python -m unittest discover -s tests -p "test_*.py" -v
-     ```
-3. **Deliver Update Report:**
-   Present a concise summary to the user:
-   ```markdown
-   ### 🚀 Update Report (Meta-Project Updater)
-   - **Source:** Online Upstream (GitHub Raw) | Offline Local Cache
-   - **Updated Skills:** [list of updated skills]
-   - **Updated Scripts:** [list of updated scripts in .agents/scripts/]
-   - **Preserved Adaptations:** N `local_repo_data` blocks preserved without loss
-   - **Boundary Gate:** 100% path coverage verified
-   - **Test Suite Status:** Passing
+1. **Inspect the execution context:**
+   - `python scripts/inspect_meta_project.py --json --harness <harness_id> --installation <installation_id>` — diagnose repository state and schema compatibility. If the repository is in `INCOMPATIBLE_SCHEMA`, halt and report the required schema migration to the user.
+   - `python scripts/verify_identity.py --check` — validate the registry and role bindings; resolve the qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) required by `apply` later.
+   - `git status -s` — ensure there are no uncommitted collisions in the target update areas.
+2. **Read the framework lock** (`.agents/framework-lock.json`) if present: it records the actually-installed component subset, the pinned source/ref/commit SHA, the channel, and a sha256 per component. No lock means this installation was not produced by the managed engine — surface that to the user before proceeding.
+3. **Check available updates THROUGH THE ENGINE** (strictly read-only, zero writes):
+   ```bash
+   python scripts/update_meta_project.py check --source <upstream_repo_path_or_url> --ref <ref>
    ```
+   - `--ref` is a branch, tag, or full commit SHA (default `main`); the engine pins ONE exact SHA and materializes every component from that single revision (never mixing revisions).
+   - State the source and its constraints to the user explicitly: a local repository path works directly; a remote URL requires a prior local `git fetch`.
+   - Cache resolution (used when the origin is unavailable): `--cache-dir` flag > `META_PROJECT_CACHE` env var > OS cache path (`%LOCALAPPDATA%/meta-project/cache` on Windows, `~/.cache/meta-project` on POSIX). Only INTEGRAL single-revision bundles are accepted; a partial cache is refused.
+   - Interpret the JSON output: `updates_available`, `drifted` (installed files differing from the lock record — local edits of unknown origin), `lock_present`, `diagnostics`. Exit code 1 means updates or drift were found (or the check failed — read stderr); exit code 0 means up to date.
+4. **Framework repository itself:** when running inside the core `meta-project` repository, self-overwrite via the engine is PROHIBITED — the framework evolves through ordinary Git edits in its own repository. The update engine targets OTHER repositories with installed frameworks.
+
+---
+
+### Phase 2: Plan & User Alignment (read-only)
+
+1. **Build the three-way merge plan:**
+   ```bash
+   python scripts/update_meta_project.py plan --source <...> --ref <...> [--repo-root .] [--components path1,path2] [--protect pattern1,pattern2]
+   ```
+   Zero-write. Default scope is the full component set declared in the source's `templates/release_manifest.json`; `--components` narrows it (dependencies from `requires` stay with their dependents); `--protect` overrides the default protect patterns.
+2. **Analyze the plan — this analysis is the agent's job** (the engine only refuses; the agent explains):
+   - `conflicts` — unmarked local modifications (outside `local_repo_data` markers) that the engine refuses to overwrite. Present each conflict (path + nature of the local change) to the user. HOW to resolve — add `local_repo_data` markers, merge manually, or skip the component — is the USER's decision; the agent never picks silently.
+   - `protected` — components matching protect patterns (boundary gate, workflows, integrity tests, LICENSE, ...). Automated changes are refused: the Red-Zone sanction is an explicitly OPEN item, no sanctioned mechanism exists. Only the manual, user-confirmed path is available for these.
+   - `needs_base` — locally modified components with no merge base matching the lock-recorded sha256 in the cache. Either supply an integral cache containing the base content, or the user explicitly gives up "safe merge" for those components (manual decision). The engine never claims a safe merge without a base.
+3. **Agreement gate:** do NOT proceed to Phase 3 without the user's explicit approval of the plan (scope + per-conflict resolutions).
+
+---
+
+### Phase 3: Apply (engine-driven, atomic)
+
+1. **After user approval:**
+   ```bash
+   python scripts/update_meta_project.py apply --source <...> --ref <...> --repo-root . --installation <installation_id> --actor <qualified_actor_id> [--cache-dir ...] [--components ...]
+   ```
+2. **What the engine guarantees** (no manual steps by the agent):
+   - per-file atomic replacement from the single pinned SHA;
+   - `local_repo_data`-marked blocks re-injected into merged files;
+   - operation journal `.agents/update-journal.json` (before/after sha256 per file);
+   - framework lock `.agents/framework-lock.json` rewritten atomically;
+   - an `update` report recorded through the canonical report engine (`scripts/manage_reports.py`).
+3. **Refusal handling:** `[APPLY-REFUSED]` for protected components, unresolved conflicts, or needs_base entries means ZERO writes were performed. Return to Phase 2, resolve with the user, retry or abandon.
+
+---
+
+### Phase 4: Verification & Recovery
+
+1. **Boundary gate audit:**
+   ```bash
+   python scripts/check_boundaries.py --boundaries .agents/project_knowledge/boundaries.md --audit-tree
+   ```
+   100% boundary mapping coverage is required.
+2. **Repository test suite:**
+   ```bash
+   python -m unittest discover -s tests -p "test_*.py"
+   ```
+3. **Identity re-check:** `python scripts/verify_identity.py --check` — the update must not have altered role bindings or `.agents/meta-project.json`.
+4. **Interrupted or failed operation:** restore ONLY the engine's own changes from the last operation journal:
+   ```bash
+   python scripts/update_meta_project.py restore --repo-root .
+   ```
+   Third-party edits made during the apply window are kept and reported, never clobbered.
+5. **Status truthfulness (session reload):** an updated runtime file on disk is NOT the version loaded by the harness in the current session. After `apply`, instruct the user to reload/restart the session so the new skills/passport take effect, and do not claim updated behavior is already active.
+6. **Deliver the update summary to the user:** pinned source + commit SHA, affected components, preserved adaptations (merged `local_repo_data` blocks), remaining manual actions (protected/conflicted components), journal and report locations.
+
+---
+
+## Background Notes (user-facing explanation only)
+
+* **`local_repo_data` mechanism (implemented inside the engine; the agent does not harvest manually):** local adaptations wrapped in markers are preserved through updates:
+  ```markdown
+  <!-- local_repo_data:TAG -->
+  ...locally customized content...
+  <!-- /local_repo_data:TAG -->
+  ```
+  (in code/config files the same markers are written as `# local_repo_data:TAG` comments). The engine re-injects these blocks into merged content; any local change OUTSIDE such markers is an explicit conflict requiring a user decision.
+* **Inviolability perimeter:** `.agents/project_knowledge/` slices and role private notes (`.agents/team/*/notes.md`) are never part of the managed component set and survive updates untouched.
+* **Component composition:** the default update scope is the component set of `templates/release_manifest.json` at the pinned source; the project lock records the installed subset — a minimal scaffold is a valid installation.

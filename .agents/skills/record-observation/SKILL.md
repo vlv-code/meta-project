@@ -25,12 +25,16 @@ This skill ensures disciplined, standardized addition of entries to the project 
    Read the recent entries of `.agents/project_knowledge/observations.md`. Ensure that a similar observation has not already been logged. If an entry already exists, do not create duplicate rows.
 
 2. **Execute standardized CLI utility (`record_obs.py`):**  
-   Record the finding atomically using the zero-dependency CLI utility:
+   Locate the runtime utility deterministically:
+   1. Canonical location first: `scripts/record_obs.py`.
+   2. Legacy `.agents/scripts/record_obs.py` is supported ONLY as an explicit migration candidate: if found, compare with the canonical copy.
+      - No canonical copy → schedule migration (move legacy ➔ `scripts/`).
+      - Both exist and are IDENTICAL → migrate (delete legacy) at next update.
+      - Both exist and DIVERGE → HALT and report both paths with hashes; never silently use the first found.
+   
+   Record the finding atomically with the resolved copy:
    ```bash
-   # In meta-project repository:
    python scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>" --actor-id "<actor_id>"
-   # In target repositories (via installed helper):
-   python .agents/scripts/record_obs.py --category "<category>" --path "<path_or_component>" --issue "<issue_summary>" --solution "<workaround_or_solution>" --actor-id "<actor_id>"
    ```
    * **Parameters:**
      * `--category`: One of the canonical categories: `boundaries`, `ci`, `decommission`, `incident`, `orchestration`, `runtime`, `git`, `init`, `testing`, `architecture`.
@@ -48,12 +52,16 @@ This skill ensures disciplined, standardized addition of entries to the project 
    ```
 
 4. **Registry size control (Compaction Protocol):**  
-   If the number of rows in the table exceeds 20–30, invoke the automated compaction utility:
+   If the number of rows in the table exceeds 20–30, locate the compaction utility deterministically:
+   1. Canonical location first: `scripts/compact_memory.py`.
+   2. Legacy `.agents/scripts/compact_memory.py` is supported ONLY as an explicit migration candidate: if found, compare with the canonical copy.
+      - No canonical copy → schedule migration (move legacy ➔ `scripts/`).
+      - Both exist and are IDENTICAL → migrate (delete legacy) at next update.
+      - Both exist and DIVERGE → HALT and report both paths with hashes; never silently use the first found.
+   
+   Invoke the automated compaction utility with the resolved copy:
    ```bash
-   # In target repositories:
-   python .agents/scripts/compact_memory.py --max-observations 20 --keep-observations 10
-   # Or in meta-project repository:
    python scripts/compact_memory.py --max-observations 20 --keep-observations 10
    ```
    This automatically rotates older records into `.agents/project_knowledge/archive/observations_YYYYMM.md`, keeping the primary file lightweight and preventing context rot.
-   *(If `compact_memory.py` is not present in `.agents/scripts/` or `scripts/`, manually archive older resolved records into `.agents/project_knowledge/archive/observations_YYYYMM.md`)*.
+   *(If `compact_memory.py` is not present in `scripts/`, manually archive older resolved records into `.agents/project_knowledge/archive/observations_YYYYMM.md`)*.

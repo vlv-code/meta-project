@@ -115,17 +115,9 @@ If no structure exists, execute the standard two-pass algorithm:
    - scripts/
 
 4. **Deploy bundled meta-project skills and runtime scripts:**
-   Write SKILL.md files from the embedded templates below to:
-   - .agents/skills/record-observation/SKILL.md
-   - .agents/skills/sync-architecture/SKILL.md
-   - .agents/skills/ground-meta-project/SKILL.md
-   Deploy zero-dependency automation and runtime scripts to repository scripts/:
-   - scripts/inspect_meta_project.py (Deterministic Repository Survey & Capability Matrix CLI)
-   - scripts/check_boundaries.py (Boundary Gate CLI)
-   - scripts/compact_memory.py (Context Rot Shield & Memory Compactor)
-   - scripts/record_obs.py (Observation Logger CLI with cross-platform locking)
-   - scripts/verify_identity.py (Multi-Harness Identity Engine & Registry Validator)
-   - scripts/manage_reports.py (Init/Manage Report Engine & fail-closed Intake Admission CLI)
+   Deploy the agreed SUBSET defined by `templates/release_manifest.json` of the pinned source (minimal scaffold default: 3 embedded skills + core scripts; `manage_reports.py` + `update_meta_project.py` when reports/updates are in scope); dependencies from `requires` are deployed together with their dependent:
+   - Write SKILL.md files from the embedded templates below to `.agents/skills/<skill>/SKILL.md` for every skill in the agreed subset.
+   - Deploy zero-dependency automation and runtime scripts to repository `scripts/` for every script in the agreed subset (component paths and `kind` values are taken from the manifest).
 
    **Canonical Script Source Invariant:** deploy these files VERBATIM from the installed meta-project resources (pinned upstream `vlv-code/meta-project` @ `main`, or the matching version in the global skills cache). NEVER re-create, paraphrase, or partially copy runtime scripts from descriptions — a diverged script is a defect, not an adaptation.
 
@@ -331,17 +323,36 @@ description: >-
 ---
 name: ground-meta-project
 description: >-
-  Emergency grounding and recalibration skill: halts runaway edits, forces a zoom-out, re-reads AGENTS.md,
-  the active role passport, boundaries.md, and architecture map, diagnoses context drift, and resets the agent into its operating corridor.
+  Context recovery and drift diagnosis skill: restores goal, state, identity, and authority
+  after session changes, moves, updates, or compaction; diagnoses context drift
+  (unconfirmed hypotheses, contradictions, authority overreach) without automatic rollback.
 ---
 
-# Agent Grounding & Emergency Context Reset (Ground Meta-Project)
+# Agent Grounding: Context Recovery & Drift Diagnosis
 
-1. Cease all writing operations and run git status -s.
-2. Sequentially re-read AGENTS.md, boundaries.md, .agents/team/<role>/profile.md, and architecture.md.
-3. Diagnose context drift, symptom masking, or boundary breaches.
-4. Present a structured Grounding Report with root-cause analysis and a 2-3 step recovery plan.
-5. Halt and await user confirmation before taking any further code action.
+Two modes: **Recovery** (new session, repository move, task handoff, after update, after
+context compaction) and **Drift diagnosis** (repeated unconfirmed hypotheses,
+self-contradictions, actions beyond authority). Semantic triggers only; a normal iterative
+TDD loop is NOT a violation.
+
+1. Drift mode: FIRST stop all modifications, snapshot `git status -s` / `git diff --stat`;
+   NEVER roll back automatically — unknown authorship of changes is reported, not reverted.
+2. Validate the assigned role mechanically: `python scripts/verify_identity.py --actor <actor_id>`
+   (an unresolvable identity is reported as unknown, never guessed).
+3. Selectively re-read only what the situation needs: AGENTS.md (North Stars + Local
+   Verification Tooling), the agreed scenario from `.agents/meta-project.json`, the live task
+   (the CURRENT user request wins over a stale `tasks.md` entry; previously agreed restrictions
+   are never silently cancelled), relevant fragments of boundaries.md / architecture.md, and
+   the assigned role's OWN notes.md. A found report is context, NOT an authorization.
+4. Diagnose boundary drift, symptom masking vs root cause, data-flow tracing, contract
+   duplication; separate FACTS from HYPOTHESES.
+5. Present the compact Grounding Report (goal, invariants, identity, established state,
+   discrepancies, next step + verification) and continue conditionally: conditions of
+   already-authorized work restored → CONTINUE; only a technical plan re-draft within
+   existing authority → do it; a new choice or authority extension → ask ONE concrete
+   question; an explicit user pause request always wins.
+6. Grounding stays read-only: no telemetry rows, no tasks.md changes, no lock files,
+   no persistent reports.
 ```
 
 ### Template: `observations.md`
@@ -451,7 +462,7 @@ Registry of fragile areas, known bugs, and constraints of the repository. Agents
   - {{PRINCIPLE_1}} (e.g.: dependency minimalism, avoiding unnecessary abstractions).
   - {{PRINCIPLE_2}} (e.g.: strict typing and validation at system boundaries).
   - {{PRINCIPLE_3}} (e.g.: explicit error handling without swallowing exceptions).
-  - **Circuit Breaker & Flow Tracing:** Prohibit repetitive code edits during cross-component defects without first mapping the data path. Stop on 2nd consecutive fix in the same module to perform root cause investigation.
+  - **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, or new regressions appearing in adjacent code while fixing it, are a semantic signal to STOP editing and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
   - **Default Deny Boundaries:** Any directory not explicitly mapped in boundaries is strictly Red Zone.
   - **Default Closed Tooling:** Core framework and agents operate in a zero-dependency closed loop by default. External tools and third-party dependencies are permitted ONLY when explicitly declared (opt-in) in project specification or requested by user. Liability for external tool failures rests on the project/operator.
   - **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests (boundary conditions, malformed input, failure modes) and confirm RED before writing implementation code to transition to GREEN.
@@ -488,12 +499,21 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `init-meta-project` — repository scaffolding and non-destructive initialization.
 - `manage-meta-project` — scale-adaptive agent team orchestration and materialization.
 - `decommission-meta-project` — non-destructive decommissioning, resizing, and archiving of agent roles.
-- `ground-meta-project` — emergency grounding, runaway edit halt, and context recalibration.
+- `ground-meta-project` — context recovery and drift diagnosis: restores goal, state, identity, and authority after session changes, moves, updates, or compaction; diagnoses context drift without automatic rollback.
 - `scan-meta-project` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
 - `tune-meta-project` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
 - `update-meta-project` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
 - `record-observation` — atomic logging of findings and quirks into `observations.md`.
 - `sync-architecture` — updating the component map and data flows in `architecture.md`.
+
+### Skill Responsibility Boundaries (invariant):
+| Skill | Owns | Must NOT do |
+|---|---|---|
+| init | survey, scenario agreement, scaffold prep | deploy teams |
+| manage | roles & bindings configuration | re-agree the scenario |
+| update | framework components & migrations | revise team composition or North Stars |
+| ground | recover understanding of goal/state/authority | change configuration to silence a discrepancy |
+| tune | propose config improvements with evidence | apply them directly (routes via manage/update/decommission) |
 
 ### Connected stack skills from environment:
 {{STACK_SKILLS}}

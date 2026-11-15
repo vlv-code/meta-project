@@ -8,7 +8,7 @@
   - {{PRINCIPLE_1}} (e.g.: dependency minimalism, avoiding unnecessary abstractions).
   - {{PRINCIPLE_2}} (e.g.: strict typing and validation at system boundaries).
   - {{PRINCIPLE_3}} (e.g.: explicit error handling without swallowing exceptions).
-  - **Circuit Breaker & Flow Tracing:** Prohibit repetitive code edits during cross-component defects without first mapping the data path. Stop on 2nd consecutive fix in the same module to perform root cause investigation.
+  - **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, or new regressions appearing in adjacent code while fixing it, are a semantic signal to STOP editing and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
   - **Default Deny Boundaries:** Any directory not explicitly mapped in boundaries is strictly Red Zone.
   - **Default Closed Tooling:** Core framework and agents operate in a zero-dependency closed loop by default. External tools and third-party dependencies are permitted ONLY when explicitly declared (opt-in) in project specification or requested by user. Liability for external tool failures rests on the project/operator.
   - **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests (boundary conditions, malformed input, failure modes) and confirm RED before writing implementation code to transition to GREEN.
@@ -45,12 +45,21 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `init-meta-project` — repository scaffolding and non-destructive initialization.
 - `manage-meta-project` — scale-adaptive agent team orchestration and materialization.
 - `decommission-meta-project` — non-destructive decommissioning, resizing, and archiving of agent roles.
-- `ground-meta-project` — emergency grounding, runaway edit halt, and context recalibration.
+- `ground-meta-project` — context recovery and drift diagnosis: restores goal, state, identity, and authority after session changes, moves, updates, or compaction; diagnoses context drift without automatic rollback.
 - `scan-meta-project` — integrity inspection, boundary coverage audit, and backfilling meta-knowledge without re-init.
 - `tune-meta-project` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
 - `update-meta-project` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
 - `record-observation` — atomic logging of findings and quirks into `observations.md`.
 - `sync-architecture` — updating the component map and data flows in `architecture.md`.
+
+### Skill Responsibility Boundaries (invariant):
+| Skill | Owns | Must NOT do |
+|---|---|---|
+| init | survey, scenario agreement, scaffold prep | deploy teams |
+| manage | roles & bindings configuration | re-agree the scenario |
+| update | framework components & migrations | revise team composition or North Stars |
+| ground | recover understanding of goal/state/authority | change configuration to silence a discrepancy |
+| tune | propose config improvements with evidence | apply them directly (routes via manage/update/decommission) |
 
 ### Connected stack skills from environment:
 {{STACK_SKILLS}}

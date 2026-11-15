@@ -25,7 +25,7 @@ Before modifying schemas, architectural contracts, or core logic:
 - **Default Deny (Black Zone):** Any directory or file path not explicitly mapped in `boundaries.md` is strictly Red Zone by default. Autonomous modification of unmapped paths is prohibited.
 
 ## 4. Circuit Breaker & Root Cause Invariant
-- **Circuit Breaker:** If a bugfix requires a 2nd consecutive edit in the same module or produces a secondary regression in adjacent code, CEASE code modifications immediately. Zoom out, trace the full data lifecycle (`Origin ➔ Transport ➔ Persistence ➔ Consumer`), diagnose the architectural root cause, and present systemic analysis before proposing any new diff.
+- **Circuit Breaker:** Repeatedly failing edits targeting one defect, or new regressions appearing in adjacent code while fixing it, are a semantic signal to STOP editing and trace the full data path (`Origin ➔ Transport ➔ Persistence ➔ Consumer`) before the next diff. A normal iterative TDD loop is NOT a violation.
 - **Minimal Diffs, Maximal Depth:** Minimize the width of file interference (no unrelated refactoring); maximize the depth of root-cause investigation (fix the origin, not symptom errors).
 - **Definition of Done:** Whenever an undocumented environment quirk, compiler macro mismatch, or runtime edge-case is solved, log it atomically via `record-observation`.
 
