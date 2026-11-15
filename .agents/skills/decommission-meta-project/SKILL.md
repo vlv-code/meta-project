@@ -29,6 +29,13 @@ Before performing any file operations:
 1. Scan active role directories in `.agents/team/` (excluding `archive/`).
 2. Confirm the target roles to decommission with the user (unless an explicit full reset was commanded).
 3. **Core Invariant (Zero Data Loss):** Under no circumstances may an agent execute destructive deletion (`rm -rf`, `Remove-Item -Recurse`) on role workspaces. Workspaces must always be preserved via atomic relocation to `.agents/team/archive/`.
+4. **Registry-Aware Decommissioning (multi-harness model):**
+   - Read `.agents/meta-project.json` and enumerate every binding that references the target role, per installation.
+   - **Distinguish two different operations:**
+     - **(A) Disable ONE installation's binding** (e.g. disconnecting ZCode while Antigravity keeps working): set that binding's `status` to `"disabled"` in the registry and archive ONLY the installation-specific profile copy (e.g. `.agents/team/<role_id>-<installation_suffix>/`) if one exists. The shared role, other bindings, other installations' profiles, notes, and telemetry stay untouched.
+     - **(B) Archive the SHARED role:** allowed ONLY when NO other `active` or `planned` installation still references the role. If any other installation references it, **REFUSE with an explicit report** listing the referencing installations and offer operation (A) instead.
+   - Apply registry changes, the `AGENTS.md` Section 7 roster, and the archive relocation CONSISTENTLY in one pass; preserve memory and historical authorship (`profile.md` telemetry, `notes.md`) byte-for-byte.
+   - Verify integrity after changes: `python scripts/verify_identity.py --check` must pass (0 errors) — a dangling `profile_path` or stale binding is a failed decommission.
 
 ---
 
@@ -44,7 +51,7 @@ Before performing any file operations:
    - Ensure target directory `.agents/team/archive/` exists.
    - Atomically move `.agents/team/<role_id>/` to `.agents/team/archive/<role_id>/`.
 3. **Passport Synchronization (`AGENTS.md`):**
-   - Remove the decommissioned role's link and description from Section `## 6. Project Agent Team (.agents/team/)` in root `AGENTS.md`.
+   - Remove the decommissioned role's link and description from Section `## 7. Project Agent Team & Multi-Harness Identity (.agents/team/)` in root `AGENTS.md`.
 4. **Orphaned Tasks Reassignment:**
    - Scan `.agents/project_knowledge/tasks.md`.
    - Reassign any pending subtasks delegated to this role to the default generalist (`agent-general-worker` / `agent-dev-lead`) or mark them as `[CANCELLED]`.

@@ -71,10 +71,17 @@ The skill features automatic dual-tier source resolution (GitHub Raw with timeou
 1. **Update Procedural Skills:**
    - Copy or download updated `SKILL.md` files into `.agents/skills/<skill>/SKILL.md`.
    - Restore any harvested `local_repo_data` blocks into their respective skills.
-2. **Update Runtime Scripts:**
-   - Copy or download updated zero-dependency scripts into `.agents/scripts/`:
-     * `.agents/scripts/check_boundaries.py`
-     * `.agents/scripts/compact_memory.py`
+2. **Update Runtime Scripts (single canonical location `scripts/`):**
+   - Copy or download updated zero-dependency scripts VERBATIM into the repository's `scripts/` directory — the one canonical runtime location (a diverged second copy is a defect):
+     * `scripts/check_boundaries.py`
+     * `scripts/compact_memory.py`
+     * `scripts/record_obs.py`
+     * `scripts/verify_identity.py`
+     * `scripts/inspect_meta_project.py`
+     * `scripts/manage_reports.py`
+     * `scripts/sync_templates.py` (when the target repository maintains canonical skills)
+   - **Legacy Migration (explicit):** if a previous deployment used the old `.agents/scripts/` location, migrate it explicitly — move updated scripts into `scripts/`, then remove the legacy copies ONLY after confirming no `local_repo_data` blocks and no local divergences remain unharvested (Phase 2 harvest runs first). Never leave two diverging executable versions.
+   - Existing pre-commit hooks referencing `.agents/scripts/check_boundaries.py` must be reinstalled via `python scripts/check_boundaries.py --install-hook` (the dispatcher prefers `scripts/` and treats the old path as legacy).
 3. **Synchronize Canonical Templates & Passport:**
    - If upstream introduces new canonical invariants or sections, merge them into `boundaries.md` or `AGENTS.md`, immediately re-inserting preserved local blocks at their marked locations.
 
@@ -85,8 +92,8 @@ The skill features automatic dual-tier source resolution (GitHub Raw with timeou
 1. **Run Boundary Gate Audit:**
    - Verify that updated skills and scripts maintain 100% boundary mapping coverage:
      ```bash
-     python .agents/scripts/check_boundaries.py --audit-tree
-     # Fallback: python scripts/check_boundaries.py --audit-tree
+     python scripts/check_boundaries.py --audit-tree
+     # Legacy fallback (pre-migration deployments only): python .agents/scripts/check_boundaries.py --audit-tree
      ```
 2. **Execute Repository Test Suite:**
    - Verify that test assertions pass without regression:

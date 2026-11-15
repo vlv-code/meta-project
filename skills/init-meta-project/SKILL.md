@@ -27,17 +27,20 @@ Relies on the principle of continuous/opportunistic refresh: when accessing meta
 The initialization skill strictly enforces the **Survey-First Zero-Write Invariant**: Phase 1 performs only discovery and diagnosis. It is strictly prohibited from creating files, writing telemetry, generating `.lock` files, or running untrusted scripts or hooks found in the repository.
 
 1. **Execute Deterministic Inspection:**
-   Run the zero-dependency inspection utility:
+   Run the zero-dependency inspection utility with EXPLICIT runtime context
+   (registration states are undetermined without it — the survey reports
+   `CONTEXT_UNRESOLVED` instead of silently adopting any active installation):
    ```bash
-   python scripts/inspect_meta_project.py --json
+   python scripts/inspect_meta_project.py --json --harness <harness_id> --installation <installation_id>
    ```
    *(If `scripts/inspect_meta_project.py` is not yet present, perform equivalent read-only inspection using pure Python stdlib without writing to disk).*
 2. **Determine Canonical State:**
-   Classify repository into one of the 7 canonical states:
+   Classify repository into one of the 8 canonical states:
    - `NONE`: No agent scaffolding or recognized instructions found.
    - `FOREIGN_RULES`: Foreign instructions present (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, foreign `AGENTS.md`).
    - `HEALTHY_REGISTERED`: Meta-Project intact and active for current harness installation.
    - `HEALTHY_NEW_HARNESS`: Meta-Project intact, but target harness/installation is not yet registered or is marked `planned`.
+   - `CONTEXT_UNRESOLVED`: Structure healthy, but no runtime context (`--harness`/`--installation`) was provided; re-invoke the survey with explicit context before routing.
    - `LEGACY_UNREGISTERED`: Legacy Meta-Project structure without `.agents/meta-project.json` registry.
    - `PARTIAL_CORRUPTED`: Incomplete, corrupted, or missing critical slices/boundaries.
    - `INCOMPATIBLE_SCHEMA`: Schema version of `.agents/meta-project.json` is incompatible with current tooling.
@@ -61,15 +64,15 @@ After the initial survey, the agent executes the **Scenario Agreement Protocol**
 
 2. **Placement (`deployment_mode`):**
    - `shared_repo`: Meta-Project instructions (`AGENTS.md`, `.agents/`) are committed to Git for team synchronization and CI/CD gates.
-   - `local_overlay`: Meta-Project files are placed into `.git/info/exclude` in the target repository (local invisible exoskeleton, 0 Git commits).
+   - `local_overlay` *(NOT YET VERIFIED by automated tests — present as experimental until validated)*: Meta-Project files are placed into `.git/info/exclude` in the target repository (local invisible exoskeleton, 0 Git commits).
    - `hybrid`: Canonical passport committed, but local agent notes and reports kept local.
 
 3. **Collaboration & Environments (`collaboration_model`):**
    - `solo`: Single generalist agent (`agent-general-worker` or standalone fallback).
    - `duo`: Tier 0 Micro-Mini Duo (`agent-dev-lead` + `agent-quality-guardian` / `agent-inspector-guardian`).
    - `triad`: Canonical Compact Trio (`agent-dev-lead` + `agent-quality-guardian` + `agent-github-steward`).
-   - `specialized_swarm`: Domain-specific multi-role team (DevOps, QA, Legal, Security, UI/UX).
-   - Multi-harness targets: Identify primary and planned harnesses (`antigravity`, `zcode`, etc.).
+   - `specialized_swarm`: Domain-specific multi-role team (DevOps, QA, Legal, Security, UI/UX). **Declared but NOT YET IMPLEMENTED** in `resolve_team_topology` (`supported: false`) — offer an explicit choice: proceed as triad now or defer.
+   - Multi-harness targets: Identify primary and planned harnesses by the identifiers agreed with the user for THIS project (harness names are configuration, not fixed constants).
 
 4. **Execution Rules (`verification_policy`, `delegation_level`):**
    - `verification_policy`: `strict_independent` (independent Guardian/Inspector verification), `duo_peer_review`, or `self_check`.
@@ -122,10 +125,13 @@ If no structure exists, execute the standard two-pass algorithm:
    - scripts/compact_memory.py (Context Rot Shield & Memory Compactor)
    - scripts/record_obs.py (Observation Logger CLI with cross-platform locking)
    - scripts/verify_identity.py (Multi-Harness Identity Engine & Registry Validator)
+   - scripts/manage_reports.py (Init/Manage Report Engine & fail-closed Intake Admission CLI)
+
+   **Canonical Script Source Invariant:** deploy these files VERBATIM from the installed meta-project resources (pinned upstream `vlv-code/meta-project` @ `main`, or the matching version in the global skills cache). NEVER re-create, paraphrase, or partially copy runtime scripts from descriptions — a diverged script is a defect, not an adaptation.
 
 5. **Create initial knowledge slice drafts and registry:**
    Write files in .agents/:
-   - .agents/meta-project.json (Multi-harness identity registry: active ag-main installation and planned zc-main migration target).
+   - .agents/meta-project.json (Multi-harness identity registry: register the CURRENT installation agreed with the user as `<installation_id>`/`<harness_id>` with status `active`; add a `planned` second-harness entry ONLY when the user explicitly plans one. `ag-main`/`zc-main` are Meta-Project's own configuration values, never generic scaffold defaults.)
    Write files in .agents/project_knowledge/:
    - observations.md (5-column table with the first initialization row; use cross-platform command examples, e.g.: python -m pytest).
    - boundaries.md (zones template with basic glob patterns: formatting and .agents/*.json in Yellow zone, data and security gates in Red).
@@ -201,6 +207,11 @@ If no structure exists, execute the standard two-pass algorithm:
 #### Scenario 3: State `HEALTHY_REGISTERED` (Pass-Through / No-Op Mode)
 1. **Zero-Diff Verification:** Running on a healthy, registered installation produces **0 modified files**, no temporary files, and no locks.
 2. **Capability Reporting:** Report verified status to user: "Meta-Project is intact, verified, and active for current harness. All capability levels operational. Ready for work."
+3. **Repeat-Run Semantics:**
+   - Healthy installation with a FRESH (non-stale) init report → strict no-op.
+   - Healthy installation WITHOUT a fresh report → ONE limited re-survey and an adoption init report (via `scripts/manage_reports.py init --action create`), WITHOUT re-scaffolding the skeleton.
+   - Read-only request → no report written at all.
+   - `INCOMPATIBLE_SCHEMA` → diagnostics only, never automatic overwrite (Scenario 7).
 
 #### Scenario 4: State `HEALTHY_NEW_HARNESS` (Multi-Harness Adaptation Mode)
 1. **Preserve Existing Installations:** Strictly forbidden to delete, disconnect, or alter active installations in `.agents/meta-project.json`.
@@ -248,8 +259,9 @@ Upon completing scaffolding or adaptation, the agent generates a machine-readabl
    - `completed`: All knowledge slices initialized, scenario agreed, baseline checks passed.
    - `awaiting_decision`: Critical choices unresolved; report acts as a decision ledger, NOT as authorization to deploy.
    - `blocked`: Environment incompatibility or broken invariants prevent completion.
+3. **Machine-Enforced Manage Admission:** the manage side enforces admission through the same engine — `python scripts/manage_reports.py manage --action create ...` runs fail-closed intake (`evaluate_manage_intake`: local-registry project/installation/harness match, admitted actor, existing init run, completed + ready status, fresh input fingerprints). NEVER assemble manage reports by hand; a refused intake must be resolved, not bypassed.
 
-3. **No Automatic Team Deployment Invariant:**
+4. **No Automatic Team Deployment Invariant:**
    **`init-meta-project` NEVER automatically deploys agent roles or teams.**
    Init prepares repository knowledge, boundaries, scenario, and verification checks. Deploying or adapting agent roles is the exclusive responsibility of `manage-meta-project`.
    At the end of initialization, output a concise human-readable summary and recommend invoking `manage-meta-project`:

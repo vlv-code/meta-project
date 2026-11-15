@@ -37,6 +37,7 @@ Before defining or modifying roles, the agent must inspect initialization result
    - **Report Intake & Staleness Verification:**
      - Validate schema version compatibility, matching `project_id` and target `installation_id`.
      - **Fail-Closed Block:** If the init report is missing, or its status is `awaiting_decision` or `blocked`, **HALT**. Do not plan or deploy the team; report the pending decisions or blockers to the user.
+   - **Machine-Enforced Intake:** admission is executed by the engine, not by agent judgment. Team changes are recorded via `python scripts/manage_reports.py manage --action create ...`, which runs fail-closed intake (`evaluate_manage_intake`: local-registry project/installation/harness match, admitted actor, existing init run, completed + ready status, fresh input fingerprints). Hand-assembled manage reports are prohibited; a refused intake must be resolved (fresh init run), never bypassed.
      - **Staleness Protocol:** If the git commit in the report differs from current `HEAD`, execute a limited re-survey (`python scripts/inspect_meta_project.py --json`) to verify that boundaries, stacks, and registry remain valid. Do NOT wipe the existing team or force a full re-initialization due to normal commits.
      - Read the agreed `scenario` block from the report or `.agents/meta-project.json`.
 1. **Hosting and CI Infrastructure:** Presence of `.github/` directory, workflows, pull request templates, issue templates.
@@ -52,7 +53,12 @@ Before defining or modifying roles, the agent must inspect initialization result
 
 ### Phase 2: Scenario-Driven Team Topology Planning & Sizing
 
-Team composition is determined by the agreed **`scenario`** and technology stack (codebase LOC is a secondary sizing guideline):
+Team composition is determined by the agreed **`scenario`** and technology stack (codebase LOC is a secondary sizing guideline).
+
+**Topology Precedence Invariants (`resolve_team_topology`):**
+1. The explicitly agreed `collaboration_model` is the USER'S DECISION and is never silently downgraded by size heuristics (LOC never turns an agreed triad into a duo).
+2. `specialized_swarm` is declared but NOT YET IMPLEMENTED (`supported: false` in the engine result) — present an explicit choice: proceed as triad now or defer.
+3. Contradictory scenario dimensions (e.g. `solo` + `strict_independent`) surface a non-empty `conflicts` list — resolve them with the user; silent picks are prohibited.
 
 #### 1. Scenario-to-Topology Mapping
 - **`documentation` or `research` profile:**
@@ -125,8 +131,8 @@ Generate a concise advisory proposal for the user:
 After user confirmation, perform the production write:
 1. Create directories for each approved role: `.agents/team/<role_id>/`.
 2. Register role in `.agents/meta-project.json` under `roles.<role_id>`:
-   - Configure bindings for active installation (e.g. `ag-main` with `status: "active"` and `profile_path: ".agents/team/<role_id>/profile.md"`).
-   - Configure planned migration bindings (e.g. `zc-main` with `status: "planned"` and `profile_path: null`).
+   - Configure bindings for the project's active installation (`<active_installation_id>` with `status: "active"` and `profile_path: ".agents/team/<role_id>/profile.md"`).
+   - Configure planned bindings only for installations the user EXPLICITLY plans (`<planned_installation_id>` with `status: "planned"` and `profile_path: null`); omit when none exist. (`ag-main`/`zc-main` are Meta-Project's own values — examples, never defaults.)
    - Derive qualified `actor_id`: `<project_id>::<harness_id>::<installation_id>::<role_id>`.
 3. Scaffold `.agents/team/<role_id>/profile.md` using the reference template `templates/team/profile.md` (or the embedded template below):
    - Fill in role ID, qualified `actor_id`, `harness_id`, `installation_id`, scope, invocation triggers, active skills, and boundary permissions.
@@ -134,9 +140,9 @@ After user confirmation, perform the production write:
 4. Create a private notes file: `.agents/team/<role_id>/notes.md` using the reference template `templates/team/notes.md` (or the embedded template below).
 5. Generate the initial ready-to-use system prompt `.agents/team/<role_id>/system_prompt.md` using `templates/team/system_prompt.md` (or the embedded template below):
    - Populate role name, purpose, qualified `actor_id`, skill stack, and canonical boundary permissions (Green / Yellow / Red).
-6. Register roles in root `AGENTS.md` under section:
+6. Register roles in root `AGENTS.md` under section (Section 7 in the canonical passport):
    ```markdown
-   ## 6. Project Agent Team & Multi-Harness Identity (.agents/team/)
+   ## 7. Project Agent Team & Multi-Harness Identity (.agents/team/)
    - [{{ROLE_TITLE}}](.agents/team/{{ROLE_ID}}/profile.md) — {{ROLE_SCOPE}} (invoked by: {{ROLE_TRIGGERS}})
    ```
 7. Generate and display a compact Quick-Launch Table to the user without spamming long prompt text in chat:
