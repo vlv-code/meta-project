@@ -73,7 +73,7 @@ After initialization, the following standardized structure is created in any tar
     │   ├── observations.md            # Cumulative agent observation log (categorized)
     │   └── tasks.md                   # Active task registry and cross-agent checklist
     ├── skills/                        # Pre-installed repository skills
-    │   ├── ground-meta-project/       # Emergency grounding and context recalibration
+    │   ├── ground-meta-project/       # Context recovery and drift diagnosis (dual-mode)
     │   │   └── SKILL.md
     │   ├── record-observation/        # Atomic observation logging to observations.md
     │   │   └── SKILL.md
@@ -127,7 +127,7 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
   - `skills/init-meta-project/` — Autonomous skill supporting two execution modes: safe audit/update of an existing `meta-project` without data loss, or clean repository two-pass initialization with a mandatory Core Inspection Checklist, codified interactive interview, and atomic In-Memory Synthesis Flush.
   - `skills/manage-meta-project/` — Skill for creating, auditing, and orchestrating a specialized subagent team (.agents/team/) with a scale-adaptive competency matrix, role pruning, and User-Mediated Handoff protocols.
   - `skills/decommission-meta-project/` — Skill for safe, non-destructive decommissioning, resizing, and archiving of specialized agent roles (.agents/team/) into `.agents/team/archive/` with telemetry closeout, root `AGENTS.md` synchronization, and orphaned tasks reassignment without data loss.
-  - `skills/ground-meta-project/` — Emergency grounding and context recalibration skill: halts runaway edits, forces a zoom-out, re-reads canonical sources, and anchors the agent back into its operating corridor.
+  - `skills/ground-meta-project/` — Dual-mode context recovery and drift diagnosis skill: recovers goal, state, identity, and authority after session changes, repository moves, updates, or memory compaction; semantic triggers, selective canonical reading, validator-based identity, and conditional continuation instead of an unconditional halt.
   - `skills/scan-meta-project/` — Express and deep-dive inspection skill: audits repository meta-knowledge integrity, verifies 100% boundary coverage, detects architectural drift, and backfills missing facts without re-initialization.
   - `skills/tune-meta-project/` — Calibration and optimization skill: diagnoses git friction, analyzes telemetry, tunes role topology, refines boundary zones, and crystallizes North Star invariants.
   - `skills/update-meta-project/` — Non-destructive upstream updating skill from GitHub or local cache with dual-tier source resolution and seamless `local_repo_data` preservation.
@@ -140,6 +140,8 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
   - `scripts/sync_templates.py` — Zero-dependency utility synchronizing canonical templates into embedded skills and maintaining 1-to-1 parity between `skills/` and `.agents/skills/` (with `--check` mode for CI).
   - `scripts/record_obs.py` — Zero-dependency CLI for atomic observation logging into `observations.md` with category validation, Markdown pipe escaping, `--actor-id` attribution, and file locking.
   - `scripts/verify_identity.py` — Zero-dependency multi-harness identity validator verifying `.agents/meta-project.json` registry, qualified `actor_id` bindings, and role profile synchronization.
+  - `scripts/manage_reports.py` — Zero-dependency report engine for init/manage/update/tune scenario reports: canonical schemas (`templates/reports/`), deterministic run IDs, staleness and intake admission checks (`latest`/`verify` accept `--type {init,manage,update,tune}`).
+  - `scripts/update_meta_project.py` — Managed update engine (SHA-pinned, atomic, journaled): read-only `check`/`plan`, atomic `apply` with rollback journal and update report, and `restore` of the engine's own changes.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — Architecture Decision Records (ADR #1–#8 + Polyglot Monorepo Incident) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.
@@ -186,10 +188,10 @@ To safely archive or resize agent roles without data loss:
 Decommission agent team using decommission-meta-project skill
 ```
 
-### 5. Emergency Grounding & Forced Zoom-Out
-If an agent exhibits context drift, loops across speculative fixes, or breaches role boundaries:
+### 5. Context Recovery & Drift Diagnosis
+If an agent loses its goal, state, identity, or authority after a session change, repository move, update, or memory compaction — or drifts, loops across speculative fixes, or breaches role boundaries:
 ```text
-Recalibrate agent using ground-meta-project skill
+Recover agent context using ground-meta-project skill
 ```
 
 ### 6. Deployment Modes: Shared Repo-Level vs Invisible Overlay
