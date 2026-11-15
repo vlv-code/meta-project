@@ -1,4 +1,4 @@
-# RED Baseline: External Audit Regressions (base 4274bbd)
+# RED Baseline: External Audit Regressions (base 38deed9)
 
 > [!NOTE]
 > **Outcome (2026-11-15, Stage 2 remediation complete):** all 39 RED
@@ -18,7 +18,7 @@ Remediation stages must turn them GREEN without weakening assertions.
 
 ## Environment
 
-- Base: commit `4274bbd` + uncommitted Step 61 working tree
+- Base: commit `38deed9` + uncommitted Step 61 working tree
   (`scripts/sync_templates.py` `--global-skills`, +1 test) and local `zc-main`
   activation. One HEAD does not describe the uncommitted tree; this matches
   the auditor's note (118 committed vs 119 worktree tests).

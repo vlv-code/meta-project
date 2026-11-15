@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.  
 > **Execution Protocol:** Multi-Agent Lifecycle (`agent-dev-lead` ➔ `agent-quality-guardian` ➔ `agent-github-steward`).  
-> **Target Baseline:** Commit `37d864b` (`feat(init): introduce deterministic inspection engine, self-contained passport, and universal adoption protocol`).  
+> **Target Baseline:** Commit `9d2329b` (`feat(init): introduce deterministic inspection engine, self-contained passport, and universal adoption protocol`).  
 > **Core Invariants:** Zero-dependency stdlib policy (Python 3.10+), Non-Destructive History Invariant, Survey-First Zero-Write, Explicit User Decision Separation, Machine Boundary Gate, and Strict Multi-Harness Identity Isolation.
 
 **Goal:** Establish a deterministic contract and machine-readable handoff protocol between `init-meta-project` and `manage-meta-project` via structured scenario agreement, formal initialization reports (`.agents/reports/<installation_id>/init/<init_run_id>.json`), and scenario-driven team management reports (`.agents/reports/<installation_id>/manage/<manage_run_id>.json`).

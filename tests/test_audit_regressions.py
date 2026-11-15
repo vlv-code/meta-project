@@ -2,7 +2,7 @@
 """
 Audit Remediation Regression Suite — Stage 1: Reproduction Fixation.
 
-Reproduces the defects confirmed by the external audit of base 4274bbd
+Reproduces the defects confirmed by the external audit of base 38deed9
 (+ uncommitted Step 61 working tree; 118 committed / 119 worktree tests).
 
 Contract of this suite:
@@ -14,7 +14,7 @@ Contract of this suite:
 - Tests marked "lock-in" target behavior that is already correct today and
   protect it from regressions during remediation.
 
-RED baseline results are preserved in docs/audit_4274bbd_regressions_baseline.md.
+RED baseline results are preserved in docs/audit_38deed9_regressions_baseline.md.
 
 Stage 5 intake API contract expected by section D tests:
 

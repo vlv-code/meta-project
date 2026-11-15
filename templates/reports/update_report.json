@@ -9,7 +9,7 @@
   "created_at": "2026-11-15T01:30:00Z",
   "status": "completed",
   "git_state": {
-    "commit_sha": "427de4e53d0a1f7e7b8d226b287c57a6ba54170d",
+    "commit_sha": "9227fb153d0a1f7e7b8d226b287c57a6ba54170d",
     "branch": "main",
     "is_clean": true,
     "modified_files": []
@@ -30,7 +30,7 @@
   },
   "source": {
     "ref": "v1.0.0-alpha.2",
-    "commit_sha": "427de4e53d0a1f7e7b8d226b287c57a6ba54170d",
+    "commit_sha": "9227fb153d0a1f7e7b8d226b287c57a6ba54170d",
     "origin": "upstream"
   },
   "affected_components": [
