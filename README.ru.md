@@ -225,7 +225,9 @@ python -m unittest discover -s tests -p "test_*.py" -v
 ## Документация и исследования
 
 - [Журнал архитектурных решений и роадмап (ADR)](docs/decisions_and_roadmap.md)
+- [Философия и видение фреймворка](docs/framework_philosophy_and_vision.md)
 - [Эмпирический отчет по тестированию навыков (Тесты 1–6)](docs/test_report_alpha_skill.md)
+- [Эмпирический отчет по команде оркестрации](docs/test_report_orchestration_team.md)
 - [Временные калибровки правил](docs/temporary_overrides.md)
 
 ---

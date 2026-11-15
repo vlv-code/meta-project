@@ -225,7 +225,9 @@ Tests have zero external dependencies and run on any platform with Python 3.10+.
 ## Documentation and Research
 
 - [Architecture Decision Records and Roadmap (ADR)](docs/decisions_and_roadmap.md)
+- [Framework Philosophy and Vision](docs/framework_philosophy_and_vision.md)
 - [Empirical Skill Test Report (Tests 1–6)](docs/test_report_alpha_skill.md)
+- [Orchestration Team Empirical Report](docs/test_report_orchestration_team.md)
 - [Temporary Rule Calibrations](docs/temporary_overrides.md)
 
 ---
