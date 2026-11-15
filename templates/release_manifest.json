@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "framework_version": "1.0.0-alpha.1",
+  "channel": "preview",
+  "supported_registry_schemas": ["1.0", "1.1"],
+  "components": [
+    {"path": "scripts/check_boundaries.py", "kind": "script", "requires": []},
+    {"path": "scripts/verify_identity.py", "kind": "script", "requires": []},
+    {"path": "scripts/inspect_meta_project.py", "kind": "script", "requires": ["scripts/verify_identity.py"]},
+    {"path": "scripts/manage_reports.py", "kind": "script", "requires": ["scripts/verify_identity.py"]},
+    {"path": "scripts/record_obs.py", "kind": "script", "requires": []},
+    {"path": "scripts/compact_memory.py", "kind": "script", "requires": []},
+    {"path": "scripts/sync_templates.py", "kind": "script", "requires": []},
+    {"path": "skills/init-meta-project/SKILL.md", "kind": "skill", "requires": []},
+    {"path": "skills/manage-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/manage_reports.py"]},
+    {"path": "skills/record-observation/SKILL.md", "kind": "skill", "requires": ["scripts/record_obs.py", "scripts/compact_memory.py"]},
+    {"path": "skills/sync-architecture/SKILL.md", "kind": "skill", "requires": []},
+    {"path": "skills/ground-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/inspect_meta_project.py"]},
+    {"path": "skills/update-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/update_meta_project.py"]},
+    {"path": "skills/decommission-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/verify_identity.py"]},
+    {"path": "skills/scan-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/check_boundaries.py"]},
+    {"path": "skills/tune-meta-project/SKILL.md", "kind": "skill", "requires": []},
+    {"path": "templates/", "kind": "templates", "requires": []},
+    {"path": "templates/reports/", "kind": "report_schemas", "requires": []}
+  ],
+  "migrations": []
+}
