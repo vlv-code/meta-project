@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "framework_version": "1.0.0-alpha.4",
+  "framework_version": "1.0.0-alpha.5",
   "channel": "preview",
   "supported_registry_schemas": ["1.0", "1.1"],
   "components": [
