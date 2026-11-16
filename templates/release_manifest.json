@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "framework_version": "1.0.0-alpha.1",
+  "framework_version": "1.0.0-alpha.3",
   "channel": "preview",
   "supported_registry_schemas": ["1.0", "1.1"],
   "components": [
@@ -11,6 +11,7 @@
     {"path": "scripts/record_obs.py", "kind": "script", "requires": []},
     {"path": "scripts/compact_memory.py", "kind": "script", "requires": []},
     {"path": "scripts/sync_templates.py", "kind": "script", "requires": []},
+    {"path": "scripts/update_meta_project.py", "kind": "script", "requires": []},
     {"path": "skills/init-meta-project/SKILL.md", "kind": "skill", "requires": []},
     {"path": "skills/manage-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/manage_reports.py"]},
     {"path": "skills/record-observation/SKILL.md", "kind": "skill", "requires": ["scripts/record_obs.py", "scripts/compact_memory.py"]},
@@ -20,8 +21,21 @@
     {"path": "skills/decommission-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/verify_identity.py"]},
     {"path": "skills/scan-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/check_boundaries.py"]},
     {"path": "skills/tune-meta-project/SKILL.md", "kind": "skill", "requires": []},
-    {"path": "templates/", "kind": "templates", "requires": []},
-    {"path": "templates/reports/", "kind": "report_schemas", "requires": []}
+    {"path": "templates/AGENTS.md", "kind": "template", "requires": []},
+    {"path": "templates/global/AGENTS.md", "kind": "template", "requires": []},
+    {"path": "templates/project_knowledge/architecture.md", "kind": "template", "requires": []},
+    {"path": "templates/project_knowledge/boundaries.md", "kind": "template", "requires": []},
+    {"path": "templates/project_knowledge/observations.md", "kind": "template", "requires": []},
+    {"path": "templates/project_knowledge/tasks.md", "kind": "template", "requires": []},
+    {"path": "templates/project_knowledge/weak_spots.md", "kind": "template", "requires": []},
+    {"path": "templates/release_manifest.json", "kind": "template", "requires": []},
+    {"path": "templates/team/notes.md", "kind": "template", "requires": []},
+    {"path": "templates/team/profile.md", "kind": "template", "requires": []},
+    {"path": "templates/team/system_prompt.md", "kind": "template", "requires": []},
+    {"path": "templates/reports/init_report.json", "kind": "report_schema", "requires": []},
+    {"path": "templates/reports/manage_report.json", "kind": "report_schema", "requires": []},
+    {"path": "templates/reports/tune_report.json", "kind": "report_schema", "requires": []},
+    {"path": "templates/reports/update_report.json", "kind": "report_schema", "requires": []}
   ],
   "migrations": []
 }

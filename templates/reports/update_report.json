@@ -33,6 +33,7 @@
     "commit_sha": "9227fb153d0a1f7e7b8d226b287c57a6ba54170d",
     "origin": "upstream"
   },
+  "approved_plan_file": ".agents/update-plan.json",
   "affected_components": [
     {
       "path": "scripts/check_boundaries.py",
