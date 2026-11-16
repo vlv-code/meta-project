@@ -14,6 +14,9 @@ Fixture contracts pinned by this suite (Task C2 implementation must satisfy):
 * Project lock lives at ``.agents/framework-lock.json`` (ADR #21, schema 1.0.0:
   {schema_version, source{repository, ref, commit_sha, origin, channel},
   components[{path, kind, sha256}], installed_at}).
+  Wave D E1 (T1.1) component schema v2: {path, kind, base_sha256,
+  installed_sha256, target(optional, reserved)}; v1 entries
+  ({path, kind, sha256}) are read as base = installed = sha256.
 * Cache layout: ``<cache_dir>/<commit_sha>/`` holds the INTEGRAL bundle tree
   (manifest.json + every manifest component file) of exactly that commit.
 * Plan/Check/Apply/Restore results are dict-like mapping collections exposing
@@ -114,14 +117,23 @@ Any unmapped path is strictly Red Zone by default.
 """
 
 # Engine-owned metadata paths excluded from tree-content comparisons around
-# apply/restore (restore must revert ENGINE FILE changes; journal/report/lock
+# apply/restore (restore must revert ENGINE FILE changes; journal/report
 # bookkeeping and .git internals are not working-tree content).
+# NOTE (Wave D, E1/п.2): the framework lock is NO LONGER excluded — restore
+# must roll back files AND `.agents/framework-lock.json`, so lock bytes are
+# part of every coherent-state comparison.
 _ENGINE_METADATA_PREFIXES = (
     ".git/",
     ".agents/update-journal.json",
     ".agents/reports/",
-    ".agents/framework-lock.json",
 )
+
+
+def _entry_sha_compat(entry: dict) -> str:
+    """Installed-state sha256 of a lock component entry, tolerant of both
+    schemas: v2 records ``installed_sha256``; v1 carried a single
+    ``sha256`` (read as installed for backward compatibility)."""
+    return str(entry.get("installed_sha256") or entry.get("sha256") or "")
 
 
 def _sha(data: bytes) -> str:
@@ -497,8 +509,15 @@ class TestCacheFallback(UpdateEngineTestCase):
         source = _get(lock, "source")
         self.assertEqual(_get(source, "origin"), "cache", "cache fallback must be DECLARED in the lock")
         self.assertEqual(_get(source, "commit_sha"), first_sha)
-        components = {_get(c, "path"): _get(c, "sha256") for c in (_get(lock, "components") or [])}
-        self.assertEqual(components.get("scripts/z.py"), _sha(ORIGIN_Z_V1))
+        components = {_get(c, "path"): c for c in (_get(lock, "components") or [])}
+        # Installed-state sha256 via the v1/v2-tolerant accessor.
+        self.assertEqual(_entry_sha_compat(components["scripts/z.py"]), _sha(ORIGIN_Z_V1))
+        # NEW (Wave D E1, T1.1): a create records lock schema v2 with
+        # base == installed (pinned upstream bytes) and the reserved target.
+        z_entry = components["scripts/z.py"]
+        self.assertEqual(z_entry.get("base_sha256"), _sha(ORIGIN_Z_V1))
+        self.assertEqual(z_entry.get("installed_sha256"), _sha(ORIGIN_Z_V1))
+        self.assertEqual(z_entry.get("target"), "scripts/z.py")
 
     def test_partial_cache_refused_no_mixed_bundle(self):
         self.require_engine(resolve_source, load_bundle)
@@ -709,6 +728,8 @@ class TestApplyAtomicityAndRecovery(UpdateEngineTestCase):
         poison.parent.mkdir(parents=True, exist_ok=True)
         poison.mkdir()
 
+        lock_path = target / ".agents" / "framework-lock.json"
+        lock_before = lock_path.read_bytes()
         before = _content_fingerprint(target)
         try:
             apply_updates(target, plan, ACTOR_ID, INSTALLATION_ID)
@@ -728,7 +749,17 @@ class TestApplyAtomicityAndRecovery(UpdateEngineTestCase):
         self.assertEqual(
             _content_fingerprint(target),
             before,
-            "restore must return the working tree to the pre-apply state",
+            "restore must return the working tree to the pre-apply state "
+            "(framework lock included in the comparison since Wave D E1)",
+        )
+        # NEW (Wave D E1, п.2): the lock is part of the coherent-state
+        # contract. This aborted apply never reached the lock write, so the
+        # lock must be byte-identical after restore.
+        self.assertEqual(
+            lock_path.read_bytes(),
+            lock_before,
+            "framework-lock.json must stay byte-identical across an aborted "
+            "apply + restore cycle",
         )
         self.assertEqual(
             user_notes.read_bytes(),
@@ -783,19 +814,34 @@ class TestLock(UpdateEngineTestCase):
         lock = read_lock(target)
         self.assertIsNotNone(lock)
         self.assertEqual(_get(lock, "schema_version"), "1.0.0")
-        components = {_get(c, "path"): _get(c, "sha256") for c in (_get(lock, "components") or [])}
+        components = {_get(c, "path"): c for c in (_get(lock, "components") or [])}
         self.assertEqual(
             set(components),
             {"scripts/x.py", "skills/y/SKILL.md"},
             "lock must record exactly the installed subset",
         )
-        self.assertEqual(components["scripts/x.py"], _sha(ORIGIN_X_V2))
-        self.assertEqual(components["skills/y/SKILL.md"], _sha(ORIGIN_Y_V1))
+        # Installed-state sha256, read through the v1/v2-tolerant accessor.
+        self.assertEqual(_entry_sha_compat(components["scripts/x.py"]), _sha(ORIGIN_X_V2))
+        self.assertEqual(_entry_sha_compat(components["skills/y/SKILL.md"]), _sha(ORIGIN_Y_V1))
         # Recorded hashes match the bytes actually on disk.
         self.assertEqual(
-            components["scripts/x.py"],
+            _entry_sha_compat(components["scripts/x.py"]),
             hashlib.sha256((target / "scripts" / "x.py").read_bytes()).hexdigest(),
         )
+        # NEW (Wave D E1, T1.1): lock component schema v2 — the marker-free
+        # plain update records base == installed (pinned upstream bytes) and
+        # the reserved `target` field defaulting to the manifest path.
+        x_entry = components["scripts/x.py"]
+        self.assertEqual(x_entry.get("base_sha256"), _sha(ORIGIN_X_V2))
+        self.assertEqual(x_entry.get("installed_sha256"), _sha(ORIGIN_X_V2))
+        self.assertEqual(x_entry.get("target"), "scripts/x.py")
+        # Backward compat (Wave D E1, T1.1): the component NOT touched by
+        # this subset apply stays in its v1 shape (single sha256, no v2
+        # fields) and keeps being readable.
+        y_entry = components["skills/y/SKILL.md"]
+        self.assertIn("sha256", y_entry, "untouched v1 entry keeps its v1 shape")
+        self.assertNotIn("base_sha256", y_entry)
+        self.assertNotIn("installed_sha256", y_entry)
         # Unselected components are neither installed nor recorded.
         self.assertFalse((target / "scripts" / "z.py").exists())
         self.assertFalse((target / "skills" / "w").exists())
@@ -939,6 +985,58 @@ class TestLegacyTransition(UpdateEngineTestCase):
                 "apply must not proceed over divergent duplicates",
             )
             self.assertEqual(legacy.read_bytes(), legacy_before)
+
+
+class TestPerimeterAdmission(UpdateEngineTestCase):
+    """Wave D E2 (T6.1, auditor п.5a): apply is a perimeter operation — the
+    actor must be ADMITTED by the project identity registry. Library-level
+    contract pinned on the shared registry fixture (a registered+active
+    binding); the CLI surface and bootstrap semantics live in
+    tests/test_dwave_e2.py."""
+
+    STRANGER_ACTOR = "fixture-app/alpha::antigravity::ag-main::agent-intruder"
+
+    def test_apply_refuses_actor_not_admitted(self):
+        self.require_engine(
+            resolve_source, load_bundle, read_lock, plan_updates, apply_updates
+        )
+        origin, _first_sha = _make_origin_repo(self.tmp)
+        target = _make_target(self.tmp)
+
+        pin = resolve_source(str(origin), "main")
+        plan = plan_updates(target, load_bundle(pin, None), read_lock(target))
+
+        lock_before = (target / ".agents" / "framework-lock.json").read_bytes()
+        x_before = (target / "scripts" / "x.py").read_bytes()
+
+        with self.assertRaises(Exception) as ctx:
+            apply_updates(target, plan, self.STRANGER_ACTOR, INSTALLATION_ID)
+        self.assertIn(
+            "actor not admitted",
+            str(ctx.exception),
+            f"refusal must diagnose the unadmitted actor, got: {ctx.exception!r}",
+        )
+        # ZERO writes anywhere.
+        self.assertEqual((target / "scripts" / "x.py").read_bytes(), x_before)
+        self.assertFalse((target / "scripts" / "z.py").exists())
+        self.assertEqual(
+            (target / ".agents" / "framework-lock.json").read_bytes(),
+            lock_before,
+        )
+        self.assertFalse((target / ".agents" / "update-journal.json").exists())
+
+    def test_registered_active_actor_is_admitted(self):
+        self.require_engine(
+            resolve_source, load_bundle, read_lock, plan_updates, apply_updates
+        )
+        origin, _first_sha = _make_origin_repo(self.tmp)
+        target = _make_target(self.tmp)
+        self.full_apply(target, origin)
+        self.assertEqual(
+            (target / "scripts" / "x.py").read_bytes(),
+            ORIGIN_X_V2,
+            "the registered+active fixture actor must pass admission",
+        )
 
 
 class TestUpdateReport(UpdateEngineTestCase):
