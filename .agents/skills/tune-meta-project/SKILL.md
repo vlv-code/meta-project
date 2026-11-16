@@ -41,7 +41,11 @@ telemetry WITH confirmed identity. Interpretation rules (mandatory):
 - frequent gate blocks may be CORRECT protection;
 - frequent ground calls may follow session churn;
 - git authorship does not determine the project role;
-- missing telemetry means insufficient data — state it, don't guess.
+- missing telemetry means insufficient data — state it, don't guess;
+- cost evidence is mandatory for any economy claim: available metrics only
+  (re-reads, tool calls, handoffs, rework count, wall time); no invented
+  currency conversion; before/after comparison only on comparable tasks;
+  a smaller file is not, by itself, proven launch economy.
 Choose the analysis window per question (period / completed-task set /
 installation); a fixed short commit window is only an optional overview.
 Separate FACTS (e.g. "five handoffs between roles") from HYPOTHESES
@@ -77,6 +81,10 @@ role is judged by purpose (independent verification may stay mandatory).
 Persist per applied change: original observation / expected result /
 re-evaluation condition / actual result / significant condition changes.
 Statuses: applied-not-verified (applied, not verified) | confirmed | no-effect | regression.
+Each applied change also records a measured cost block:
+`"cost": {"rereads": <int>, "tool_calls": <int>, "handoffs": <int>, "rework": <int>, "wall_time_s": <int>}`
+— observed counters only; state explicitly when a metric was unavailable
+instead of inventing a value.
 If framework version, harness, and task type all changed, do not attribute
 the result to one setting without grounds. Re-evaluate on comparable tasks
 or the next tune run; no background observation needed. Rollback restores

@@ -67,6 +67,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `clean-code` — adherence to clean code principles and minimal sufficient changes.
 - `code-reviewer` — verification of code and template quality prior to commit.
 *(Managing build, linting, testing, and framework specifics is delegated to these skills)*
+*(Delegation routing — script / cheap subagent / regular executor / strong model + independent verification, chosen by task certainty — see the `manage-meta-project` skill, Phase 2 "Execution Routing".)*
 
 ## 5. Local Verification Tooling & Autonomous Fallback
 If global agent skills (such as `python-pro` or Meta-Project skills) are unavailable in the host harness, the agent operates in **Base Fallback Mode** using zero-dependency Python 3.10+ stdlib utilities:
@@ -97,6 +98,11 @@ When tasked with code exploration, repository assessment, or architecture review
 3. Apply stack skills from Section 4 (or local stdlib tools from Section 5 in Base Fallback Mode) to inspect code and run tests.
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
 5. When encountering hidden environment quirks, record the fact via `record-observation` (or `scripts/record_obs.py`).
+
+**Execution Routes** (mode chosen by consequences and uncertainty; checks mandated by the agreed scenario are always preserved):
+- **short** — unambiguous local task: action → needed check → result (Read-Only Exploration Mode above is the canonical short route).
+- **normal** — several related changes with known contracts.
+- **extended** — migrations, ambiguous defects, architecture, protected components.
 
 ## 7. Project Agent Team & Multi-Harness Identity (.agents/team/)
 Authoritative role bindings and installation identities are defined in `.agents/meta-project.json`.

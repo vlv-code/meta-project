@@ -78,6 +78,7 @@
       "reevaluation_condition": "next 5 comparable intake tasks or the next tune run",
       "actual_result": "re-evaluation pending: only 1 comparable intake task completed since application",
       "condition_changes": "framework version, harness, and task type unchanged since application",
+      "cost": {"rereads": 2, "tool_calls": 31, "handoffs": 1, "rework": 0, "wall_time_s": 192},
       "status": "applied-not-verified"
     },
     {

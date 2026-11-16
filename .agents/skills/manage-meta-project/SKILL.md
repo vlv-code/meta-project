@@ -136,6 +136,18 @@ When orchestrating the team, `manage-meta-project` must distinguish and explicit
 | **Engineering** | **`agent-qa-engineer`**<br>(Reliability & QA Engineer) | `tests/`, testing frameworks | `test-driven-development`<br>`verification-before-completion` | **Green:** writing unit/integration tests, verifying test runs.<br>**Yellow:** configuring test runners and contract assertions.<br>**Red:** disabling tests in CI. |
 | **Engineering** | **`agent-tech-writer`**<br>(Technical Writer) | `docs/`, OpenAPI, Swagger | `mermaid-diagram-specialist`<br>`openapi`<br>`google-style-guide` | **Green:** documenting functions, README, diagrams.<br>**Yellow:** editing API specifications.<br>**Red:** publishing unreviewed docs. |
 
+#### 3. Execution Routing (delegation cost control)
+When a step can be delegated or mechanized, choose the route by task CERTAINTY — task CERTAINTY beats task size (a Red-Zone policy one-liner goes to a strong model; a batch of identical spec'd edits goes to a cheap executor):
+
+| Route | Use when | Examples |
+| :--- | :--- | :--- |
+| **script** | Fully deterministic, mechanizable check or change | hashing, sync, link-check, template rollout |
+| **cheap subagent** | Identical spec'd edits; a small patch by exact spec; a draft test for a known repro (requires ready tests-as-spec) | batch rename by table, exact-diff apply |
+| **regular executor** | Local implementation with a clear contract | feature/script work inside an agreed boundary |
+| **strong model + independent verification** | Architecture, migrations, authority boundaries, ambiguous defects, Red-Zone policy one-liners | schema migration, boundary policy text, unclear defect |
+
+A delegation plan records: responsible role / execution route / model tier / change scope / acceptance criterion / verifier.
+
 ---
 
 ### Phase 3: Existing Team Audit (Role Pruning & Garbage Collection)
@@ -228,6 +240,7 @@ Every team agent must adhere to core coordination principles:
    - Handoff boundary: <why current agent stopped>
    - Recommended prompt for agent-B: <ready-to-use prompt text>
    ```
+   When handing off mid-task, first record a `- [>]` checkpoint per tasks.md rules, so the receiving agent resumes from the last `- [>]` entry instead of re-reading the whole slice.
 3. **Handoff Chain Limit:** Maximum of 2 consecutive handoffs (hops = 2). On the 3rd step, control must return to the human.
 4. **Shared File Annotations Sanctity:** Prohibited from editing others' notes in `tasks.md`, `observations.md`, and `architecture.md`. Only own status/tasks can be updated. On conflict, present a clear description of the trade-off to the user.
 5. **Exclusive Ownership of `notes.md`:** Only the role owner can modify `.agents/team/<role>/notes.md`.
