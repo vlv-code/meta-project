@@ -121,7 +121,7 @@ jobs:
       #   rc 1 = updates found (upstream advanced past the installed content)
       # Asserts the rc contract ONLY — it must not depend on any JSON field
       # that a concurrent engine lane may add (no cross-lane timing coupling).
-      - name: Smoke: update-engine check rc contract (synthetic repos)
+      - name: "Smoke: update-engine check rc contract (synthetic repos)"
         if: runner.os == 'Linux' && matrix.python-version == '3.12'
         shell: bash
         run: |
