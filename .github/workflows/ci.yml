@@ -52,6 +52,7 @@ jobs:
       # determine the admissibility of that same PR (no self-certification).
       - name: Determine trusted base revision
         id: trusted_base
+        shell: bash
         run: |
           set -eu
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -77,6 +78,7 @@ jobs:
           echo "Trusted base revision: $BASE_SHA"
 
       - name: Materialize trusted gate and policy from base revision
+        shell: bash
         run: |
           set -eu
           BASE_SHA="${{ steps.trusted_base.outputs.sha }}"
@@ -89,6 +91,7 @@ jobs:
           echo "Enforcing with gate and policy from trusted base $BASE_SHA"
 
       - name: Boundary Gate audit-tree (trusted policy over incoming tree)
+        shell: bash
         run: |
           set -eu
           python /tmp/trusted_gate/check_boundaries.py \
@@ -97,6 +100,7 @@ jobs:
             --repo-root .
 
       - name: Evaluate change diff against trusted base
+        shell: bash
         run: |
           set -eu
           BASE_SHA="${{ steps.trusted_base.outputs.sha }}"
