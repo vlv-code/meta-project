@@ -69,6 +69,28 @@ Zero-dependency; RED-first where machine behavior changes (compact_memory `[>]`,
 - Verification: P1 scenarios re-run identically; read-only stays 0-write; before/after comparison table recorded in the pilot section of the plan file itself (single source).
 - Manifest gains resource components; framework_version → 1.0.0-alpha.4 (Steward tags to match).
 
+## 6a. P1 RESULTS & OWNER DECISION (2026-11-16, recorded by dispatcher)
+
+**Measured (tag v1.0.0-alpha.3 blobs, all evidence in the P1 worker report):**
+skill total 41,590 B; embedded template blocks 18,077 B = 43.46%; scenario sections Σ 33.9%. Read-model: S3 repeat-run healthy 41,590 → 4,942 B (**88.1%** saving), S3 stale variant **83.1%**, S4 new-harness **75.7%**, S1 clean init 41,590 → 37,499 B (**9.8%** — below the 15% worst-case gate). Wall time negligible in all scenarios (interpreter startup dominates; template materialization ~40–55 ms). Portability: clean (every extractable byte ships as a sibling resource).
+
+**Verdict per the ORIGINAL criteria: NO-GO for blanket P2** (criterion (a) violated on the worst case).
+
+**Owner decision (user, 2026-11-16): ADJUST AND PROCEED.** Criterion re-scoped — with owner approval, post-hoc, explicitly: the pilot targets RECURRING invocations (S3 repeat-run / S4 harness adoption: 75–88% savings; clean init is a once-per-repo path and may read its resources in full). Plus deployment adjustment: the 3 embedded SKILL.md templates (record-observation, sync-architecture, ground-meta-project) deploy by VERBATIM FILE COPY (no in-context transit), lifting S1 to 18.2% ≥ 15%. P2 proceeds under: (1) resources/*.md ship WITH the skill (manifest components, engine mapping, offline bundles — unchanged); (2) SKILL.md keeps routing, invariants, short procedures, and explicit when-to-read pointers; (3) "before" baseline = the P1 table above; "after" numbers recorded here on completion; (4) abort discipline stays — if the "after" measurement contradicts the projection, report, do not rationalize.
+
+## 6b. P2 AFTER-NUMBERS & PILOT VERDICT (2026-11-16, dispatcher)
+
+Delivered: init SKILL.md 41,590 → 19,411 B (665 → 165 lines, 0 embedded blocks); 9 resources ship with the skill (byte-copies of canonical sources); RESOURCE_TARGETS sync; engine runtime-layout mapping for `resources/**`; manifest +9 resource components; framework_version 1.0.0-alpha.4; battery 323/323.
+
+| Scenario | Before | After (whole-file) | Saving | Section-level (P1 granularity) |
+|---|---|---|---|---|
+| S3 repeat-run healthy | 41,590 B | 19,411 B | **53.3%** | 3,471 B → **91.7%** |
+| S3 stale variant | 41,590 B | 19,411 B | 53.3% | — |
+| S4 new-harness | 41,590 B | 19,411 B | **53.3%** | 4,033 B → **90.3%** |
+| S1 clean init | 41,590 B | 19,411 + 18,554 (resources in-context; 3 skills by file-copy) | 8.7% | — |
+
+**VERDICT: KEEP.** The owner-adjusted criterion (recurring invocations ≥ 15%) is met conservatively at whole-file 53.3% and exceeded at section granularity (90.3–91.7% vs 75.7–88.1% projected). S1's 8.7% (below both the original 9.8% model and the §6a 18.2% projection) is structural, not a defect: the retained 19.4 KB is integrity-locked load-bearing procedure (two-question interview, boundary defaults, hygiene region) plus the loading contract itself; after re-scoping, S1 is not the gated path. Live smoke: scratch Scenario 1 materializes all 9 artifacts byte-correct in 22–43 ms.
+
 ## 7. Acceptance (dispatcher, then Guardian)
 
 Battery 100% green; 0 drift; boundaries 100%; identity clean. Live checks: (1) fresh scratch repo init produces architecture.md/tasks.md matching templates byte-canonically; (2) a `- [>]` checkpoint survives compact_memory --dry-run untouched; (3) one envelope per script reproduced live; (4) pilot before/after table complete with an explicit keep/adjust/abandon decision. RED-discipline replay on the pre-wave export for machine lanes (E, P2).
