@@ -1451,6 +1451,42 @@ def build_cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _error_envelope(
+    code: str,
+    file: str,
+    reason: str,
+    expected: str,
+    actual: str,
+    next_step: str,
+) -> str:
+    """Uniform Wave E error envelope (presentation ONLY).
+
+    Returns the canonical leading line of a failure block:
+        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
+    The envelope never alters verdicts, report payloads, exit codes, or rc
+    semantics — it wraps the existing structured refusals (stdout [FAIL]
+    verdicts / JSON bodies stay intact on the following output)."""
+    return (
+        f"[{code}] {file}: {reason} | expected: {expected} | "
+        f"actual: {actual} | next: {next_step}"
+    )
+
+
+def _emit_invalid_report_envelope(report_path: Path, errors: List[str]) -> None:
+    """Writes the INVALID_REPORT envelope (Wave E) for a failed report
+    verification. Presentation only: verdicts and rc are unchanged."""
+    first = errors[0] if errors else "unknown validation error"
+    sys.stderr.write(_error_envelope(
+        "INVALID_REPORT",
+        str(report_path),
+        "report file failed schema validation",
+        "a JSON report matching the canonical report schema",
+        f"{len(errors)} validation error(s), first: {first}",
+        "regenerate the report via the matching '<type> create' action, or "
+        "repair the file to satisfy the errors listed in the verdict",
+    ) + "\n")
+
+
 def main() -> int:
     """CLI entry point."""
     parser = build_cli_parser()
@@ -1471,6 +1507,7 @@ def main() -> int:
                     data = json.load(f)
                 errors = validate_report(data, expected_type="init")
                 if errors:
+                    _emit_invalid_report_envelope(report_path, errors)
                     if args.json:
                         print(
                             json.dumps(
@@ -1502,6 +1539,15 @@ def main() -> int:
                     print(f"[OK] Init report '{report_path}' is valid.")
                 return 0
             except Exception as e:
+                sys.stderr.write(_error_envelope(
+                    "INVALID_REPORT",
+                    str(report_path),
+                    "report file is not readable/parsable JSON",
+                    "a JSON report file loadable as UTF-8 JSON",
+                    f"read/parse error: {e}",
+                    "regenerate the report via the matching '<type> create' "
+                    "action, or repair the file encoding/JSON syntax",
+                ) + "\n")
                 sys.stderr.write(f"Error reading report: {e}\n")
                 return 1
 
@@ -1582,6 +1628,7 @@ def main() -> int:
                     data = json.load(f)
                 errors = validate_report(data, expected_type="manage")
                 if errors:
+                    _emit_invalid_report_envelope(report_path, errors)
                     if args.json:
                         print(
                             json.dumps(
@@ -1613,6 +1660,15 @@ def main() -> int:
                     print(f"[OK] Manage report '{report_path}' is valid.")
                 return 0
             except Exception as e:
+                sys.stderr.write(_error_envelope(
+                    "INVALID_REPORT",
+                    str(report_path),
+                    "report file is not readable/parsable JSON",
+                    "a JSON report file loadable as UTF-8 JSON",
+                    f"read/parse error: {e}",
+                    "regenerate the report via the matching '<type> create' "
+                    "action, or repair the file encoding/JSON syntax",
+                ) + "\n")
                 sys.stderr.write(f"Error reading report: {e}\n")
                 return 1
 
@@ -1757,6 +1813,7 @@ def main() -> int:
                     data = json.load(f)
                 errors = validate_report(data, expected_type="tune")
                 if errors:
+                    _emit_invalid_report_envelope(report_path, errors)
                     if args.json:
                         print(
                             json.dumps(
@@ -1788,6 +1845,15 @@ def main() -> int:
                     print(f"[OK] Tune report '{report_path}' is valid.")
                 return 0
             except Exception as e:
+                sys.stderr.write(_error_envelope(
+                    "INVALID_REPORT",
+                    str(report_path),
+                    "report file is not readable/parsable JSON",
+                    "a JSON report file loadable as UTF-8 JSON",
+                    f"read/parse error: {e}",
+                    "regenerate the report via the matching '<type> create' "
+                    "action, or repair the file encoding/JSON syntax",
+                ) + "\n")
                 sys.stderr.write(f"Error reading report: {e}\n")
                 return 1
 
@@ -1951,6 +2017,7 @@ def main() -> int:
                 data = json.load(f)
             errors = validate_report(data, expected_type=args.type)
             if errors:
+                _emit_invalid_report_envelope(report_path, errors)
                 if args.json:
                     print(
                         json.dumps(
@@ -1983,6 +2050,15 @@ def main() -> int:
                 print(f"[OK] Report '{report_path}' is valid.")
             return 0
         except Exception as e:
+            sys.stderr.write(_error_envelope(
+                "INVALID_REPORT",
+                str(report_path),
+                "report file is not readable/parsable JSON",
+                "a JSON report file loadable as UTF-8 JSON",
+                f"read/parse error: {e}",
+                "regenerate the report via the matching '<type> create' "
+                "action, or repair the file encoding/JSON syntax",
+            ) + "\n")
             sys.stderr.write(f"Error reading report: {e}\n")
             return 1
 

@@ -39,6 +39,27 @@ class BoundaryGateError(RuntimeError):
     silently degrade into an empty 'Clean' result (audit §2)."""
 
 
+def _error_envelope(
+    code: str,
+    file: str,
+    reason: str,
+    expected: str,
+    actual: str,
+    next_step: str,
+) -> str:
+    """Uniform Wave E error envelope (presentation ONLY).
+
+    Returns the canonical leading line of a failure block:
+        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
+    The envelope never alters gate decisions, refusal payloads, exit codes,
+    or rc semantics — it wraps the existing structured refusals, which keep
+    their full content on the following lines."""
+    return (
+        f"[{code}] {file}: {reason} | expected: {expected} | "
+        f"actual: {actual} | next: {next_step}"
+    )
+
+
 def glob_to_regex(pat: str) -> re.Pattern:
     """
     Compile a file path glob pattern into a regex pattern.
@@ -629,6 +650,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                 break
 
     if not boundaries_path or not boundaries_path.is_file():
+        envelope_target = (
+            str(boundaries_path) if boundaries_path else "<default location>"
+        )
+        sys.stderr.write(_error_envelope(
+            "CONTEXT_UNRESOLVED",
+            envelope_target,
+            "boundaries.md file not found",
+            "a readable boundaries.md mapping every repository path to a zone",
+            "no boundaries policy file at the resolved location",
+            "pass --boundaries <path> or deploy "
+            ".agents/project_knowledge/boundaries.md",
+        ) + "\n")
         sys.stderr.write(f"Error: boundaries.md file not found at '{boundaries_path}'\n")
         return 1
 
@@ -670,6 +703,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                 repo_root=repo_root,
             )
         except BoundaryGateError as exc:
+            sys.stderr.write(_error_envelope(
+                "CONTEXT_UNRESOLVED",
+                str(repo_root),
+                "git query failed; the gate fails closed",
+                "a resolvable git revision/status for the checked tree",
+                str(exc),
+                "re-run inside the repository (verify --repo-root and that "
+                "the diff target exists)",
+            ) + "\n")
             sys.stderr.write(f"[BOUNDARY GATE ERROR] {exc}\n")
             return 1
 
@@ -714,7 +756,21 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.stdout.write(f"Boundary Gate: Checked {len(files)} files. All files conform to allowed boundaries.\n")
         return 0
 
-    # Print violations report
+    # Print violations report (Wave E envelope first — presentation only;
+    # the structured refusal below and rc=1 are unchanged).
+    first_violation = violations[0]
+    sys.stderr.write(_error_envelope(
+        "BOUNDARY_VIOLATION",
+        first_violation["file"],
+        "boundary gate detected zone violations",
+        "changed files confined to Green/Yellow zones (Red Zone and "
+        "unmapped paths require direct user confirmation or a sanctioned "
+        "override)",
+        f"{len(violations)} violation(s), first: '{first_violation['file']}' "
+        f"(zone: {first_violation['zone']})",
+        "obtain direct user confirmation, re-run with a sanctioned "
+        "--allow-red-zone override, or revert the violating changes",
+    ) + "\n")
     sys.stderr.write("\n===========================================================\n")
     sys.stderr.write("[FAILURE] BOUNDARY GATE FAILURE: Zone Violations Detected\n")
     sys.stderr.write("===========================================================\n\n")

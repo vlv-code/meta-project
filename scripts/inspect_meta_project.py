@@ -43,6 +43,29 @@ def _registry_validation_errors(repo_root: Path) -> List[str]:
         return [f"registry validation failed unexpectedly: {exc}"]
 
 SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1", "1"}
+
+
+def _error_envelope(
+    code: str,
+    file: str,
+    reason: str,
+    expected: str,
+    actual: str,
+    next_step: str,
+) -> str:
+    """Uniform Wave E error envelope (presentation ONLY).
+
+    Returns the canonical leading line of a diagnostic block:
+        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
+    The envelope never alters inspection decisions, the stdout report/JSON,
+    exit codes, or the zero-write invariant — it is a stderr notice wrapped
+    around the existing structured diagnostics."""
+    return (
+        f"[{code}] {file}: {reason} | expected: {expected} | "
+        f"actual: {actual} | next: {next_step}"
+    )
+
+
 CANONICAL_ACTIONS = {
     "NONE": "scaffold_clean",
     "FOREIGN_RULES": "preserve_and_merge",
@@ -517,6 +540,23 @@ def main() -> int:
         target_harness=args.harness,
         target_installation=args.installation,
     )
+
+    # Wave E diagnostic notice (presentation only): a CONTEXT_UNRESOLVED
+    # state is a canonical unresolved-context condition; the stdout report
+    # and rc=0 are unchanged.
+    if report["state"] == "CONTEXT_UNRESOLVED":
+        sys.stderr.write(_error_envelope(
+            "CONTEXT_UNRESOLVED",
+            ".agents/meta-project.json",
+            "runtime context not resolved from a healthy installation",
+            "an explicit --harness/--installation pair registered active "
+            "in the registry",
+            "no runtime context supplied or resolvable; refusing to "
+            "silently adopt an arbitrary active installation",
+            "re-run with --harness <id> --installation <id> (see "
+            ".agents/meta-project.json), or resolve context via the "
+            "ground-meta-project skill",
+        ) + "\n")
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

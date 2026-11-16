@@ -1,28 +1,21 @@
 # Architectural Foundations
 
-## 1. High-Level System Overview
-- **Application Type:** (monolith / microservice / CLI / library / plugin / extension)
-- **Core Stack:** (language, framework, key libraries)
+**Map update rule:** The map is updated IN THE SAME CHANGE that touches a component — a decision without a map update is an incomplete change. One row per component, no prose.
 
-## 2. Key Components and Data Flows
-- **Component 1:** Purpose, input, and output data.
-- **Component 2:** Interaction with external APIs / database.
-- **Data Flow:**
-  `[Client/Input] -> [Validation Layer/API] -> [Business Logic] -> [Storage/Output]`
+## 1. Component Map
 
-## 3. Data and State Invariants
-- State management strategy (stateless / stateful / DB / local cache).
-- Messaging format / interface contracts.
+| Component | Location | Role | Depends on |
+| :--- | :--- | :--- | :--- |
+| API Gateway | `src/api/` | Validates and routes external requests | Auth Service, Domain Core |
+| Task Scheduler | `src/scheduler/` | Runs background jobs and retries | Storage Layer |
 
-## 4. End-to-End Data Flows (Pre-Flight Flow Tracing)
-Every multi-tier feature or bugfix touching client-server, UI, or storage boundaries must map the flow across components before making code changes:
+## 2. Stack and Invariants
+- **Stack:** (language, framework, key libraries — one line)
+- **State + Single Source of Truth:** (where state lives and which component owns it — one line)
+- **Cross-border contracts:** (interfaces and data formats at component boundaries — one line)
 
-```
-[Origin: UI/CLI/Event] ➔ [Transport: API Route / Message] ➔ [Domain / Storage: Persistence] ➔ [Assembly / Packager] ➔ [Consumer: Client / Daemon]
-```
-- **Primary Data Flow 1:** [e.g. User Configuration ➔ Sync Route ➔ Atomic Store ➔ Client Polling]
-- **Single Source of Truth:** [Specify authoritative owner of state]
+## 3. End-to-End Data Flows (Pre-Flight Flow Tracing)
+*(Conditional section: include ONLY for multi-tier systems (client-server, API, UI, or storage boundaries); omit for single-layer CLI/library projects to prevent context bloat.)*
 
-## 5. Design Patterns
-- Architectural patterns used (Clean Architecture, Ports & Adapters, MVC, CQRS, etc.).
-- Error handling approach (Result type, exceptions, custom error classes).
+`[Origin: UI/CLI/Event] ➔ [Transport: API Route / Message] ➔ [Domain / Storage: Persistence] ➔ [Assembly / Packager] ➔ [Consumer: Client / Daemon]`
+- **Primary Data Flow:** [e.g. User Configuration ➔ Sync Route ➔ Atomic Store ➔ Client Polling]

@@ -201,6 +201,27 @@ class UpdateEngineError(Exception):
     """Base class for managed-update engine failures."""
 
 
+def _error_envelope(
+    code: str,
+    file: str,
+    reason: str,
+    expected: str,
+    actual: str,
+    next_step: str,
+) -> str:
+    """Uniform Wave E error envelope (presentation ONLY).
+
+    Returns the canonical leading line of a failure block:
+        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
+    The envelope never alters apply decisions, refusal payloads, exit codes,
+    or rc semantics — it wraps the existing structured refusals ([APPLY-REFUSED]
+    and friends keep their full content on the following lines)."""
+    return (
+        f"[{code}] {file}: {reason} | expected: {expected} | "
+        f"actual: {actual} | next: {next_step}"
+    )
+
+
 class SourceResolutionError(UpdateEngineError):
     """A ref could not be pinned to an exact commit SHA."""
 
@@ -964,6 +985,9 @@ def _project_red_reason(
 
 
 _SKILL_RUNTIME_LAYOUT_RE = re.compile(r"^skills/([^/]+)/SKILL\.md$")
+# Wave E Lane P2: skill resources ship WITH the skill (bootstrap invariant),
+# so a resource component follows its skill into the runtime layout.
+_SKILL_RESOURCE_RUNTIME_LAYOUT_RE = re.compile(r"^skills/([^/]+)/resources/(.+)$")
 
 
 def _resolve_target(
@@ -975,7 +999,9 @@ def _resolve_target(
 
     A previously recorded lock ``target`` stays authoritative (no silent
     migration of installed components); otherwise ``skills/<name>/SKILL.md``
-    maps to the runtime layout ``.agents/skills/<name>/SKILL.md`` when the
+    maps to the runtime layout ``.agents/skills/<name>/SKILL.md``, and
+    ``skills/<name>/resources/<file>`` maps to
+    ``.agents/skills/<name>/resources/<file>`` (Wave E Lane P2), when the
     target repository has ``.agents/skills/``; everything else installs at
     the distribution path."""
     recorded = _posix((lock_entry or {}).get("target") or "")
@@ -985,6 +1011,9 @@ def _resolve_target(
     match = _SKILL_RUNTIME_LAYOUT_RE.match(_posix(rel))
     if match and (repo_root / ".agents" / "skills").is_dir():
         return f".agents/skills/{match.group(1)}/SKILL.md"
+    res_match = _SKILL_RESOURCE_RUNTIME_LAYOUT_RE.match(_posix(rel))
+    if res_match and (repo_root / ".agents" / "skills").is_dir():
+        return f".agents/skills/{res_match.group(1)}/resources/{res_match.group(2)}"
     return _posix(rel)
 
 
@@ -2102,9 +2131,30 @@ def main(argv: Optional[List[str]] = None) -> int:
                 plan_file=plan_file,
             )
         except UpdateEngineError as exc:
+            sys.stderr.write(_error_envelope(
+                "APPLY_REFUSED",
+                str(plan_file) if plan_file else str(repo_root),
+                "apply refused with zero writes (plan perimeter or "
+                "preconditions violated)",
+                "an admitted actor applying a serialized, pin-matching, "
+                "conflict-free plan over the pinned base",
+                str(exc),
+                "re-run scripts/update_meta_project.py check/plan, resolve "
+                "the refusal cause above, and apply the regenerated plan",
+            ) + "\n")
             sys.stderr.write(f"[APPLY-REFUSED] {exc}\n")
             return 1
         except (OSError, ValueError) as exc:
+            sys.stderr.write(_error_envelope(
+                "APPLY_FAILED",
+                str(plan_file) if plan_file else str(repo_root),
+                "apply failed before completing (journal preserves the "
+                "recovery state)",
+                "every plan action applied atomically over writable targets",
+                str(exc),
+                "inspect the journal (.agents/update_journal.json) and use "
+                "'restore' to return to the pre-apply state, then re-apply",
+            ) + "\n")
             sys.stderr.write(f"[APPLY-FAILED] {exc}\n")
             return 1
         print(json.dumps(result, indent=2, default=str))

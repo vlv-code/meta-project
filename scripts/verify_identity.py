@@ -43,6 +43,27 @@ VALID_INSTALLATION_STATUSES = {"planned", "active", "disabled", "archived"}
 VALID_BINDING_STATUSES = {"planned", "active", "disabled", "archived"}
 
 
+def _error_envelope(
+    code: str,
+    file: str,
+    reason: str,
+    expected: str,
+    actual: str,
+    next_step: str,
+) -> str:
+    """Uniform Wave E error envelope (presentation ONLY).
+
+    Returns the canonical leading line of a failure block:
+        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
+    The envelope never alters resolution decisions, refusal payloads, exit
+    codes, or rc semantics — it wraps the existing structured refusals, which
+    keep their full content on the following lines."""
+    return (
+        f"[{code}] {file}: {reason} | expected: {expected} | "
+        f"actual: {actual} | next: {next_step}"
+    )
+
+
 def validate_schema_version(value: Any) -> List[str]:
     """Validates the registry schema_version value (audit §3: the actually
     supported version must be enforced, not mere field presence)."""
@@ -407,6 +428,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.actor:
         found, binding = resolve_actor_binding(root, args.actor)
         if not found:
+            sys.stderr.write(_error_envelope(
+                "IDENTITY_UNRESOLVED",
+                str(DEFAULT_REGISTRY_REL).replace("\\", "/"),
+                "actor_id is not resolvable against the registry",
+                f"'{args.actor}' present as an active binding in "
+                f"{DEFAULT_REGISTRY_REL}",
+                "no registry entry matches the qualified actor_id",
+                "fix the actor_id or register the binding via "
+                "manage-meta-project, then re-run scripts/verify_identity.py "
+                "--check",
+            ) + "\n")
             sys.stderr.write(f"[ERROR] Unresolved identity: actor_id '{args.actor}' not found in registry.\n")
             return 1
         # Admission control (audit §3): lookup success does not authorize
@@ -414,6 +446,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         registry, _ = load_registry(root)
         denial = evaluate_actor_admission(registry or {}, binding)
         if denial:
+            sys.stderr.write(_error_envelope(
+                "IDENTITY_UNRESOLVED",
+                str(DEFAULT_REGISTRY_REL).replace("\\", "/"),
+                "identity resolved but not admitted to act",
+                "both the actor binding and its installation 'active'",
+                f"admission denied: {denial}",
+                "activate the binding/installation via manage-meta-project "
+                "before performing runtime actions",
+            ) + "\n")
             sys.stderr.write(f"[ERROR] {denial}\n")
             return 1
         sys.stdout.write(f"[OK] Identity resolved and admitted: {args.actor} -> role={binding['role_id']}, installation={binding['installation_id']}, status={binding.get('status')}\n")
@@ -422,6 +463,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.check:
         valid, errors = validate_identity_registry(root)
         if not valid:
+            sys.stderr.write(_error_envelope(
+                "IDENTITY_UNRESOLVED",
+                str(DEFAULT_REGISTRY_REL).replace("\\", "/"),
+                "identity registry validation failed",
+                "a schema-valid registry in sync with role profiles",
+                f"{len(errors)} validation issue(s) detected",
+                "repair the registry/profiles per the issues listed below "
+                "(manage-meta-project), then re-run --check",
+            ) + "\n")
             sys.stderr.write(f"[ERROR] Identity verification failed ({len(errors)} issues):\n")
             for err in errors:
                 sys.stderr.write(f"  * {err}\n")

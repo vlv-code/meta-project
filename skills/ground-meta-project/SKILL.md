@@ -43,6 +43,8 @@ Read ONLY what the situation needs, by semantic section reference:
 - the live task: the CURRENT user request first; `tasks.md` second — a fresh
   request wins over a stale entry, but never silently cancels previously
   agreed restrictions; contradictions are surfaced explicitly;
+- the last `- [>]` checkpoint in `tasks.md` when resuming interrupted or
+  handed-off work (checkpoint convention per tasks.md rules);
 - relevant fragments of `architecture.md` / `boundaries.md`;
 - the assigned role's OWN `notes.md` (foreign passports are not loaded);
 - situation-relevant reports and observations (a found report is context,

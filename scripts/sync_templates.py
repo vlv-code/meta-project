@@ -3,29 +3,42 @@
 Template Injection & Skill Parity Synchronizer.
 Zero-dependency utility (pure Python 3.10+ standard library).
 Injects canonical templates from templates/ into embedded sections of skills/,
-and mirrors canonical skills/ into .agents/skills/.
+byte-copies canonical templates/skills into skills/init-meta-project/resources/
+(Wave E Lane P2 lazy-load pilot), and mirrors canonical skills/ (SKILL.md plus
+resources/) into .agents/skills/.
 """
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import re
 import sys
 from typing import Dict, List, Optional, Tuple
 
 EMBEDDED_TARGETS: Dict[str, Dict[str, str]] = {
-    "skills/init-meta-project/SKILL.md": {
-        "boundaries.md": "templates/project_knowledge/boundaries.md",
-        "observations.md": "templates/project_knowledge/observations.md",
-        "weak_spots.md": "templates/project_knowledge/weak_spots.md",
-        "AGENTS.md": "templates/AGENTS.md",
-    },
     "skills/manage-meta-project/SKILL.md": {
         "profile.md": "templates/team/profile.md",
         "notes.md": "templates/team/notes.md",
         "system_prompt.md": "templates/team/system_prompt.md",
     },
+}
+
+# Wave E Lane P2: init ships its templates/skills as sibling resource files
+# (byte-copies of the canonical sources) instead of embedded TEMPLATE blocks.
+# Canonical sources: templates/ for the knowledge slices + root passport;
+# the skills themselves for the 3 shell-skill resources (hyphenated names).
+INIT_RESOURCES_DIR = "skills/init-meta-project/resources"
+
+RESOURCE_TARGETS: Dict[str, str] = {
+    "observations.md": "templates/project_knowledge/observations.md",
+    "boundaries.md": "templates/project_knowledge/boundaries.md",
+    "weak_spots.md": "templates/project_knowledge/weak_spots.md",
+    "architecture.md": "templates/project_knowledge/architecture.md",
+    "tasks.md": "templates/project_knowledge/tasks.md",
+    "AGENTS.md": "templates/AGENTS.md",
+    "record-observation-SKILL.md": "skills/record-observation/SKILL.md",
+    "sync-architecture-SKILL.md": "skills/sync-architecture/SKILL.md",
+    "ground-meta-project-SKILL.md": "skills/ground-meta-project/SKILL.md",
 }
 
 
@@ -106,6 +119,53 @@ def sync_embedded_templates(
     return in_sync, drift_messages
 
 
+def sync_skill_resources(
+    repo_root: Path, write: bool = False
+) -> Tuple[bool, List[str]]:
+    """
+    Byte-copies canonical sources into skills/init-meta-project/resources/
+    per RESOURCE_TARGETS (Wave E Lane P2): the 6 canonical templates plus the
+    3 shell-skill SKILL.md files (canonical in skills/ themselves, deployed
+    by verbatim file copy). Returns (in_sync, list_of_drift_messages).
+
+    Missing CANONICAL sources are unrecoverable ("Missing canonical ..." —
+    fatal on --write); a missing or diverged RESOURCE file is recoverable
+    drift that --write repairs by byte copy.
+    """
+    drift_messages: List[str] = []
+    resources_dir = repo_root / INIT_RESOURCES_DIR
+
+    for res_name, canon_rel in RESOURCE_TARGETS.items():
+        canon_path = repo_root / canon_rel
+        if not canon_path.is_file():
+            drift_messages.append(
+                f"Missing canonical source file: {canon_rel} "
+                f"(required by resource {INIT_RESOURCES_DIR}/{res_name})"
+            )
+            continue
+        canon_bytes = canon_path.read_bytes()
+        res_path = resources_dir / res_name
+        if not res_path.is_file():
+            drift_messages.append(
+                f"Drift: Missing resource file {INIT_RESOURCES_DIR}/{res_name} "
+                f"(canonical: {canon_rel})"
+            )
+            if write:
+                resources_dir.mkdir(parents=True, exist_ok=True)
+                res_path.write_bytes(canon_bytes)
+            continue
+        if res_path.read_bytes() != canon_bytes:
+            drift_messages.append(
+                f"Drift: Resource '{INIT_RESOURCES_DIR}/{res_name}' diverges "
+                f"from {canon_rel}"
+            )
+            if write:
+                res_path.write_bytes(canon_bytes)
+
+    in_sync = len(drift_messages) == 0
+    return in_sync, drift_messages
+
+
 def sync_skill_mirroring(
     repo_root: Path, write: bool = False
 ) -> Tuple[bool, List[str]]:
@@ -123,6 +183,26 @@ def sync_skill_mirroring(
     for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
         skill_name = skill_file.parent.name
         mirror_file = agent_skills_dir / skill_name / "SKILL.md"
+
+        # Resources ship WITH the skill (Wave E Lane P2 bootstrap invariant):
+        # mirror skills/<name>/resources/* into .agents/skills/<name>/resources/*.
+        # Checked regardless of the SKILL.md mirror state so a first-time
+        # --write lands SKILL.md and resources/ in one pass.
+        skill_resources_dir = skill_file.parent / "resources"
+        if skill_resources_dir.is_dir():
+            for res_file in sorted(skill_resources_dir.iterdir()):
+                if not res_file.is_file():
+                    continue
+                mirror_res = agent_skills_dir / skill_name / "resources" / res_file.name
+                res_bytes = res_file.read_bytes()
+                if not mirror_res.is_file() or mirror_res.read_bytes() != res_bytes:
+                    drift_messages.append(
+                        f"Drift: .agents/skills/{skill_name}/resources/{res_file.name} "
+                        f"is out of sync with skills/{skill_name}/resources/{res_file.name}"
+                    )
+                    if write:
+                        mirror_res.parent.mkdir(parents=True, exist_ok=True)
+                        mirror_res.write_bytes(res_bytes)
 
         if not mirror_file.is_file():
             drift_messages.append(
@@ -197,14 +277,18 @@ def run_sync(
 ) -> Tuple[bool, List[str]]:
     """
     Executes full synchronization pass:
-      1. Embed canonical templates into skills/.
-      2. Mirror skills/ into .agents/skills/.
-      3. (Optional) Mirror skills/ into global_dir.
+      1. Embed canonical templates into skills/ (embedded-section skills).
+      2. Byte-copy canonical sources into skills/init-meta-project/resources/.
+      3. Mirror skills/ (SKILL.md + resources/) into .agents/skills/.
+      4. (Optional) Mirror skills/ into global_dir.
     """
     all_drifts: List[str] = []
 
     emb_ok, emb_drifts = sync_embedded_templates(repo_root, write=write)
     all_drifts.extend(emb_drifts)
+
+    res_ok, res_drifts = sync_skill_resources(repo_root, write=write)
+    all_drifts.extend(res_drifts)
 
     mir_ok, mir_drifts = sync_skill_mirroring(repo_root, write=write)
     all_drifts.extend(mir_drifts)
@@ -231,7 +315,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--write",
         action="store_true",
-        help="Write updates: inject canonical templates into skills/ and mirror to .agents/skills/",
+        help="Write updates: inject canonical templates into embedded sections, "
+        "byte-copy resources/ for init, and mirror to .agents/skills/",
     )
     parser.add_argument(
         "--repo-root",

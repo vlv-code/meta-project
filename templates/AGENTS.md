@@ -95,6 +95,11 @@ When tasked with code exploration, repository assessment, or architecture review
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
 5. When encountering hidden environment quirks, record the fact via `record-observation` (or `scripts/record_obs.py`).
 
+**Execution Routes** (mode chosen by consequences and uncertainty; checks mandated by the agreed scenario are always preserved):
+- **short** — unambiguous local task: action → needed check → result (Read-Only Exploration Mode above is the canonical short route).
+- **normal** — several related changes with known contracts.
+- **extended** — migrations, ambiguous defects, architecture, protected components.
+
 ## 7. Project Agent Team & Multi-Harness Identity
 Project roles and multi-harness bindings are authoritative in `.agents/meta-project.json`.
 - **Identity Determination Protocol:** Every agent operating in the repository must resolve its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` using `scripts/verify_identity.py`.

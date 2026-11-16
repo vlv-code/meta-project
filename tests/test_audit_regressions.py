@@ -1260,6 +1260,8 @@ class TestSyncTemplatesExitCodes(TempRootTestCase):
                 "boundaries.md",
                 "observations.md",
                 "weak_spots.md",
+                "architecture.md",
+                "tasks.md",
                 "AGENTS.md",
             ),
             "manage-meta-project": ("profile.md", "notes.md", "system_prompt.md"),
@@ -1280,7 +1282,13 @@ class TestSyncTemplatesExitCodes(TempRootTestCase):
     def _write_canonical_templates(self, root: Path) -> None:
         tmpl_dir = root / "templates" / "project_knowledge"
         tmpl_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("boundaries.md", "observations.md", "weak_spots.md"):
+        for name in (
+            "boundaries.md",
+            "observations.md",
+            "weak_spots.md",
+            "architecture.md",
+            "tasks.md",
+        ):
             (tmpl_dir / name).write_text(f"canonical {name}\n", encoding="utf-8")
         (root / "templates" / "AGENTS.md").write_text(
             "canonical AGENTS.md\n", encoding="utf-8"
@@ -1289,6 +1297,18 @@ class TestSyncTemplatesExitCodes(TempRootTestCase):
         team_dir.mkdir(parents=True, exist_ok=True)
         for name in ("profile.md", "notes.md", "system_prompt.md"):
             (team_dir / name).write_text(f"canonical {name}\n", encoding="utf-8")
+        # Wave E Lane P2: init resources also require canonical shell-skill
+        # sources (RESOURCE_TARGETS maps them into skills/init-meta-project/resources/).
+        for skill_name in (
+            "record-observation",
+            "sync-architecture",
+            "ground-meta-project",
+        ):
+            skill_dir = root / "skills" / skill_name
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(
+                f"canonical {skill_name}\n", encoding="utf-8"
+            )
 
     def test_write_with_missing_canonical_template_fails(self):
         """--write with a missing canonical template must exit non-zero and

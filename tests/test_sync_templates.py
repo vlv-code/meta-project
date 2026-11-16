@@ -1,6 +1,16 @@
 """
 Unit tests for scripts/sync_templates.py (Template Injection & Skill Parity Synchronizer).
-Verifies marker-based embedded template replacement, skill parity validation, and CLI exit codes.
+Verifies marker-based embedded template replacement, resource byte-copy parity,
+skill parity validation, and CLI exit codes.
+
+Wave E Lane P2 supersession (plan §6a owner decision ADJUST AND PROCEED,
+fixture scope authorized by the dispatcher 2026-11-16): init's embedded
+TEMPLATE-block entries moved to RESOURCE_TARGETS byte-copy semantics —
+test_missing_template_sentinel_raises_drift_error,
+test_missing_canonical_template_reports_drift, and
+test_cli_check_drift_detected_exit_1 were retargeted to the resources design
+(same intents: missing sync-managed file -> drift; missing canonical -> fatal
+drift; CLI write/check roundtrip).
 """
 
 from pathlib import Path
@@ -68,40 +78,50 @@ class TestTemplateInjection(unittest.TestCase):
         self.assertIn("Old outdated content", updated)
 
     def test_missing_template_sentinel_raises_drift_error(self):
-        """Verify that when a required template block is missing, drift is detected with exit code 1."""
+        """Superseded per plan §6a (init embedded blocks -> resources/): when a
+        required sync-managed init resource file is missing, drift is detected."""
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             skill_dir = root / "skills" / "init-meta-project"
             skill_dir.mkdir(parents=True, exist_ok=True)
-            (skill_dir / "SKILL.md").write_text("# Corrupted Skill\nNo templates here.\n", encoding="utf-8")
+            (skill_dir / "SKILL.md").write_text("# Init Skill\nRouting only.\n", encoding="utf-8")
 
+            # All canonical sources present, resources/ intentionally absent.
             tmpl_dir = root / "templates" / "project_knowledge"
             tmpl_dir.mkdir(parents=True, exist_ok=True)
-            (tmpl_dir / "boundaries.md").write_text("# Canonical Boundaries\n", encoding="utf-8")
+            for name in ("boundaries.md", "observations.md", "weak_spots.md", "architecture.md", "tasks.md"):
+                (tmpl_dir / name).write_text(f"canonical {name}\n", encoding="utf-8")
+            (root / "templates" / "AGENTS.md").write_text("canonical AGENTS.md\n", encoding="utf-8")
+            for skill in ("record-observation", "sync-architecture", "ground-meta-project"):
+                sdir = root / "skills" / skill
+                sdir.mkdir(parents=True, exist_ok=True)
+                (sdir / "SKILL.md").write_text(f"# {skill}\n", encoding="utf-8")
 
-            in_sync, drift_msgs = sync_templates.sync_embedded_templates(root, write=False)
+            in_sync, drift_msgs = sync_templates.sync_skill_resources(root, write=False)
             self.assertFalse(in_sync)
-            self.assertTrue(any("Missing template block" in msg for msg in drift_msgs))
+            self.assertTrue(
+                any("Missing resource file" in msg for msg in drift_msgs),
+                f"missing resource file must be reported as drift: {drift_msgs}",
+            )
 
     def test_missing_canonical_template_reports_drift(self):
-        """Verify that missing canonical template file is reported as drift rather than silently ignored."""
+        """Superseded per plan §6a (init embedded blocks -> resources/): a missing
+        canonical source file is reported as drift rather than silently ignored."""
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             skill_dir = root / "skills" / "init-meta-project"
             skill_dir.mkdir(parents=True, exist_ok=True)
-            skill_text = (
-                "# Init Skill\n"
-                "### Template: `boundaries.md`\n"
-                "<!-- TEMPLATE:BEGIN boundaries.md -->\n"
-                "```markdown\nOLD BOUNDARIES\n```\n"
-                "<!-- TEMPLATE:END boundaries.md -->\n"
-            )
-            (skill_dir / "SKILL.md").write_text(skill_text, encoding="utf-8")
+            (skill_dir / "SKILL.md").write_text("# Init Skill\nRouting only.\n", encoding="utf-8")
+            (skill_dir / "resources").mkdir(parents=True, exist_ok=True)
+            (skill_dir / "resources" / "boundaries.md").write_text("stale copy\n", encoding="utf-8")
 
-            # Note: root / "templates" / "project_knowledge" / "boundaries.md" is intentionally NOT created
-            in_sync, drift_msgs = sync_templates.sync_embedded_templates(root, write=False)
+            # Note: canonical sources under templates/ and skills/ are intentionally NOT created
+            in_sync, drift_msgs = sync_templates.sync_skill_resources(root, write=False)
             self.assertFalse(in_sync)
-            self.assertTrue(any("Missing canonical template file" in msg for msg in drift_msgs))
+            self.assertTrue(
+                any("Missing canonical source file" in msg for msg in drift_msgs),
+                f"missing canonical source must be reported as drift: {drift_msgs}",
+            )
 
     def test_missing_target_skill_reports_drift(self):
         """Verify that missing target skill file is reported as drift rather than silently ignored."""
@@ -172,6 +192,12 @@ class TestSyncTemplatesCLI(unittest.TestCase):
             (tmppath / "templates" / "project_knowledge" / "weak_spots.md").write_text(
                 "CANONICAL WEAK", encoding="utf-8"
             )
+            (tmppath / "templates" / "project_knowledge" / "architecture.md").write_text(
+                "CANONICAL ARCH", encoding="utf-8"
+            )
+            (tmppath / "templates" / "project_knowledge" / "tasks.md").write_text(
+                "CANONICAL TASKS", encoding="utf-8"
+            )
             (tmppath / "templates" / "AGENTS.md").write_text(
                 "CANONICAL AGENTS", encoding="utf-8"
             )
@@ -184,15 +210,24 @@ class TestSyncTemplatesCLI(unittest.TestCase):
             (tmppath / "templates" / "team" / "system_prompt.md").write_text(
                 "CANONICAL PROMPT", encoding="utf-8"
             )
+            # Canonical shell-skill sources for the init resources (Wave E Lane P2)
+            for skill_name, body in (
+                ("record-observation", "CANONICAL RECORD-OBSERVATION SKILL"),
+                ("sync-architecture", "CANONICAL SYNC-ARCHITECTURE SKILL"),
+                ("ground-meta-project", "CANONICAL GROUND SKILL"),
+            ):
+                skill_dir = tmppath / "skills" / skill_name
+                skill_dir.mkdir(parents=True, exist_ok=True)
+                (skill_dir / "SKILL.md").write_text(f"# {body}\n", encoding="utf-8")
 
-            # Create skills/init-meta-project (with intentional drift in boundaries.md)
+            # Create skills/init-meta-project (routing-only skill; resources/
+            # intentionally absent — superseded per plan §6a: init ships its
+            # templates as sync-managed resource files, not embedded blocks)
             (tmppath / "skills" / "init-meta-project").mkdir(parents=True)
             init_skill = (
                 "# Init Skill\n"
-                "### Template: `boundaries.md`\n<!-- TEMPLATE:BEGIN boundaries.md -->\n```markdown\nOLD BOUNDARIES V1\n```\n<!-- TEMPLATE:END boundaries.md -->\n"
-                "### Template: `observations.md`\n<!-- TEMPLATE:BEGIN observations.md -->\n```markdown\nCANONICAL OBS\n```\n<!-- TEMPLATE:END observations.md -->\n"
-                "### Template: `weak_spots.md`\n<!-- TEMPLATE:BEGIN weak_spots.md -->\n```markdown\nCANONICAL WEAK\n```\n<!-- TEMPLATE:END weak_spots.md -->\n"
-                "### Template: `AGENTS.md`\n<!-- TEMPLATE:BEGIN AGENTS.md -->\n```markdown\nCANONICAL AGENTS\n```\n<!-- TEMPLATE:END AGENTS.md -->\n"
+                "## Resource Loading Contract\n"
+                "Clean init reads each resource exactly when its step needs it.\n"
             )
             (tmppath / "skills" / "init-meta-project" / "SKILL.md").write_text(
                 init_skill, encoding="utf-8"
@@ -243,11 +278,11 @@ class TestSyncTemplatesCLI(unittest.TestCase):
             res_write = subprocess.run(cmd_write, capture_output=True, text=True)
             self.assertEqual(res_write.returncode, 0)
 
-            # Check that skills/ and .agents/skills/ both received the canonical template
-            updated_skill = (tmppath / "skills" / "init-meta-project" / "SKILL.md").read_text(encoding="utf-8")
-            self.assertIn("CANONICAL BOUNDARIES V2", updated_skill)
-            mirrored_skill = (tmppath / ".agents" / "skills" / "init-meta-project" / "SKILL.md").read_text(encoding="utf-8")
-            self.assertIn("CANONICAL BOUNDARIES V2", mirrored_skill)
+            # Check that the resource copies (canonical + mirrored) received the canonical template
+            updated_resource = (tmppath / "skills" / "init-meta-project" / "resources" / "boundaries.md").read_text(encoding="utf-8")
+            self.assertIn("CANONICAL BOUNDARIES V2", updated_resource)
+            mirrored_resource = (tmppath / ".agents" / "skills" / "init-meta-project" / "resources" / "boundaries.md").read_text(encoding="utf-8")
+            self.assertIn("CANONICAL BOUNDARIES V2", mirrored_resource)
 
             # Now --check must pass with 0 exit code
             res_check2 = subprocess.run(cmd, capture_output=True, text=True)

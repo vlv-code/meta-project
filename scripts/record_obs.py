@@ -41,6 +41,27 @@ CANONICAL_CATEGORIES: Set[str] = {
 
 DEFAULT_OBSERVATIONS_PATH = Path(".agents/project_knowledge/observations.md")
 
+
+def _error_envelope(
+    code: str,
+    file: str,
+    reason: str,
+    expected: str,
+    actual: str,
+    next_step: str,
+) -> str:
+    """Uniform Wave E error envelope (presentation ONLY).
+
+    Returns the canonical leading line of a failure block:
+        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
+    The envelope never alters validation decisions, refusal payloads, exit
+    codes, or rc semantics — it wraps the existing structured refusals, which
+    keep their full content on the following lines."""
+    return (
+        f"[{code}] {file}: {reason} | expected: {expected} | "
+        f"actual: {actual} | next: {next_step}"
+    )
+
 DEFAULT_HEADER = """# Agent Observations Base
 
 Cumulative registry of findings, non-obvious environment quirks, and practical solutions.
@@ -359,6 +380,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"[OK] Recorded observation: {appended_row}")
         return 0
     except ValueError as e:
+        message = str(e)
+        if message.startswith("Invalid category"):
+            envelope = _error_envelope(
+                "INVALID_CATEGORY",
+                str(Path(args.obs_file)),
+                "observation category is not canonical",
+                f"one of the canonical categories: "
+                f"{sorted(CANONICAL_CATEGORIES)}",
+                f"refused category: '{args.category}'",
+                "re-run with a canonical --category value (see the list in "
+                "the envelope; new domains must be canonized first)",
+            )
+        else:
+            envelope = _error_envelope(
+                "INTAKE_REJECTED",
+                str(Path(args.obs_file)),
+                "observation intake failed validation",
+                "a fully valid observation row (category, date, texts)",
+                message,
+                "fix the flagged field per the validation message below "
+                "and re-run",
+            )
+        print(envelope, file=sys.stderr)
         print(f"[ERROR] Validation failed: {e}", file=sys.stderr)
         return 1
     except Exception as e:
