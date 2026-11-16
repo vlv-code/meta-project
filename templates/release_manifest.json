@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "framework_version": "1.0.0-alpha.3",
+  "framework_version": "1.0.0-alpha.4",
   "channel": "preview",
   "supported_registry_schemas": ["1.0", "1.1"],
   "components": [
@@ -13,6 +13,15 @@
     {"path": "scripts/sync_templates.py", "kind": "script", "requires": []},
     {"path": "scripts/update_meta_project.py", "kind": "script", "requires": []},
     {"path": "skills/init-meta-project/SKILL.md", "kind": "skill", "requires": []},
+    {"path": "skills/init-meta-project/resources/observations.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/boundaries.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/weak_spots.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/architecture.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/tasks.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/AGENTS.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/record-observation-SKILL.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/sync-architecture-SKILL.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
+    {"path": "skills/init-meta-project/resources/ground-meta-project-SKILL.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
     {"path": "skills/manage-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/manage_reports.py"]},
     {"path": "skills/record-observation/SKILL.md", "kind": "skill", "requires": ["scripts/record_obs.py", "scripts/compact_memory.py"]},
     {"path": "skills/sync-architecture/SKILL.md", "kind": "skill", "requires": []},
