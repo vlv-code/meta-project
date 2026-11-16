@@ -8,11 +8,30 @@ Validates modified or specified files against repository boundaries.md.
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 from typing import Dict, List, Optional, Set, Tuple
+
+
+# Scoped staged-mode override (Wave D T3.1): when the pre-commit hook would
+# otherwise block a user-sanctioned Red Zone change, the operator may run
+# `META_PROJECT_ALLOW_RED_ZONE=1 git commit ...`. Fail-closed default: the
+# gate admits Red Zone staged files ONLY on the explicit value "1"; any
+# other value (including unset/empty) keeps the refusal. Default Deny
+# (unmapped) paths are never admitted by this override.
+RED_ZONE_ENV_VAR = "META_PROJECT_ALLOW_RED_ZONE"
+
+
+def env_allows_red_zone() -> bool:
+    """Read the staged-mode Red Zone override env var (fail-closed).
+
+    Only the explicit value "1" enables the override; everything else
+    (unset, empty, "0", "true", typos) keeps the refusal.
+    """
+    return os.environ.get(RED_ZONE_ENV_VAR, "").strip() == "1"
 
 
 class BoundaryGateError(RuntimeError):
@@ -284,6 +303,11 @@ def check_architecture_drift(files: List[str]) -> Tuple[bool, List[str]]:
 
     code_files: List[str] = []
     for f in normalized_files:
+        # Bytecode caches and compiled artifacts are hygiene noise, never
+        # functional code (Wave D T3.2; consistent with the init skill's
+        # Zero Unmapped Dirs filter list and its baseline .gitignore).
+        if "__pycache__" in f.split("/") or f.endswith(".pyc"):
+            continue
         is_ignored_dir = any(f.startswith(p) for p in ignored_prefixes)
         # Exception: skills/ and scripts/ represent functional framework code
         is_framework_code = f.startswith("skills/") or f.startswith("scripts/")
@@ -395,12 +419,15 @@ if [ -f "$LEGACY_HOOK" ]; then
   fi
 fi
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# Scoped override pass-through: META_PROJECT_ALLOW_RED_ZONE=1 (set by the
+# operator for a sanctioned commit) admits Red Zone staged files via the
+# gate's staged mode; the gate itself fails closed on any other value.
 if [ -f "$ROOT/scripts/check_boundaries.py" ]; then
-  python "$ROOT/scripts/check_boundaries.py" --staged
+  META_PROJECT_ALLOW_RED_ZONE="${META_PROJECT_ALLOW_RED_ZONE:-}" python "$ROOT/scripts/check_boundaries.py" --staged
   exit $?
 elif [ -f "$ROOT/.agents/scripts/check_boundaries.py" ]; then
   # Legacy pre-relocation deployment of the boundary gate.
-  python "$ROOT/.agents/scripts/check_boundaries.py" --staged
+  META_PROJECT_ALLOW_RED_ZONE="${META_PROJECT_ALLOW_RED_ZONE:-}" python "$ROOT/.agents/scripts/check_boundaries.py" --staged
   exit $?
 fi
 exit 0
@@ -650,7 +677,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.stdout.write("Boundary Gate: No modified files detected. Clean.\n")
         return 0
 
-    passed, violations = evaluate_files(files, zones, allow_red_zone=args.allow_red_zone)
+    # Wave D T3.1: scoped staged-mode override. The pre-commit hook invokes
+    # the gate with --staged and cannot take extra flags, so a sanctioned
+    # Red Zone commit is admitted via META_PROJECT_ALLOW_RED_ZONE=1. The
+    # override is fail-closed (only "1" enables), applies to RED zone files
+    # only (Default Deny stays), and is scoped to --staged mode; the
+    # --allow-red-zone flag semantics are unchanged.
+    allow_red_zone = args.allow_red_zone
+    env_override_active = False
+    if not allow_red_zone and args.staged and env_allows_red_zone():
+        allow_red_zone = True
+        env_override_active = True
+
+    passed, violations = evaluate_files(files, zones, allow_red_zone=allow_red_zone)
 
     has_drift, drift_files = check_architecture_drift(files)
     if has_drift:
@@ -662,6 +701,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.stdout.write("   Suggested action: Invoke 'sync-architecture' if components, entrypoints, or data flows were modified.\n\n")
 
     if passed:
+        if env_override_active:
+            # Name every admitted Red Zone file so the sanctioned override
+            # is visible in hook output, never silent.
+            for f in files:
+                zone, _ = classify_path(f, zones)
+                if zone == "red":
+                    sys.stdout.write(
+                        f"[ALLOWED] {f} (Red Zone override via "
+                        f"{RED_ZONE_ENV_VAR}=1)\n"
+                    )
         sys.stdout.write(f"Boundary Gate: Checked {len(files)} files. All files conform to allowed boundaries.\n")
         return 0
 
