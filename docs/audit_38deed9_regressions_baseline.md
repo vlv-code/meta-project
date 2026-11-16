@@ -1,5 +1,7 @@
 # RED Baseline: External Audit Regressions (base 38deed9)
 
+> Snapshot as of v1.0.0-alpha.2 (pre-fix revision `38deed9`); superseded facts are kept for provenance.
+
 > [!NOTE]
 > **Outcome (2026-11-15, Stage 2 remediation complete):** all 39 RED
 > reproductions and the rewritten cycle test are GREEN; full suite

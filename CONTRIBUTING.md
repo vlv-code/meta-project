@@ -30,7 +30,12 @@ meta-project/
 ├── scripts/                       # Automation and boundary enforcement scripts
 │   ├── check_boundaries.py
 │   ├── compact_memory.py
-│   └── sync_templates.py
+│   ├── inspect_meta_project.py
+│   ├── manage_reports.py
+│   ├── record_obs.py
+│   ├── sync_templates.py
+│   ├── update_meta_project.py
+│   └── verify_identity.py
 ├── skills/                        # Autonomous skills catalog
 │   ├── decommission-meta-project/
 │   ├── ground-meta-project/

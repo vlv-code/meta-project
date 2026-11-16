@@ -23,11 +23,17 @@ concurrency:
 jobs:
   validate:
     name: Validate Skills & Templates Integrity
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
       matrix:
+        os: [ubuntu-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13']
+        include:
+          # Windows coverage: single 3.12 leg (include adds a NEW combination
+          # because `windows-latest` is absent from the os axis).
+          - os: windows-latest
+            python-version: '3.12'
 
     steps:
       - name: Checkout repository with full history
@@ -76,6 +82,9 @@ jobs:
           BASE_SHA="${{ steps.trusted_base.outputs.sha }}"
           mkdir -p /tmp/trusted_gate
           git show "$BASE_SHA:scripts/check_boundaries.py" > /tmp/trusted_gate/check_boundaries.py
+          # ADR #22: the gate imports its shared-helper requires companion —
+          # a subset deployment must ship scripts/_common.py alongside it.
+          git show "$BASE_SHA:scripts/_common.py" > /tmp/trusted_gate/_common.py
           git show "$BASE_SHA:.agents/project_knowledge/boundaries.md" > /tmp/trusted_gate/boundaries.md
           echo "Enforcing with gate and policy from trusted base $BASE_SHA"
 
@@ -102,3 +111,165 @@ jobs:
 
       - name: Run integrity tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Verify installation identity (verify_identity --check)
+        run: python scripts/verify_identity.py --check
+
+      # Machine-check of the documented update-engine `check` rc contract on
+      # synthetic repos (zero writes into this repo; stdlib-only):
+      #   rc 0 = up-to-date (target matches the pinned upstream revision)
+      #   rc 1 = updates found (upstream advanced past the installed content)
+      # Asserts the rc contract ONLY — it must not depend on any JSON field
+      # that a concurrent engine lane may add (no cross-lane timing coupling).
+      - name: Smoke: update-engine check rc contract (synthetic repos)
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        shell: bash
+        run: |
+          set -eu
+          python - <<'PY'
+          import hashlib, json, os, subprocess, sys, tempfile
+          from pathlib import Path
+
+          engine = Path("scripts/update_meta_project.py").resolve()
+          tmp = Path(tempfile.mkdtemp(prefix="rc-smoke-"))
+          env_git = {
+              **os.environ,
+              "GIT_AUTHOR_NAME": "ci-smoke",
+              "GIT_AUTHOR_EMAIL": "ci-smoke@meta-project.invalid",
+              "GIT_COMMITTER_NAME": "ci-smoke",
+              "GIT_COMMITTER_EMAIL": "ci-smoke@meta-project.invalid",
+          }
+
+          def git(cwd, *args):
+              res = subprocess.run(
+                  ["git", *args], cwd=str(cwd), capture_output=True, text=True,
+                  env=env_git,
+              )
+              if res.returncode != 0:
+                  raise SystemExit(
+                      f"smoke fixture git {' '.join(args)} failed: {res.stderr}"
+                  )
+              return res.stdout.strip()
+
+          manifest = {
+              "schema_version": "1.0.0",
+              "framework_version": "1.0.0-smoke.1",
+              "channel": "preview",
+              "components": [
+                  {"path": "scripts/hello.py", "kind": "script", "requires": []},
+              ],
+              "migrations": [],
+          }
+
+          # Origin upstream: two commits on main; HEAD (main) drifts ahead of
+          # the first commit, whose SHA stays available for exact pinning.
+          origin = tmp / "origin-repo"
+          origin.mkdir()
+          git(origin, "init", "-q", "-b", "main")
+          (origin / "manifest.json").write_text(
+              json.dumps(manifest, indent=2), encoding="utf-8"
+          )
+          hello_v1 = b'VALUE = "hello-v1"\n'
+          hello_v2 = b'VALUE = "hello-v2"\n'
+          (origin / "scripts").mkdir()
+          (origin / "scripts" / "hello.py").write_bytes(hello_v1)
+          git(origin, "add", "-A")
+          git(origin, "commit", "-qm", "c1: hello v1")
+          pinned_sha = git(origin, "rev-parse", "HEAD")
+          (origin / "scripts" / "hello.py").write_bytes(hello_v2)
+          git(origin, "add", "-A")
+          git(origin, "commit", "-qm", "c2: upstream drift v2")
+
+          # Consumer target: committed install of the upstream v1 content.
+          # The lock records the installed subset (the engine's check
+          # diagnoses lock-recorded components only).
+          target = tmp / "target-app"
+          (target / "scripts").mkdir(parents=True)
+          (target / "manifest.json").write_text(
+              json.dumps(manifest, indent=2), encoding="utf-8"
+          )
+          (target / "scripts" / "hello.py").write_bytes(hello_v1)
+          (target / ".agents").mkdir()
+          (target / ".agents" / "framework-lock.json").write_text(
+              json.dumps({
+                  "schema_version": "1.0.0",
+                  "source": {
+                      "repository": str(origin),
+                      "ref": "main",
+                      "commit_sha": pinned_sha,
+                      "origin": "upstream",
+                      "channel": "preview",
+                  },
+                  "components": [
+                      {
+                          "path": "scripts/hello.py",
+                          "kind": "script",
+                          "installed_sha256": hashlib.sha256(hello_v1).hexdigest(),
+                      },
+                  ],
+                  "installed_at": "2026-11-16T00:00:00Z",
+              }, indent=2),
+              encoding="utf-8",
+          )
+          git(target, "init", "-q", "-b", "main")
+          git(target, "add", "-A")
+          git(target, "commit", "-qm", "target: installed v1")
+
+          def check(ref):
+              return subprocess.run(
+                  [sys.executable, str(engine), "check",
+                   "--repo-root", str(target), "--source", str(origin),
+                   "--ref", ref],
+                  capture_output=True, text=True,
+              )
+
+          up_to_date = check(pinned_sha)
+          if up_to_date.returncode != 0:
+              raise SystemExit(
+                  "rc-contract smoke FAILED: expected rc 0 (up-to-date) for a "
+                  f"target matching the pinned upstream SHA, got "
+                  f"rc={up_to_date.returncode}\n"
+                  f"stdout: {up_to_date.stdout}\nstderr: {up_to_date.stderr}"
+              )
+
+          updates_found = check("main")
+          if updates_found.returncode != 1:
+              raise SystemExit(
+                  "rc-contract smoke FAILED: expected rc 1 (updates-found) "
+                  f"after upstream drift, got rc={updates_found.returncode}\n"
+                  f"stdout: {updates_found.stdout}\nstderr: {updates_found.stderr}"
+              )
+
+          print(
+              "rc-contract smoke OK: pinned-SHA check rc=0 (up-to-date); "
+              "drifted-origin check rc=1 (updates-found)"
+          )
+          PY
+
+  # Stable aggregate for Branch Protection "required status checks": wire this
+  # single job name instead of enumerating matrix legs. It is green ONLY when
+  # ALL expanded validate legs succeed, i.e. the check names
+  #   Validate Skills & Templates Integrity (3.10, ubuntu-latest)
+  #   Validate Skills & Templates Integrity (3.11, ubuntu-latest)
+  #   Validate Skills & Templates Integrity (3.12, ubuntu-latest)
+  #   Validate Skills & Templates Integrity (3.13, ubuntu-latest)
+  #   Validate Skills & Templates Integrity (3.12, windows-latest)
+  # including the rc-contract smoke and identity steps they carry.
+  all-checks:
+    name: All Checks Green
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [validate]
+    if: ${{ always() }}
+    steps:
+      - name: Aggregate gate over all matrix legs
+        shell: bash
+        run: |
+          set -eu
+          result="${{ needs.validate.result }}"
+          echo "validate matrix aggregate result: $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::Not all validate legs succeeded (aggregate result: $result)."
+            exit 1
+          fi
+          echo "All Checks Green: every validate leg succeeded."

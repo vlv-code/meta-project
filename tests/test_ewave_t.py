@@ -14,21 +14,22 @@ Locks in (RED-first):
       Lane P2 extracted the embedded TEMPLATE blocks into
       skills/init-meta-project/resources/ — the same invariant now holds for
       the resource files (byte-match canonical templates), not embedded blocks.
+      Wave F T-D6: the superseded duplicate byte test was removed; the
+      canonical lock-in is tests/test_ewave_p.py TestResourcesByteCanonical.
   (d) scripts/sync_templates.py declares the canonical pairs in RESOURCE_TARGETS
-      (formerly EMBEDDED_TARGETS — same supersession) and the real repo reaches
-      0 drift after --write then --check.
+      (formerly EMBEDDED_TARGETS — same supersession).
+      Wave F T-D6: the 0-drift write/check lock-in moved canonically to
+      tests/test_ewave_p.py TestSyncResourcesZeroDrift (temp-clone fixture;
+      a test never runs sync --write against the live repo tree).
 """
 
 from pathlib import Path
-import subprocess
 import sys
 import unittest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = ROOT_DIR / "templates"
 INIT_SKILL_PATH = ROOT_DIR / "skills" / "init-meta-project" / "SKILL.md"
-INIT_RESOURCES_DIR = ROOT_DIR / "skills" / "init-meta-project" / "resources"
-SYNC_SCRIPT = ROOT_DIR / "scripts" / "sync_templates.py"
 
 SCRIPTS_DIR = ROOT_DIR / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -103,43 +104,25 @@ class TestTasksTemplateCheckpointRule(unittest.TestCase):
         self.assertIn("ground", self.content.lower())
 
 
-class TestInitSkillResourcesCanonical(unittest.TestCase):
-    """(c, superseded per plan §6a) init skill resources match canonical
-    templates byte-identically (sync convention moved from embedded
-    TEMPLATE blocks to skills/init-meta-project/resources/)."""
-
-    def setUp(self):
-        if sync_templates is None:
-            self.skipTest("sync_templates module not implemented yet")
-
-    def _assert_resource_matches_template(self, res_name: str, tmpl_rel: str):
-        res_path = INIT_RESOURCES_DIR / res_name
-        self.assertTrue(
-            res_path.is_file(),
-            f"missing init resource file: {res_path} (run sync_templates --write)",
-        )
-        self.assertEqual(
-            res_path.read_bytes(),
-            (ROOT_DIR / tmpl_rel).read_bytes(),
-            f"Init resource {res_name} diverges from {tmpl_rel} "
-            f"(run sync_templates --write)",
-        )
-
-    def test_resource_architecture_matches_template(self):
-        self._assert_resource_matches_template(
-            "architecture.md", "templates/project_knowledge/architecture.md"
-        )
-
-    def test_resource_tasks_matches_template(self):
-        self._assert_resource_matches_template(
-            "tasks.md", "templates/project_knowledge/tasks.md"
-        )
+# (c, superseded per plan §6a owner decision ADJUST AND PROCEED, 2026-11-16):
+# Lane P2 extracted the embedded TEMPLATE blocks into
+# skills/init-meta-project/resources/. The byte-match-canonical invariant now
+# lives canonically in tests/test_ewave_p.py
+# (TestResourcesByteCanonical — all 9 resources, superset of the
+# architecture.md/tasks.md subset previously asserted here). The superseded
+# class TestInitSkillResourcesCanonical was removed as a byte-duplicate in
+# Wave F (T-D6 #1/#4): one canonical byte test, no drift-test forks.
 
 
 class TestSyncTargetsAndZeroDrift(unittest.TestCase):
     """(d, superseded per plan §6a) RESOURCE_TARGETS declares the canonical
-    pairs for init (formerly EMBEDDED_TARGETS); repo is at 0 drift after
-    --write then --check."""
+    pairs for init (formerly EMBEDDED_TARGETS).
+
+    Wave F T-D6: the byte-identical write-then-check drift test that lived
+    here was deduplicated — the canonical implementation is
+    tests/test_ewave_p.py (TestSyncResourcesZeroDrift.
+    test_write_then_check_zero_drift) as a temp-clone fixture, since a test
+    must never run ``sync --write`` against the LIVE repo tree."""
 
     def setUp(self):
         if sync_templates is None:
@@ -154,28 +137,6 @@ class TestSyncTargetsAndZeroDrift(unittest.TestCase):
         self.assertEqual(
             targets.get("tasks.md"),
             "templates/project_knowledge/tasks.md",
-        )
-
-    def test_write_then_check_zero_drift(self):
-        write_res = subprocess.run(
-            [sys.executable, str(SYNC_SCRIPT), "--write", "--repo-root", str(ROOT_DIR)],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            write_res.returncode,
-            0,
-            f"sync_templates --write failed: {write_res.stdout}\n{write_res.stderr}",
-        )
-        check_res = subprocess.run(
-            [sys.executable, str(SYNC_SCRIPT), "--check", "--repo-root", str(ROOT_DIR)],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            check_res.returncode,
-            0,
-            f"sync_templates --check detected drift: {check_res.stdout}\n{check_res.stderr}",
         )
 
 
