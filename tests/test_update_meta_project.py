@@ -185,11 +185,22 @@ def _origin_files_v2() -> dict[str, bytes]:
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
+    # Hermetic commit identity: CI runners have no global git config, so any
+    # fixture `git commit` would fail with "Author identity unknown" unless
+    # the identity is pinned via the process environment.
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "meta-project-tests",
+        "GIT_AUTHOR_EMAIL": "tests@meta-project.invalid",
+        "GIT_COMMITTER_NAME": "meta-project-tests",
+        "GIT_COMMITTER_EMAIL": "tests@meta-project.invalid",
+    }
     return subprocess.run(
         ["git", *args],
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
