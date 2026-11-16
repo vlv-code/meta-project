@@ -48,14 +48,15 @@ Autonomous non-destructive skill for updating procedural skills, runtime scripts
 
 1. **Build the three-way merge plan:**
    ```bash
-   python scripts/update_meta_project.py plan --source <...> --ref <...> [--repo-root .] [--components path1,path2] [--protect pattern1,pattern2]
+   python scripts/update_meta_project.py plan --source <...> --ref <...> [--repo-root .] [--components path1,path2] [--protect pattern1,pattern2] [--full]
    ```
-   Zero-write. Default scope is the full component set declared in the source's `templates/release_manifest.json`; `--components` narrows it (dependencies from `requires` stay with their dependents); `--protect` overrides the default protect patterns.
+   Zero-write. Default scope is the full component set declared in the source's `templates/release_manifest.json` (read at the source root `manifest.json` with fallback to `templates/release_manifest.json`); `--components` narrows it (dependencies from `requires` stay with their dependents); `--protect` patterns are ADDITIONAL — they unite with the engine defaults, never replace them.
+   - **Summary mode (default):** the plan JSON prints ops/paths/sha256 per action WITHOUT content blobs; `--full` restores the machine-consumable form (actions carry `content_b64`). A summary plan file saved from stdout is still executable: `apply --plan-file` re-materializes content from the plan's pinned source and hash-verifies it against `upstream_sha256`.
 2. **Analyze the plan — this analysis is the agent's job** (the engine only refuses; the agent explains):
-   - `conflicts` — unmarked local modifications (outside `local_repo_data` markers) that the engine refuses to overwrite. Present each conflict (path + nature of the local change) to the user. HOW to resolve — add `local_repo_data` markers, merge manually, or skip the component — is the USER's decision; the agent never picks silently.
-   - `protected` — components matching protect patterns (boundary gate, workflows, integrity tests, LICENSE, ...). Automated changes are refused: the Red-Zone sanction is an explicitly OPEN item, no sanctioned mechanism exists. Only the manual, user-confirmed path is available for these.
-   - `needs_base` — locally modified components with no merge base matching the lock-recorded sha256 in the cache. Either supply an integral cache containing the base content, or the user explicitly gives up "safe merge" for those components (manual decision). The engine never claims a safe merge without a base.
-3. **Agreement gate:** do NOT proceed to Phase 3 without the user's explicit approval of the plan (scope + per-conflict resolutions).
+   - `conflicts` — unmarked local modifications (outside `local_repo_data` markers) that the engine refuses to overwrite. Present each conflict (path + nature of the local change) to the user. HOW to resolve — add `local_repo_data` markers, merge manually, or skip the component — is the USER's decision; the agent never picks silently. Exception: an unknown-origin local file whose bytes hash-EQUAL the pinned upstream content can be ADOPTED with the user's consent (`--adopt-existing`, Phase 3) — the lock records it without rewriting the file.
+   - `protected` — components matching protect patterns (boundary gate, workflows, integrity tests, LICENSE, ...) OR classified Red by the project's own `.agents/project_knowledge/boundaries.md` (union: engine defaults ∪ `--protect` patterns ∪ project Red zone). Automated changes are refused: the Red-Zone sanction is an explicitly OPEN item, no sanctioned mechanism exists. Only the manual, user-confirmed path is available for these.
+   - `needs_base` — locally modified components with no merge base matching the lock-recorded sha256 in the cache or in the origin's history (the engine fetches base candidates from the origin at the lock-recorded source commit, hash-verified). If both are unavailable (dead origin, no cache), either supply an integral cache containing the base content, or the user explicitly gives up "safe merge" for those components (manual decision). The engine never claims a safe merge without a base.
+3. **Agreement gate:** do NOT proceed to Phase 3 without the user's explicit approval of the plan (scope + per-conflict resolutions). Save the approved plan with `--full` and pass it to `apply --plan-file <path>`; the apply then records `approved_plan_file` in the update report and re-verifies the plan's pin against the source (a stale plan is refused with zero writes).
 
 ---
 
@@ -63,15 +64,18 @@ Autonomous non-destructive skill for updating procedural skills, runtime scripts
 
 1. **After user approval:**
    ```bash
-   python scripts/update_meta_project.py apply --source <...> --ref <...> --repo-root . --installation <installation_id> --actor <qualified_actor_id> [--cache-dir ...] [--components ...]
+   python scripts/update_meta_project.py apply --source <...> --ref <...> --repo-root . --installation <installation_id> --actor <qualified_actor_id> [--cache-dir ...] [--components ...] [--plan-file <approved_plan.json>] [--adopt-existing]
    ```
+   **Identity admission (perimeter):** `apply` is a write operation — the `--actor` must be ADMITTED by the project registry (`.agents/meta-project.json`): registered AND on an `active` binding of an `active` installation. An unadmitted actor is refused with `[APPLY-REFUSED] ... actor not admitted` and ZERO writes (not even a journal). Identity-less bootstrap projects (no registry) are not blocked. Resolve the qualified actor via `python scripts/verify_identity.py --actor <actor_id>` before applying.
+   **Offline apply (D2):** when the origin is unreachable but `--ref` is an EXACT 40-hex commit SHA and an integral cache bundle exists for it, apply proceeds with the lock declaring `origin: cache`. Refs that are NOT exact SHAs (branches/tags) still require a resolvable origin — pin the SHA first while the origin is reachable.
 2. **What the engine guarantees** (no manual steps by the agent):
    - per-file atomic replacement from the single pinned SHA;
-   - `local_repo_data`-marked blocks re-injected into merged files;
+   - `local_repo_data`-marked blocks re-injected into merged files (marker syntax chosen per file extension — see Background Notes);
    - operation journal `.agents/update-journal.json` (before/after sha256 per file);
-   - framework lock `.agents/framework-lock.json` rewritten atomically;
-   - an `update` report recorded through the canonical report engine (`scripts/manage_reports.py`).
-3. **Refusal handling:** `[APPLY-REFUSED]` for protected components, unresolved conflicts, or needs_base entries means ZERO writes were performed. Return to Phase 2, resolve with the user, retry or abandon.
+   - framework lock `.agents/framework-lock.json` rewritten atomically — component entries carry `base_sha256`/`installed_sha256` and the resolved `target` destination (runtime layout);
+   - an `update` report recorded through the canonical report engine (`scripts/manage_reports.py`), including `approved_plan_file` when a plan file was used;
+   - `--adopt-existing`: sha-equal unknown-origin local files become `adopt` actions — the lock records them WITHOUT rewriting the file bytes.
+3. **Refusal handling:** `[APPLY-REFUSED]` for an unadmitted actor, protected components, unresolved conflicts, or needs_base entries means ZERO writes were performed. Return to Phase 2, resolve with the user, retry or abandon.
 
 ---
 
@@ -99,12 +103,15 @@ Autonomous non-destructive skill for updating procedural skills, runtime scripts
 
 ## Background Notes (user-facing explanation only)
 
-* **`local_repo_data` mechanism (implemented inside the engine; the agent does not harvest manually):** local adaptations wrapped in markers are preserved through updates:
-  ```markdown
-  <!-- local_repo_data:TAG -->
-  ...locally customized content...
-  <!-- /local_repo_data:TAG -->
-  ```
-  (in code/config files the same markers are written as `# local_repo_data:TAG` comments). The engine re-injects these blocks into merged content; any local change OUTSIDE such markers is an explicit conflict requiring a user decision.
+* **`local_repo_data` mechanism (implemented inside the engine; the agent does not harvest manually):** local adaptations wrapped in markers are preserved through updates. BOTH marker forms are supported, selected by file extension:
+
+  | Extensions | Marker form | Example |
+  |---|---|---|
+  | `.md`, `.html`, `.xml` | HTML comment | `<!-- local_repo_data:TAG -->` ... `<!-- /local_repo_data:TAG -->` |
+  | `.py`, `.toml`, `.yml`, `.yaml`, `.sh`, `.cfg`, `.ini` | hash comment | `# local_repo_data:TAG` ... `# /local_repo_data:TAG` |
+  | anything else | both accepted | either form in the same file |
+
+  The engine re-injects these blocks into merged content (also on fast-forward updates of marker-bearing files); any local change OUTSIDE such markers is an explicit conflict requiring a user decision.
+* **Runtime layout:** when the target repository has `.agents/skills/`, a `skills/<name>/SKILL.md` component is written to `.agents/skills/<name>/SKILL.md` (no duplicate at the distribution path). A lock-recorded `target` stays authoritative: a component already installed at `skills/<name>/SKILL.md` keeps that destination even if `.agents/skills/` appears later — no silent migration, no duplication. Repositories without `.agents/skills/` use the distribution path as-is.
 * **Inviolability perimeter:** `.agents/project_knowledge/` slices and role private notes (`.agents/team/*/notes.md`) are never part of the managed component set and survive updates untouched.
 * **Component composition:** the default update scope is the component set of `templates/release_manifest.json` at the pinned source; the project lock records the installed subset — a minimal scaffold is a valid installation.

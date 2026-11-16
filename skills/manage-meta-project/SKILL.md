@@ -21,6 +21,41 @@ The skill analyzes repository structure, identifies required specializations (Gi
 
 ## Execution steps
 
+### Phase 0.5: First-Role Bootstrap (roles: {})
+
+Identity-less repositories — `.agents/meta-project.json` with `roles: {}` — bootstrap their first team through a strict three-step report path. Creating role files or registry entries WITHOUT this report chain is prohibited: the chain IS the authorization.
+
+1. **Init report by the initializing operator.** A repository with no deployed roles has no registered actor to admit yet, so the init report records the INVOKING HARNESS AGENT as the init `actor_id`; identity admission is not yet applicable to this first report:
+   ```bash
+   python scripts/manage_reports.py init --action create \
+     --installation <installation_id> \
+     --harness <harness_id> \
+     --actor <invoking-agent-actor_id> \
+     --status completed \
+     --scenario-file <scenario.json>
+   ```
+2. **Manage adds roles + bindings per Phase 5** (materialize profiles, register `roles.<role_id>` with bindings for the active installation).
+3. **Manage report declares the changes.** The manage operation's `--data-file` MUST carry a `changes[]` list exactly describing the registry delta it applied, so the engine's intake admits it:
+   ```json
+   {
+     "changes": [
+       {
+         "kind": "add_role",
+         "role_id": "agent-dev-lead",
+         "installation": "<installation_id>",
+         "path": ".agents/team/agent-dev-lead/profile.md"
+       }
+     ],
+     "roles": { "preserved": [], "created": ["agent-dev-lead"], "adapted": [], "archived": [] },
+     "bindings": { }
+   }
+   ```
+   Allowed change kinds: `add_role`, `disable`, `archive` (with `role_id`, `installation`, and optional `path`). The engine verifies the declared delta against the registry state anchored in the init report (git baseline + recorded fingerprint); undeclared, partially declared, or unverifiable registry mutations fail closed — resolve by re-running init, never by bypassing intake.
+
+**Mirror-sync note:** this section is skill documentation only; the embedded reference templates below are unchanged.
+
+---
+
 ### Phase 1: Pre-Flight Report Intake & Rapid Repository Scan
 
 Before defining or modifying roles, the agent must inspect initialization results and repository markers:
