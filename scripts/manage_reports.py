@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -36,10 +37,28 @@ except ImportError:  # direct script execution: python scripts/manage_reports.py
         load_registry = None
         resolve_actor_binding = None
 
-SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.0", "1"}
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.manage_reports import ...)
+    from scripts._common import _error_envelope, _utc_now_iso
+except ImportError:  # direct script execution: python scripts/manage_reports.py
+    from _common import _error_envelope, _utc_now_iso
+
+# Wave F M10: the exact supported schema enumeration. The previous
+# major-prefix acceptance ("1.*") let unsupported versions such as
+# "1.9.9" through validation.
+SUPPORTED_SCHEMA_VERSIONS = {"1.0", "1.1", "1.0.0", "1.1.0"}
 VALID_REPORT_TYPES = {"init", "manage", "update", "tune"}
 VALID_REPORT_STATUSES = {"completed", "awaiting_decision", "blocked"}
 VALID_TUNE_DECISIONS = {"proposed", "accepted", "rejected"}
+
+# Wave F M3: canonical staleness reason for an unverifiable git state.
+GIT_STATE_UNAVAILABLE_REASON = "git state unavailable"
+
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+# Wave F M2: a commit SHA handed to a git subprocess must be exactly a
+# 40-character hex digest; anything else (notably values starting with
+# "--") would be parsed as a git OPTION (argv injection).
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 # Essential decision inputs fingerprinted into every report (audit §5
 # freshness). Reports and runtime logs are intentionally excluded.
@@ -102,12 +121,59 @@ def generate_run_id(prefix: str = "") -> str:
     return f"{prefix}{ts}-{uid}" if not prefix else f"{prefix}-{ts}-{uid}"
 
 
+def _require_safe_identifier(value: str, label: str) -> str:
+    """
+    Path safety for identifiers that build report paths (audit §5, Wave F
+    SEC-3): non-empty, a bare filename (no directory components), no '..'
+    traversal, no path separators. The exact contract of the run_id check
+    in save_report, applied to installation_id / init_run_id /
+    report_type. Raises ValueError on refusal.
+    """
+    value = str(value)
+    if (
+        not value
+        or value != Path(value).name
+        or ".." in value
+        or "/" in value
+        or "\\" in value
+    ):
+        raise ValueError(f"Unsafe {label} refused: {value!r}")
+    return value
+
+
+def _require_commit_sha(commit_sha: str, context: str) -> Optional[str]:
+    """
+    Wave F M2: validate a commit SHA BEFORE it is handed to a git
+    subprocess. Returns an error message on refusal, None when safe.
+    Values starting with '-' would be parsed as git options (argv
+    injection class).
+    """
+    sha = str(commit_sha or "").strip()
+    if not _COMMIT_SHA_RE.fullmatch(sha):
+        return (
+            f"unsafe commit_sha refused in {context}: {commit_sha!r} "
+            "(must be a 40-character hex SHA; values starting with '-' "
+            "would be parsed as git options)"
+        )
+    return None
+
+
 def get_git_state(repo_root: Path) -> Dict[str, Any]:
-    """Extract current git state without external dependencies."""
+    """
+    Extract current git state without external dependencies.
+
+    Wave F M3 (fail-closed): any git subprocess failure (exception or
+    nonzero exit at any of the three call sites) is recorded in
+    'git_state_error' instead of being silently swallowed into a fake
+    'clean / unknown-commit' state. 'is_clean' is False whenever the
+    state could not be fully determined — an unqueryable repository is
+    never reported as clean.
+    """
     commit_sha = "unknown"
     branch = "unknown"
     is_clean = True
     modified_files: List[str] = []
+    errors: List[str] = []
 
     try:
         proc = subprocess.run(
@@ -119,8 +185,10 @@ def get_git_state(repo_root: Path) -> Dict[str, Any]:
         )
         if proc.returncode == 0:
             commit_sha = proc.stdout.strip()
-    except Exception:
-        pass
+        else:
+            errors.append(f"git rev-parse HEAD failed (rc={proc.returncode})")
+    except Exception as exc:
+        errors.append(f"git rev-parse HEAD failed: {exc}")
 
     try:
         proc = subprocess.run(
@@ -132,8 +200,12 @@ def get_git_state(repo_root: Path) -> Dict[str, Any]:
         )
         if proc.returncode == 0:
             branch = proc.stdout.strip()
-    except Exception:
-        pass
+        else:
+            errors.append(
+                f"git rev-parse --abbrev-ref HEAD failed (rc={proc.returncode})"
+            )
+    except Exception as exc:
+        errors.append(f"git rev-parse --abbrev-ref HEAD failed: {exc}")
 
     try:
         proc = subprocess.run(
@@ -142,30 +214,112 @@ def get_git_state(repo_root: Path) -> Dict[str, Any]:
             capture_output=True,
             timeout=5,
         )
-        if proc.returncode == 0 and proc.stdout:
+        if proc.returncode == 0:
             raw_entries = proc.stdout.split(b"\x00")
+            # Wave F M9: porcelain -z rename/copy entries carry TWO path
+            # fields — "XY NEW\0OLD\0" (non-z form: "R old -> new"). The
+            # field following a rename/copy entry is the ORIGIN path with
+            # no XY prefix; it must be consumed as the rename source and
+            # never parsed as an independent entry (which previously left
+            # sliced garbage in modified_files). The recorded path is the
+            # NEW working-tree path so staleness sees renamed inputs.
+            pending_origin = False
             for entry in raw_entries:
-                if entry:
-                    # Format: XY PATH
-                    path_str = entry[3:].decode("utf-8", errors="replace")
-                    if path_str:
-                        modified_files.append(path_str.replace("\\", "/"))
+                if not entry:
+                    continue
+                if pending_origin:
+                    pending_origin = False
+                    continue
+                status_letters = entry[:2]
+                path_str = entry[3:].decode("utf-8", errors="replace")
+                if path_str:
+                    modified_files.append(path_str.replace("\\", "/"))
+                if len(entry) >= 2 and any(
+                    letter in (ord("R"), ord("C"))
+                    for letter in status_letters
+                ):
+                    pending_origin = True
             is_clean = len(modified_files) == 0
-    except Exception:
-        pass
+        else:
+            errors.append(
+                f"git status --porcelain failed (rc={proc.returncode})"
+            )
+    except Exception as exc:
+        errors.append(f"git status --porcelain failed: {exc}")
+
+    if errors:
+        is_clean = False
 
     return {
         "commit_sha": commit_sha,
         "branch": branch,
         "is_clean": is_clean,
         "modified_files": modified_files,
+        "git_state_error": "; ".join(errors) if errors else None,
     }
 
 
+def _validate_input_fingerprints(fingerprints: Any) -> List[str]:
+    """
+    Shape validation for the input_fingerprints mapping (Wave F M6): must
+    be non-empty and cover every essential input; values are sha256 hex
+    digests or null (null = file absent at fingerprinting time).
+    """
+    problems: List[str] = []
+    if not isinstance(fingerprints, dict) or not fingerprints:
+        problems.append(
+            "Completed init/manage report must carry a non-empty "
+            "'input_fingerprints' mapping of essential decision inputs "
+            "(audit §5 freshness; Wave F M6)"
+        )
+        return problems
+    missing = [
+        rel for rel in ESSENTIAL_INPUT_PATHS if rel not in fingerprints
+    ]
+    if missing:
+        problems.append(
+            "input_fingerprints must cover the essential decision inputs; "
+            "missing: " + ", ".join(missing)
+        )
+    malformed = [
+        str(rel)
+        for rel, value in fingerprints.items()
+        if not (
+            value is None
+            or (
+                isinstance(value, str)
+                and _SHA256_HEX_RE.fullmatch(value)
+            )
+        )
+    ]
+    if malformed:
+        problems.append(
+            "input_fingerprints values must be null or a 64-character "
+            "lowercase sha256 hex digest; malformed: "
+            + ", ".join(sorted(malformed))
+        )
+    return problems
+
+
 def validate_report(
-    data: Dict[str, Any], expected_type: Optional[str] = None
+    data: Dict[str, Any],
+    expected_type: Optional[str] = None,
+    allow_legacy_fingerprints: bool = False,
 ) -> List[str]:
-    """Validate report structure and schemas against fail-closed invariants."""
+    """
+    Validate report structure and schemas against fail-closed invariants.
+
+    Wave F M6: completed init/manage reports must carry
+    'input_fingerprints' covering the essential decision inputs. The check
+    is STRICT by default (new reports: verify CLI, save_report, intake).
+    Backward compatibility: callers that merely READ persisted reports
+    (report directory resolution via find_latest_report) pass
+    allow_legacy_fingerprints=True so legacy completed reports created
+    before fingerprinting remain readable — they are surfaced with their
+    recorded data and judged by the staleness legacy safeguards instead of
+    being hidden as corrupt documents. update/tune reports are unaffected
+    this lane.
+    """
     errors: List[str] = []
 
     if not isinstance(data, dict):
@@ -174,12 +328,11 @@ def validate_report(
     schema_version = str(data.get("schema_version", "")).strip()
     if not schema_version:
         errors.append("Missing required field 'schema_version'")
-    elif (
-        schema_version not in SUPPORTED_SCHEMA_VERSIONS
-        and schema_version.split(".")[0]
-        not in [v.split(".")[0] for v in SUPPORTED_SCHEMA_VERSIONS]
-    ):
-        errors.append(f"Unsupported schema_version: '{schema_version}'")
+    elif schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        errors.append(
+            f"Unsupported schema_version: '{schema_version}' "
+            f"(allowed: {sorted(SUPPORTED_SCHEMA_VERSIONS)})"
+        )
 
     report_type = str(data.get("report_type", "")).strip()
     if not report_type:
@@ -215,6 +368,16 @@ def validate_report(
     git_state = data.get("git_state")
     if not isinstance(git_state, dict):
         errors.append("Missing or invalid field 'git_state' (must be an object)")
+
+    # Wave F M6: freshness evidence is mandatory for completed init/manage
+    # reports — without input_fingerprints the essential decision inputs
+    # (registry, boundaries, passport) cannot be checked for drift.
+    if (
+        report_type in ("init", "manage")
+        and status == "completed"
+        and not allow_legacy_fingerprints
+    ):
+        errors.extend(_validate_input_fingerprints(data.get("input_fingerprints")))
 
     # Type-specific validation
     if report_type == "init":
@@ -363,7 +526,16 @@ def validate_report(
 def get_report_dir(
     repo_root: Path, installation_id: str, report_type: str
 ) -> Path:
-    """Return destination directory for reports."""
+    """
+    Return destination directory for reports.
+
+    Wave F SEC-3: installation_id and report_type are validated exactly
+    like run_id before any path is built, so a hostile identifier cannot
+    escape the reports directory — and cannot cause directory creation
+    outside the repository via save_report's mkdir.
+    """
+    _require_safe_identifier(installation_id, "installation_id")
+    _require_safe_identifier(report_type, "report_type")
     return repo_root / ".agents" / "reports" / installation_id / report_type
 
 
@@ -375,17 +547,19 @@ def save_report(
 ) -> Path:
     """
     Atomically write report to disk and update latest.json pointer.
-    Raises ValueError if data is invalid, the run_id is unsafe, or the run
-    already exists (audit §5: existing runs must never be overwritten).
+    Raises ValueError if data is invalid, an identifier (run_id,
+    installation_id) is unsafe, or the run already exists (audit §5:
+    existing runs must never be overwritten — the guard is the atomic
+    O_EXCL reservation below, Wave F M5).
     """
     errors = validate_report(report_data, expected_type=report_type)
     if errors:
         raise ValueError(f"Cannot save invalid report: {'; '.join(errors)}")
 
     run_id = str(report_data["run_id"])
-    # Path safety (audit §5): identifiers must not escape the report dir.
-    if not run_id or run_id != Path(run_id).name or ".." in run_id or "/" in run_id or "\\" in run_id:
-        raise ValueError(f"Unsafe run_id refused: {run_id!r}")
+    # Path safety (audit §5, Wave F SEC-3): identifiers must not escape
+    # the report dir. installation_id is validated inside get_report_dir.
+    _require_safe_identifier(run_id, "run_id")
 
     target_dir = get_report_dir(repo_root, installation_id, report_type)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -403,7 +577,35 @@ def save_report(
         json.dump(report_data, f, indent=2, ensure_ascii=False)
         f.write("\n")
 
-    temp_file.replace(target_file)
+    # 2. Wave F M5 overwrite-guard: atomically RESERVE the final name via
+    # O_EXCL creation. The exists() check above is advisory (it races
+    # across processes); the O_EXCL create is the authoritative
+    # serialization point, so a second concurrent writer with the same
+    # run_id fails loudly instead of silently clobbering the first
+    # writer's report with its replace().
+    try:
+        reservation_fd = os.open(
+            str(target_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        )
+    except FileExistsError:
+        temp_file.unlink(missing_ok=True)
+        raise ValueError(
+            f"Refusing to overwrite existing run: {target_file} "
+            "(each attempt must use a unique run_id)"
+        ) from None
+    os.close(reservation_fd)
+    try:
+        temp_file.replace(target_file)
+    except Exception:
+        # Best effort: do not leave a zero-byte reservation tombstone on a
+        # failed publish. A tombstone left by a hard kill is surfaced by
+        # find_latest_report as a corrupted attempt and is never silently
+        # overwritten (audit §5).
+        try:
+            target_file.unlink()
+        except OSError:
+            pass
+        raise
 
     # 2. Atomic write of latest pointer (relative path so a repository copy
     # resolves its OWN reports; audit §5 cross-contamination fix).
@@ -426,13 +628,24 @@ def save_report(
 
 
 def _load_valid_report(path: Path, expected_type: str) -> Optional[Dict[str, Any]]:
-    """Load a report file and return it when structurally valid, else None."""
+    """
+    Load a report file and return it when structurally valid, else None.
+
+    Wave F M6 backward compatibility: this is the READ path for persisted
+    reports, so legacy completed init/manage reports created before
+    fingerprinting remain readable (allow_legacy_fingerprints=True) —
+    find_latest_report must still surface them, and staleness applies its
+    legacy safeguards. Strictness for NEW reports lives in the default
+    validate_report (verify CLI, save_report, intake).
+    """
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
         return None
-    if validate_report(data, expected_type=expected_type):
+    if validate_report(
+        data, expected_type=expected_type, allow_legacy_fingerprints=True
+    ):
         return None
     return data
 
@@ -445,6 +658,15 @@ def find_latest_report(
     'latest' includes blocked or corrupted attempts and is never silently
     substituted with an older valid report. Pointer paths are resolved
     relative to the report directory (repository-copy isolation).
+
+    Pointer resolution is authoritative when latest.json is intact. The
+    fallback (no usable pointer) resolves the newest attempt by file
+    mtime with the report file name as the final deterministic tiebreak
+    (Wave F M4): generate_run_id embeds a 1-second timestamp plus a random
+    UUID suffix, so two same-second runs sort randomly by name alone —
+    mtime restores creation order while keeping the resolution fully
+    deterministic for a given directory state. Files whose mtime cannot
+    be stat'ed sort oldest.
     Returns (path, data) for a valid latest attempt, (path, None) when the
     latest attempt is corrupted/foreign, or (None, None) when absent.
     """
@@ -485,10 +707,18 @@ def find_latest_report(
                 # hiding it behind an older valid report.
                 return cand, None
 
-    # No usable pointer: newest attempt by deterministic run_id name order.
+    # No usable pointer: newest attempt by mtime (creation order) with the
+    # file name as the final deterministic tiebreak (Wave F M4 — see the
+    # docstring; name-only ordering is random for same-second run_ids).
+    def _recency_key(p: Path) -> Tuple[int, str]:
+        try:
+            return (p.stat().st_mtime_ns, p.name)
+        except OSError:
+            return (0, p.name)
+
     candidates = sorted(
         [p for p in target_dir.glob("*.json") if p.name != "latest.json"],
-        key=lambda p: p.name,
+        key=_recency_key,
         reverse=True,
     )
     for cand in candidates:
@@ -519,9 +749,7 @@ def create_init_report(
     """Helper to assemble a canonical init report dictionary."""
     git_state = get_git_state(repo_root)
     actual_run_id = run_id or generate_run_id("init")
-    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    now_iso = _utc_now_iso()
 
     return {
         "schema_version": "1.0.0",
@@ -578,9 +806,7 @@ def create_manage_report(
     """Helper to assemble a canonical manage report dictionary."""
     git_state = get_git_state(repo_root)
     actual_run_id = run_id or generate_run_id("manage")
-    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    now_iso = _utc_now_iso()
 
     return {
         "schema_version": "1.0.0",
@@ -623,9 +849,7 @@ def create_tune_report(
     """Helper to assemble a canonical tune report dictionary (Wave D T2.2)."""
     git_state = get_git_state(repo_root)
     actual_run_id = run_id or generate_run_id("tune")
-    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    now_iso = _utc_now_iso()
 
     return {
         "schema_version": "1.0.0",
@@ -751,6 +975,10 @@ def check_report_staleness(
     Evaluate report freshness (audit §5): a report is stale when the commit
     SHA moved OR when any essential input (registry, boundaries, passport)
     drifted from its recorded fingerprint — including uncommitted changes.
+    Wave F M3: a git subprocess failure on either side (current repository
+    or recorded in the report) makes freshness uncertifiable — the report
+    is treated as stale/suspect with the canonical reason
+    'git state unavailable' (STALE_INPUT envelope on the CLI).
     Returns (is_stale, details).
     """
     current_git = get_git_state(repo_root)
@@ -759,6 +987,25 @@ def check_report_staleness(
     report_sha = report_git.get("commit_sha", "unknown")
 
     reasons: List[str] = []
+
+    # Wave F M3: fail-closed git state — never certify fresh when git
+    # could not be consulted (now) or was already failing at creation.
+    current_err = current_git.get("git_state_error")
+    if current_err:
+        reasons.append(
+            f"{GIT_STATE_UNAVAILABLE_REASON}: current repository git state "
+            f"could not be determined ({current_err})"
+        )
+    report_err = (
+        report_git.get("git_state_error")
+        if isinstance(report_git, dict)
+        else None
+    )
+    if report_err:
+        reasons.append(
+            f"{GIT_STATE_UNAVAILABLE_REASON}: report recorded a git "
+            f"failure at creation ({report_err})"
+        )
     if (
         current_sha != "unknown"
         and report_sha != "unknown"
@@ -902,9 +1149,14 @@ def _recover_registry_baseline(
 ) -> Tuple[Optional[bytes], Optional[str]]:
     """
     Registry bytes as committed at the init report's commit (git only,
-    per the zero-dependency policy: stdlib + Git). Returns
-    (bytes, None) or (None, error_message).
+    per the zero-dependency policy: stdlib + Git). Wave F M2: the commit
+    SHA is validated (40-character hex) BEFORE it reaches the git
+    subprocess — option-like values (argv injection) refuse here.
+    Returns (bytes, None) or (None, error_message).
     """
+    sha_error = _require_commit_sha(commit_sha, "git baseline lookup")
+    if sha_error:
+        return None, sha_error
     try:
         proc = subprocess.run(
             ["git", "show", f"{commit_sha}:{REGISTRY_PATH}"],
@@ -995,6 +1247,14 @@ def verify_declared_registry_delta(
         return (
             "Intake rejected: cannot verify declared registry delta: the "
             "init report carries no commit reference; re-run init"
+        )
+    # Wave F M2: the report-recorded SHA is validated before the git
+    # subprocess — option-like values (argv injection) refuse here.
+    sha_error = _require_commit_sha(report_sha, "init report git_state")
+    if sha_error:
+        return (
+            "Intake rejected: cannot verify declared registry delta: "
+            + sha_error
         )
 
     baseline_bytes, baseline_err = _recover_registry_baseline(
@@ -1451,27 +1711,6 @@ def build_cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a failure block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters verdicts, report payloads, exit codes, or rc
-    semantics — it wraps the existing structured refusals (stdout [FAIL]
-    verdicts / JSON bodies stay intact on the following output)."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
-
-
 def _emit_invalid_report_envelope(report_path: Path, errors: List[str]) -> None:
     """Writes the INVALID_REPORT envelope (Wave E) for a failed report
     verification. Presentation only: verdicts and rc are unchanged."""
@@ -1484,6 +1723,22 @@ def _emit_invalid_report_envelope(report_path: Path, errors: List[str]) -> None:
         f"{len(errors)} validation error(s), first: {first}",
         "regenerate the report via the matching '<type> create' action, or "
         "repair the file to satisfy the errors listed in the verdict",
+    ) + "\n")
+
+
+def _emit_stale_input_envelope(report_path: Path, reason: str) -> None:
+    """Writes the STALE_INPUT envelope (Wave E format) when a report's
+    freshness cannot be certified because git state is unavailable
+    (Wave F M3). Presentation only: verdicts and rc are unchanged."""
+    sys.stderr.write(_error_envelope(
+        "STALE_INPUT",
+        str(report_path),
+        f"report freshness cannot be certified: {reason}",
+        "a report whose recorded git state can be verified against the "
+        "current repository git state",
+        "git state unavailable: freshness is suspect, not certified",
+        "restore git operation (or resolve the recorded git failure), then "
+        "re-run 'latest' to re-certify freshness",
     ) + "\n")
 
 
@@ -1714,6 +1969,16 @@ def main() -> int:
             # references fail closed. A registry delta since the init report
             # is admitted only when exactly covered by the declared
             # changes[] below (Wave D T2.1).
+            # Wave F SEC-3: identifiers that build report paths are
+            # validated BEFORE any path is constructed or read, so a
+            # hostile --installation/--init-run-id cannot probe or read
+            # outside the reports directory.
+            try:
+                _require_safe_identifier(args.installation, "installation_id")
+                _require_safe_identifier(args.init_run_id, "init_run_id")
+            except ValueError as exc:
+                sys.stderr.write(f"Error: {exc}\n")
+                return 2
             init_file = (
                 get_report_dir(repo_root, args.installation, "init")
                 / f"{args.init_run_id}.json"
@@ -1933,9 +2198,15 @@ def main() -> int:
                 return 1
 
     elif args.subcommand == "latest":
-        report_path, report_data = find_latest_report(
-            repo_root, args.installation, args.type
-        )
+        # Wave F SEC-3: an unsafe installation identifier refuses cleanly
+        # (no traceback) before any report directory is resolved.
+        try:
+            report_path, report_data = find_latest_report(
+                repo_root, args.installation, args.type
+            )
+        except ValueError as exc:
+            sys.stderr.write(f"Error: {exc}\n")
+            return 2
         if report_path is not None and report_data is None:
             # Latest attempt exists but is corrupted/foreign: surface it
             # instead of silently hiding it behind an older valid report.
@@ -1974,6 +2245,13 @@ def main() -> int:
             return 1
 
         is_stale, stale_info = check_report_staleness(repo_root, report_data)
+        # Wave F M3: git-state unavailability is surfaced with the
+        # STALE_INPUT envelope (presentation only; rc unchanged).
+        if is_stale and any(
+            str(r).startswith(GIT_STATE_UNAVAILABLE_REASON)
+            for r in stale_info.get("reasons", [])
+        ):
+            _emit_stale_input_envelope(report_path, GIT_STATE_UNAVAILABLE_REASON)
         if args.json:
             print(
                 json.dumps(

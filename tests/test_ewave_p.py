@@ -32,6 +32,7 @@ import tempfile
 import unittest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+CHANGELOG_PATH = ROOT_DIR / "CHANGELOG.md"
 RESOURCES_DIR = ROOT_DIR / "skills" / "init-meta-project" / "resources"
 MIRROR_RESOURCES_DIR = ROOT_DIR / ".agents" / "skills" / "init-meta-project" / "resources"
 INIT_SKILL_PATH = ROOT_DIR / "skills" / "init-meta-project" / "SKILL.md"
@@ -69,6 +70,18 @@ MISSING_RESOURCE_GUIDANCE = (
     "from the pinned source (update-meta-project) or restore the file; "
     "do not improvise the template from memory"
 )
+
+
+def _latest_changelog_version() -> str:
+    """Latest release version heading from CHANGELOG.md
+    (``## [1.0.0-alpha.4] - YYYY-MM-DD`` style), skipping [Unreleased]."""
+    for line in CHANGELOG_PATH.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## [") and "]" in stripped:
+            version = stripped[4:stripped.index("]")].strip()
+            if version and version.lower() != "unreleased":
+                return version
+    raise AssertionError("no release version heading found in CHANGELOG.md")
 
 
 class TestEngineResourceRuntimeLayout(unittest.TestCase):
@@ -134,11 +147,17 @@ class TestManifestResourceComponents(unittest.TestCase):
         cls.manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         cls.components = cls.manifest.get("components") or []
 
-    def test_framework_version_is_alpha4(self):
+    def test_framework_version_matches_changelog_latest(self):
+        """Wave F T-D6 lock: manifest framework_version must equal the latest
+        release version heading in CHANGELOG.md (the two are bumped together
+        at release time). Supersedes the frozen '1.0.0-alpha.4' hardcode,
+        which went stale at every release bump while still asserting exact
+        equality."""
         self.assertEqual(
             self.manifest.get("framework_version"),
-            "1.0.0-alpha.4",
-            "pilot deployment bump missing from manifest framework_version",
+            _latest_changelog_version(),
+            "manifest framework_version must equal the latest CHANGELOG "
+            "release heading (bump both together at release time)",
         )
 
     def test_nine_resource_components_declared(self):
@@ -219,29 +238,48 @@ class TestInitSkillLoadingContract(unittest.TestCase):
 
 
 class TestSyncResourcesZeroDrift(unittest.TestCase):
-    """(d) sync_templates --write then --check reaches 0 drift on the real repo."""
+    """(d) The repo tree is at 0 template drift: a full temp CLONE of the
+    repository reaches 0 drift after ``sync_templates --write`` then
+    ``--check``.
+
+    Wave F T-D6: a test must never run ``sync --write`` against the LIVE
+    repo tree — the fixture clones the tree (minus ``.git``/bytecode caches)
+    and writes only inside the clone. A drifted live tree is still detected,
+    because the clone inherits the drifted bytes byte-for-byte.
+    """
 
     def test_write_then_check_zero_drift(self):
-        write_res = subprocess.run(
-            [sys.executable, str(SYNC_SCRIPT), "--write", "--repo-root", str(ROOT_DIR)],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            write_res.returncode,
-            0,
-            f"sync_templates --write failed: {write_res.stdout}\n{write_res.stderr}",
-        )
-        check_res = subprocess.run(
-            [sys.executable, str(SYNC_SCRIPT), "--check", "--repo-root", str(ROOT_DIR)],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            check_res.returncode,
-            0,
-            f"sync_templates --check detected drift: {check_res.stdout}\n{check_res.stderr}",
-        )
+        import shutil
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clone_root = Path(tmp) / "repo-clone"
+            shutil.copytree(
+                ROOT_DIR,
+                clone_root,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            write_res = subprocess.run(
+                [sys.executable, str(SYNC_SCRIPT), "--write", "--repo-root", str(clone_root)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                write_res.returncode,
+                0,
+                f"sync_templates --write failed on the repo clone: "
+                f"{write_res.stdout}\n{write_res.stderr}",
+            )
+            check_res = subprocess.run(
+                [sys.executable, str(SYNC_SCRIPT), "--check", "--repo-root", str(clone_root)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                check_res.returncode,
+                0,
+                f"sync_templates --check detected drift in the repo clone: "
+                f"{check_res.stdout}\n{check_res.stderr}",
+            )
 
 
 class TestResourcesByteCanonical(unittest.TestCase):

@@ -15,6 +15,11 @@
     "is_clean": true,
     "modified_files": []
   },
+  "input_fingerprints": {
+    ".agents/meta-project.json": "4a376b42b1fc3ef1bf690beaaff90c9b7353d6c5c1f4cf9eb6fef1d52d279dec",
+    ".agents/project_knowledge/boundaries.md": "dc83e081b11574832c552af3c050aa97a4c26aa8cfebbd2a74f4a06235e4576d",
+    "AGENTS.md": "f9ee77d642bff0613eb76dc0bf68a27782e02fc800c13b92f7de052b6fa8e45a"
+  },
   "scenario": {
     "profile": "active_development",
     "collaboration_model": "triad",

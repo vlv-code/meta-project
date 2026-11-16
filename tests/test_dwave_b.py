@@ -340,9 +340,14 @@ class TestHookEndToEndEnvOverride(TempRootTestCase):
         super().setUp()
         self.repo = _init_repo(self.sub("repo"))
         # Deploy a working gate script so installed hooks are executable.
+        # Wave F FC (ADR #22): the gate imports its shared-helper requires
+        # companion — the subset deployment ships scripts/_common.py too.
         scripts_dir = self.repo / "scripts"
         scripts_dir.mkdir(exist_ok=True)
         shutil.copyfile(CHECK_BOUNDARIES_SCRIPT, scripts_dir / "check_boundaries.py")
+        shutil.copyfile(
+            REPO_ROOT / "scripts" / "_common.py", scripts_dir / "_common.py"
+        )
         ok, msg = install_git_hook(self.repo)
         assert ok, msg
 

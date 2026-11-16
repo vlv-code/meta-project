@@ -16,6 +16,12 @@ import re
 import sys
 from typing import Any, List, Optional, Tuple, Union
 
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.compact_memory import ...)
+    from scripts._common import _error_envelope
+except ImportError:  # direct script execution: python scripts/compact_memory.py
+    from _common import _error_envelope
+
 
 @contextlib.contextmanager
 def file_lock(target: Union[str, os.PathLike[str], Any], blocking: bool = True):
@@ -69,27 +75,6 @@ ARCHIVE_NOTICE_LINE = (
 )
 _DATE_ROW_RE = re.compile(r"^\|\s*\d{4}-\d{2}-\d{2}\s*\|")
 _CHECKPOINT_ROW_RE = re.compile(r"^-\s*\[>\]", re.IGNORECASE)
-
-
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a failure block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters compaction decisions, refusal payloads, exit
-    codes, or rc semantics — it wraps the existing diagnostics, which keep
-    their full content on the following lines."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
 
 
 def _checkpoint_block_indices(lines: List[str]) -> set:

@@ -21,9 +21,25 @@ framework (ADR #21 contracts):
   writes on any deviation. The CLI apply executes a user-approved plan file
   (``--plan-file``) or prints a ``[RE-PLANNED]`` notice when it computes its
   own plan.
-* **Integral cache fallback:** ``<cache_dir>/<commit_sha>/`` holds a full
-  single-revision bundle; a partial cache is refused loudly
-  (``PartialCacheError``), never mixed.
+* **Integral, VERIFIED cache fallback:** ``<cache_dir>/<commit_sha>/`` holds
+  a full single-revision bundle; a partial cache is refused loudly
+  (``PartialCacheError``), never mixed. SEC-2 (Wave F FX, T-X2): every cache
+  load is verified — a sealed entry (``cache-manifest.json``: per-file
+  sha256 + the ref-pin it was built from) is hash-checked on load and
+  cross-verified against the origin blobs whenever the origin provides the
+  pinned commit; an unsealed entry must cross-verify against the origin or
+  is refused (``CacheVerificationError``). apply seals a cross-verified
+  entry so later offline loads can verify it.
+* **Containment (SEC-1, Wave F FX, T-X1):** managed paths must be relative
+  without ``..`` segments (``_posix`` refuses absolutes, drive letters, UNC
+  shares and traversal), every destination read/write is resolved and
+  contained inside its root (``assert_within``), and existing symlink
+  destinations are refused — a hostile manifest, lock, plan file, journal or
+  cache cannot move a single byte outside the repository (or cache) root.
+* **Serialization (SEC-4, Wave F FX, T-X3):** apply AND restore hold
+  ``.agents/update-engine.lock`` exclusively (non-blocking); a concurrent
+  second engine operation is refused with an ``ENGINE_BUSY`` envelope and
+  writes nothing.
 * **Three-way merge with base honesty:** for locally modified components the
   merge base is cached content whose sha256 matches the lock record; without
   a matching base the plan yields a ``needs_base`` entry, never a "safe
@@ -66,7 +82,7 @@ from __future__ import annotations
 
 import argparse
 import base64
-import datetime
+import contextlib
 import fnmatch
 import hashlib
 import json
@@ -128,6 +144,12 @@ except ImportError:  # direct script execution: python scripts/update_meta_proje
         classify_path = None
         parse_boundaries = None
 
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.update_meta_project import ...)
+    from scripts._common import _error_envelope, _utc_now_iso
+except ImportError:  # direct script execution: python scripts/update_meta_project.py
+    from _common import _error_envelope, _utc_now_iso
+
 # ---------------------------------------------------------------------------
 # Contracts (ADR #21)
 # ---------------------------------------------------------------------------
@@ -135,6 +157,11 @@ except ImportError:  # direct script execution: python scripts/update_meta_proje
 FRAMEWORK_LOCK_RELPATH = ".agents/framework-lock.json"
 UPDATE_JOURNAL_RELPATH = ".agents/update-journal.json"
 PROJECT_BOUNDARIES_RELPATH = ".agents/project_knowledge/boundaries.md"
+# SEC-4 (Wave F FX, T-X3): per-repository serialization of the mutating
+# engine operations (apply, restore).
+ENGINE_LOCK_RELPATH = ".agents/update-engine.lock"
+# SEC-2 (Wave F FX, T-X2): per-cache-entry trust anchor.
+CACHE_MANIFEST_RELPATH = "cache-manifest.json"
 LOCK_SCHEMA_VERSION = "1.0.0"
 REPORT_TYPE = "update"
 
@@ -201,29 +228,14 @@ class UpdateEngineError(Exception):
     """Base class for managed-update engine failures."""
 
 
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a failure block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters apply decisions, refusal payloads, exit codes,
-    or rc semantics — it wraps the existing structured refusals ([APPLY-REFUSED]
-    and friends keep their full content on the following lines)."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
-
-
 class SourceResolutionError(UpdateEngineError):
     """A ref could not be pinned to an exact commit SHA."""
+
+
+class PathContainmentError(UpdateEngineError):
+    """SEC-1 (Wave F FX, T-X1): a managed path escapes (or threatens to
+    escape) its containment root — absolute, parent-traversing, or a symlink
+    destination. Refused with ZERO writes."""
 
 
 class MixedBundleError(UpdateEngineError):
@@ -232,6 +244,17 @@ class MixedBundleError(UpdateEngineError):
 
 class PartialCacheError(MixedBundleError):
     """A cache entry exists but is not an integral bundle: refused."""
+
+
+class CacheVerificationError(MixedBundleError):
+    """SEC-2 (Wave F FX, T-X2): a cache bundle cannot be verified as integral
+    and untouched (cache-manifest.json mismatch, wrong ref-pin, or origin
+    cross-check mismatch). Unverified cache bytes are never used."""
+
+
+class EngineBusyError(UpdateEngineError):
+    """SEC-4 (Wave F FX, T-X3): another engine operation (apply/restore)
+    holds the repository lock; concurrent operations are refused."""
 
 
 class BaseUnavailableError(UpdateEngineError):
@@ -290,14 +313,60 @@ def _entry_base_sha(entry: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
-def _utc_now_iso() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 
 
 def _posix(rel: Any) -> str:
-    return str(rel).replace("\\", "/").strip("/")
+    """Normalize a managed relative path to posix form.
+
+    SEC-1 layer (a) (Wave F FX, T-X1): paths that are absolute (posix- or
+    Windows-style, including drive letters and UNC shares) or carry ANY
+    ``..`` segment are hostile and REFUSED here — every component path, lock
+    target, plan action target, journal path and cache-manifest component
+    flows through this function, so a hostile manifest cannot even reach the
+    write stage."""
+    raw = str(rel)
+    normalized = raw.replace("\\", "/")
+    if (
+        normalized.startswith("/")
+        or Path(raw).is_absolute()
+        or _WINDOWS_DRIVE_RE.match(normalized)
+        or ".." in normalized.split("/")
+    ):
+        raise PathContainmentError(
+            f"hostile managed path refused: {raw!r} must be a relative "
+            "repo-internal path without '..' segments (SEC-1 containment)"
+        )
+    return normalized.strip("/")
+
+
+def assert_within(root: Path, rel: str) -> Path:
+    """SEC-1 layers (b)+(c) (Wave F FX, T-X1): resolve ``rel`` against
+    ``root`` and REFUSE unless the resolved destination stays inside the
+    resolved root, and the destination itself is not an existing symlink.
+
+    Call before EVERY write/read of an engine-managed destination (apply,
+    cache reads, restore, journal/lock/report writes): resolve() follows
+    directory junctions and symlinks, so a link planted above the destination
+    resolves outside the root and is refused; a symlink AT the destination is
+    refused outright (U9 exfil guard). Returns the RESOLVED destination."""
+    root_resolved = Path(root).resolve()
+    dest = Path(root) / _posix(rel)
+    if dest.is_symlink():
+        raise PathContainmentError(
+            f"destination '{_posix(rel)}' is an existing symlink; refusing "
+            "to read or write through it (SEC-1 symlink guard)"
+        )
+    resolved = dest.resolve()
+    try:
+        resolved.relative_to(root_resolved)
+    except ValueError:
+        raise PathContainmentError(
+            f"managed path '{_posix(rel)}' resolves to '{resolved}' which is "
+            f"OUTSIDE the containment root '{root_resolved}'; refusing "
+            "(SEC-1 containment)"
+        )
+    return resolved
 
 
 def _run_git(args: List[str], text: bool = True) -> subprocess.CompletedProcess:
@@ -309,13 +378,16 @@ def _run_git(args: List[str], text: bool = True) -> subprocess.CompletedProcess:
 
 
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
-    """Per-file atomic replace: write to a sibling temp file, then
-    os.replace. On failure the temp file is cleaned up and the destination
-    is left untouched."""
+    """Per-file atomic replace: write to a sibling temp file, fsync the temp
+    file (T-X7 durability: the payload survives a crash across the rename),
+    then os.replace. On failure the temp file is cleaned up and the
+    destination is left untouched."""
     tmp = path.parent / f".{path.name}.updtmp-{uuid.uuid4().hex[:8]}"
     try:
         with open(tmp, "wb") as handle:
             handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(tmp, path)
     except OSError:
         try:
@@ -335,6 +407,106 @@ def _split_list(value: Optional[str]) -> List[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+# ---------------------------------------------------------------------------
+# SEC-4 serialization (Wave F FX, T-X3): ported from scripts/compact_memory.py
+# (file_lock, lines 20-61) with a non-blocking engine-operation wrapper.
+# ---------------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def file_lock(target: Any, blocking: bool = True):
+    """Cross-platform file locking context manager (Windows msvcrt / Unix
+    fcntl). Accepts an open file object or a Path/str path."""
+    opened_here = False
+    if isinstance(target, (str, os.PathLike)):
+        p = Path(target)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        f = open(p, "a+b")
+        opened_here = True
+    else:
+        f = target
+
+    fd = f.fileno()
+
+    if sys.platform == "win32":
+        import msvcrt
+
+        f.seek(0)
+        mode = msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK
+        msvcrt.locking(fd, mode, 1)
+        try:
+            yield f
+        finally:
+            f.seek(0)
+            try:
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            finally:
+                if opened_here:
+                    f.close()
+    else:
+        import fcntl
+
+        mode = fcntl.LOCK_EX if blocking else (fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(fd, mode)
+        try:
+            yield f
+        finally:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                if opened_here:
+                    f.close()
+
+
+@contextlib.contextmanager
+def engine_operation_lock(repo_root: Path):
+    """Serialize the MUTATING engine operations (apply, restore) per
+    repository (SEC-4): a non-blocking exclusive lock on
+    ``.agents/update-engine.lock`` (msvcrt/fcntl, per ``file_lock``). A
+    second concurrent engine operation is refused immediately with
+    EngineBusyError ("ENGINE_BUSY") — it never writes a journal or touches
+    any file. Only lock ACQUISITION maps to EngineBusyError; body failures
+    keep their own error types."""
+    lock_path = Path(repo_root) / ENGINE_LOCK_RELPATH
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(lock_path, "a+b")
+    fd = handle.fileno()
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+
+            handle.seek(0)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        handle.close()
+        raise EngineBusyError(
+            "ENGINE_BUSY: another update-engine operation (apply or restore) "
+            "is already running on this repository; refusing concurrent "
+            "execution"
+        ) from exc
+    try:
+        yield handle
+    finally:
+        try:
+            handle.seek(0)
+            if sys.platform == "win32":
+                import msvcrt
+
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        finally:
+            handle.close()
+
+
 def _read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -342,7 +514,10 @@ def _read_json(path: Path) -> Any:
 def default_cache_dir() -> Path:
     """Cache resolution: explicit flag > env META_PROJECT_CACHE > OS cache
     path (Windows: %LOCALAPPDATA%/meta-project/cache; POSIX:
-    ~/.cache/meta-project). The engine never creates or writes the cache."""
+    ~/.cache/meta-project). The engine reads cache entries read-only; the
+    only cache write is the SEC-2 trust anchor ``cache-manifest.json`` that
+    apply writes (seal_cache=True) after cross-verifying an unsealed entry
+    against the origin."""
     env = os.environ.get("META_PROJECT_CACHE")
     if env:
         return Path(env)
@@ -466,11 +641,94 @@ def _components_of(manifest: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [c for c in comps if isinstance(c, dict) and _posix(c.get("path", ""))]
 
 
-def _read_bundle_tree(bundle_root: Path) -> Tuple[Dict[str, Any], Dict[str, bytes]]:
-    """Read an integral bundle directory: the release manifest (root
-    ``manifest.json`` or the canonical ``templates/release_manifest.json``
-    fallback, T6.8) + EVERY manifest component. Any missing component is a
-    partial cache: refused loudly."""
+# ---------------------------------------------------------------------------
+# SEC-2 cache verification (Wave F FX, T-X2)
+# ---------------------------------------------------------------------------
+
+
+def build_cache_manifest(
+    files: Dict[str, bytes], commit_sha: str, ref: str = ""
+) -> Dict[str, Any]:
+    """SEC-2 trust anchor for one cache entry: the ref-pin (commit sha) the
+    bundle was built from + the sha256 of EVERY bundle file (manifest.json +
+    all manifest components). Written at bundle build/seal time and verified
+    at every load."""
+    return {
+        "schema_version": LOCK_SCHEMA_VERSION,
+        "commit_sha": str(commit_sha),
+        "ref": str(ref or commit_sha),
+        "files": {
+            rel: _sha256_bytes(data) for rel, data in sorted(files.items())
+        },
+    }
+
+
+def seal_cache_entry(
+    pinned_dir: Path, files: Dict[str, bytes], commit_sha: str, ref: str = ""
+) -> Optional[Path]:
+    """Write ``<pinned_dir>/cache-manifest.json`` (SEC-2). Best-effort: a
+    read-only cache directory degrades to an unsealed entry (future loads
+    fall back to origin cross-verification)."""
+    payload = json.dumps(
+        build_cache_manifest(files, commit_sha, ref), indent=2, sort_keys=True
+    ) + "\n"
+    target = pinned_dir / CACHE_MANIFEST_RELPATH
+    try:
+        _atomic_write_bytes(target, payload.encode("utf-8"))
+    except OSError:
+        return None
+    return target
+
+
+def _load_cache_manifest(
+    bundle_root: Path, expected_sha: str
+) -> Optional[Dict[str, Any]]:
+    """Read and validate the cache entry's trust anchor. Returns None when
+    the entry is unsealed; raises CacheVerificationError on a malformed
+    manifest or a WRONG REF-PIN (cache sealed for pin A but served for pin
+    B — the post-rewrite window attack)."""
+    cm_path = bundle_root / CACHE_MANIFEST_RELPATH
+    if not cm_path.is_file():
+        return None
+    try:
+        entry = _read_json(cm_path)
+    except (OSError, ValueError) as exc:
+        raise CacheVerificationError(
+            f"cache manifest '{cm_path}' is unreadable (fail-closed): {exc}"
+        )
+    if (
+        not isinstance(entry, dict)
+        or not str(entry.get("commit_sha", "")).strip()
+        or not isinstance(entry.get("files"), dict)
+    ):
+        raise CacheVerificationError(
+            f"cache manifest '{cm_path}' is malformed (expected an object "
+            "with 'commit_sha' and a 'files' sha256 map); refusing to use "
+            "unverifiable cache bytes"
+        )
+    sealed_pin = str(entry["commit_sha"])
+    if expected_sha and sealed_pin != expected_sha:
+        raise CacheVerificationError(
+            f"cache bundle '{bundle_root}' was sealed for commit {sealed_pin} "
+            f"but the requested pin is {expected_sha}; refusing cross-pin "
+            "cache reuse (SEC-2 ref-pin mismatch)"
+        )
+    return entry
+
+
+def _read_bundle_tree(
+    bundle_root: Path, expected_sha: str = ""
+) -> Tuple[Dict[str, Any], Dict[str, bytes], bool]:
+    """Read an INTEGRAL and VERIFIED bundle directory: the release manifest
+    (root ``manifest.json`` or the canonical ``templates/release_manifest.json``
+    fallback, T6.8) + EVERY manifest component.
+
+    SEC-1: every component read is contained (assert_within) — a hostile
+    cache manifest component ('../..' etc.) is refused, never read.
+    SEC-2: when the entry carries ``cache-manifest.json``, every file hash
+    and the ref-pin are verified; returns ``verified=True``. An unsealed
+    entry returns ``verified=False`` (the caller must cross-verify against
+    the origin or refuse). A missing component stays a PartialCacheError."""
     manifest_path = bundle_root / MANIFEST_RELPATH
     manifest_rel = MANIFEST_RELPATH
     if not manifest_path.is_file():
@@ -489,22 +747,51 @@ def _read_bundle_tree(bundle_root: Path) -> Tuple[Dict[str, Any], Dict[str, byte
         raise MixedBundleError(
             f"cache manifest '{manifest_path}' is unreadable: {exc}"
         )
+    cache_entry = _load_cache_manifest(bundle_root, expected_sha)
     manifest_bytes = manifest_path.read_bytes()
+    if cache_entry is not None:
+        recorded = str(cache_entry["files"].get(manifest_rel, "") or "")
+        if not recorded:
+            raise CacheVerificationError(
+                f"cache manifest does not cover '{manifest_rel}' of bundle "
+                f"'{bundle_root}'; refusing an unverifiable bundle"
+            )
+        if _sha256_bytes(manifest_bytes) != recorded:
+            raise CacheVerificationError(
+                f"cache integrity failure for '{manifest_rel}' in bundle "
+                f"'{bundle_root}': sha256 mismatch against cache-manifest.json "
+                "(tampered or corrupted cache); refusing"
+            )
     files: Dict[str, bytes] = {
         manifest_rel: manifest_bytes,
         MANIFEST_RELPATH: manifest_bytes,  # canonical alias
     }
     for comp in _components_of(manifest):
         rel = _posix(comp.get("path", ""))
-        comp_path = bundle_root / rel
+        comp_path = assert_within(bundle_root, rel)
         if not comp_path.is_file():
             raise PartialCacheError(
                 f"partial cache refused: bundle '{bundle_root}' is missing "
                 f"manifest component '{rel}'; only an INTEGRAL single-revision "
                 "bundle is acceptable (mixing revisions is prohibited)"
             )
-        files[rel] = comp_path.read_bytes()
-    return manifest, files
+        data = comp_path.read_bytes()
+        if cache_entry is not None:
+            recorded = str(cache_entry["files"].get(rel, "") or "")
+            if not recorded:
+                raise CacheVerificationError(
+                    f"cache manifest does not cover component '{rel}' of "
+                    f"bundle '{bundle_root}'; refusing an unverifiable bundle"
+                )
+            if _sha256_bytes(data) != recorded:
+                raise CacheVerificationError(
+                    f"cache integrity failure for '{rel}' in bundle "
+                    f"'{bundle_root}': sha256 mismatch against "
+                    "cache-manifest.json (tampered or corrupted cache); "
+                    "refusing"
+                )
+        files[rel] = data
+    return manifest, files, (cache_entry is not None)
 
 
 def _collect_base_candidates(cache_root: Optional[Path]) -> Dict[str, bytes]:
@@ -538,7 +825,9 @@ def _collect_base_candidates(cache_root: Optional[Path]) -> Dict[str, bytes]:
             rel = _posix(comp.get("path", ""))
             if not rel or rel in base:
                 continue
-            comp_path = child / rel
+            # SEC-1: cache reads are contained — a hostile component path in
+            # a cached manifest is refused, never read outside the cache.
+            comp_path = assert_within(child, rel)
             if comp_path.is_file():
                 try:
                     base[rel] = comp_path.read_bytes()
@@ -547,15 +836,74 @@ def _collect_base_candidates(cache_root: Optional[Path]) -> Dict[str, bytes]:
     return base
 
 
-def load_bundle(pin: Dict[str, str], cache_dir: Optional[Path]) -> Dict[str, Any]:
+def _verify_cache_against_origin(
+    origin_repo: str, sha: str, files: Dict[str, bytes]
+) -> None:
+    """SEC-2 origin cross-check (Wave F FX, T-X2): compare a cache bundle
+    against the origin's blobs for the SAME pinned commit — every COMPONENT
+    hash must match the origin blob byte-exactly; the manifest file is
+    compared newline-normalized (cache builders may have written it in text
+    mode, while cat-file returns the canonical blob). Any mismatch — or an
+    origin that cannot provide the pinned tree for an unsealed entry — is a
+    CacheVerificationError; cache bytes are never served on trust."""
+    check = _run_git(
+        ["-C", origin_repo, "rev-parse", "--verify", f"{sha}^{{commit}}"]
+    )
+    if check.returncode != 0:
+        raise CacheVerificationError(
+            f"cache entry has no cache-manifest.json and the origin "
+            f"'{origin_repo}' cannot provide pinned commit {sha} "
+            f"({(check.stderr or '').strip()}); refusing unverified cache "
+            "bytes (SEC-2 fail-closed)"
+        )
+    origin_files = _fetch_pinned_tree(origin_repo, sha)
+    manifest_rels = {MANIFEST_RELPATH, CANONICAL_MANIFEST_RELPATH}
+    for rel, data in sorted(files.items()):
+        origin_data = origin_files.get(rel)
+        if origin_data is None:
+            raise CacheVerificationError(
+                f"cache integrity failure for '{rel}': the origin blob of "
+                f"pinned commit {sha} is missing; refusing the cache bundle"
+            )
+        if rel in manifest_rels:
+            cached_norm = data.replace(b"\r\n", b"\n")
+            origin_norm = origin_data.replace(b"\r\n", b"\n")
+            if cached_norm != origin_norm:
+                raise CacheVerificationError(
+                    f"cache integrity failure for '{rel}': cached bytes "
+                    f"differ from the origin blob of pinned commit {sha} "
+                    "(tampered or corrupted cache); refusing"
+                )
+        elif origin_data != data:
+            raise CacheVerificationError(
+                f"cache integrity failure for '{rel}': cached bytes differ "
+                f"from the origin blob of pinned commit {sha} (tampered or "
+                "corrupted cache); refusing"
+            )
+
+
+def load_bundle(
+    pin: Dict[str, str],
+    cache_dir: Optional[Path],
+    seal_cache: bool = False,
+) -> Dict[str, Any]:
     """Materialize the ENTIRE component set from the pinned SHA.
 
-    Resolution order: integral cache entry ``<cache_dir>/<commit_sha>/``
-    first (read-only), then ``git archive <commit_sha>`` from the origin
-    repository. Raises MixedBundleError when neither source yields one
-    integral revision, PartialCacheError for a partial cache entry, and
-    BaseUnavailableError semantics are carried by the empty ``base`` pool
-    (plan_updates turns it into ``needs_base`` entries).
+    Resolution order: integral VERIFIED cache entry ``<cache_dir>/<commit_sha>/``
+    first, then ``git cat-file <sha>:<path>`` from the origin repository.
+    SEC-2 (Wave F FX, T-X2): a sealed cache entry (``cache-manifest.json``)
+    is hash-verified on load and additionally cross-verified against the
+    origin blobs whenever the origin provides the pinned commit; an UNSEALED
+    cache entry must cross-verify against the origin or is REFUSED —
+    unverified cache bytes are never served. ``seal_cache=True`` (apply/load
+    time) writes the trust anchor for a cross-verified entry so future
+    offline loads can verify it.
+
+    Raises MixedBundleError when neither source yields one integral revision,
+    PartialCacheError for a partial cache entry, CacheVerificationError for a
+    tampered/mis-pinned/unverifiable cache, and BaseUnavailableError
+    semantics are carried by the empty ``base`` pool (plan_updates turns it
+    into ``needs_base`` entries).
 
     Returns: {manifest, files: {path: bytes}, base: {path: bytes},
     commit_sha, origin_repo, ref, origin: 'cache'|'upstream'}.
@@ -574,7 +922,21 @@ def load_bundle(pin: Dict[str, str], cache_dir: Optional[Path]) -> Dict[str, Any
     origin_kind: str
 
     if pinned_dir is not None and pinned_dir.is_dir():
-        manifest, files = _read_bundle_tree(pinned_dir)
+        manifest, files, verified = _read_bundle_tree(pinned_dir, expected_sha=sha)
+        if verified:
+            # SEC-2: sealed entry — hash-verified above; additionally
+            # cross-verify against the origin whenever the origin still
+            # provides the pinned commit (defense against a malicious sealer).
+            check = _run_git(
+                ["-C", origin_repo, "rev-parse", "--verify", f"{sha}^{{commit}}"]
+            )
+            if check.returncode == 0:
+                _verify_cache_against_origin(origin_repo, sha, files)
+        else:
+            # SEC-2: unsealed entry — the origin is the only trust anchor.
+            _verify_cache_against_origin(origin_repo, sha, files)
+            if seal_cache:
+                seal_cache_entry(pinned_dir, files, sha, str(pin.get("ref") or sha))
         origin_kind = "cache"
 
     if files is None:
@@ -667,8 +1029,8 @@ def _lock_payload_bytes(lock: Dict[str, Any]) -> bytes:
 
 
 def write_lock_atomic(repo_root: Path, lock: Dict[str, Any]) -> None:
-    """Atomically replace ``.agents/framework-lock.json``."""
-    path = Path(repo_root) / FRAMEWORK_LOCK_RELPATH
+    """Atomically replace ``.agents/framework-lock.json`` (SEC-1 contained)."""
+    path = assert_within(Path(repo_root), FRAMEWORK_LOCK_RELPATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = _lock_payload_bytes(lock)
     tmp = path.parent / f".framework-lock.tmp-{uuid.uuid4().hex[:8]}"
@@ -703,7 +1065,11 @@ def check_updates(
     edit is upstream content.
     """
     repo_root = Path(repo_root)
-    pin = resolve_source(source, ref)
+    # U6 (Wave F FX, T-X4): check answers through the SAME source resolution
+    # as plan/apply — a dead origin with an exact-SHA ref and a verified
+    # integral cache yields ONE answer for the repo state, not a check
+    # failure where apply would succeed.
+    pin = resolve_pin_with_cache_fallback(source, ref, cache_dir)
     bundle = load_bundle(pin, cache_dir)
     lock = read_lock(repo_root)
 
@@ -1272,7 +1638,7 @@ def plan_updates(
 
 
 def _save_journal(repo_root: Path, journal: Dict[str, Any]) -> None:
-    path = Path(repo_root) / UPDATE_JOURNAL_RELPATH
+    path = assert_within(Path(repo_root), UPDATE_JOURNAL_RELPATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(journal, indent=2, ensure_ascii=False) + "\n"
     tmp = path.parent / f".update-journal.tmp-{uuid.uuid4().hex[:8]}"
@@ -1399,6 +1765,7 @@ def _rematerialize_plan_content(
             "ref": str(pin_block.get("ref") or plan_sha),
         },
         cache_dir,
+        seal_cache=True,
     )
     bundle_files = bundle.get("files") or {}
     for action in contentless:
@@ -1417,7 +1784,10 @@ def _rematerialize_plan_content(
                 f"provides {_sha256_bytes(upstream)}); refusing to apply"
             )
         if action.get("op") == "merge":
-            local_path = repo_root / _posix(action.get("target") or rel)
+            # SEC-1: the read of the local target is containment-checked.
+            local_path = assert_within(
+                repo_root, _posix(action.get("target") or rel)
+            )
             if not local_path.is_file():
                 raise UpdateEngineError(
                     f"approved merge action for '{rel}' has no local file to "
@@ -1446,6 +1816,7 @@ def _build_update_report(
     applied_actions: List[Dict[str, Any]],
     lock_before: Optional[Dict[str, Any]],
     plan_file: Optional[str] = None,
+    run_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     repo_root = Path(repo_root)
     registry: Dict[str, Any] = {}
@@ -1468,9 +1839,13 @@ def _build_update_report(
     meta = plan.get("meta") or {}
     before_source = (lock_before or {}).get("source") or {}
     before = str(before_source.get("commit_sha") or "unknown")
-    after = str(
-        meta.get("framework_version") or meta.get("commit_sha") or "unknown"
-    )
+    # U7 (Wave F FX, T-X5): the post-update version is split into its two
+    # identities — the human-readable framework version AND the exact pinned
+    # commit sha (a version string alone is not an audit-grade pin).
+    after = {
+        "framework_version": str(meta.get("framework_version") or ""),
+        "commit_sha": str(meta.get("commit_sha") or before),
+    }
 
     fingerprints: List[Dict[str, str]] = []
     if collect_input_fingerprints is not None:
@@ -1529,7 +1904,10 @@ def _build_update_report(
         "installation_id": installation_id,
         "harness_id": harness_id,
         "actor_id": actor_id,
-        "run_id": (generate_run_id(REPORT_TYPE) if generate_run_id else REPORT_TYPE),
+        # U11 (Wave F FX, T-X5): the report carries the APPLY RUN's run_id —
+        # the same id the journal records — so restore can mark THIS report
+        # "restored" (one run, one journal, one report).
+        "run_id": str(run_id or (generate_run_id(REPORT_TYPE) if generate_run_id else REPORT_TYPE)),
         "created_at": _utc_now_iso(),
         "status": "completed",
         "git_state": (get_git_state(repo_root) if get_git_state else {}),
@@ -1584,8 +1962,30 @@ def apply_updates(
     binding; identity-less bootstrap projects are not blocked) BEFORE any
     journal or file write. ``adopt`` actions (T6.7) write no file bytes:
     they only record the verified pre-existing content in the lock.
+
+    SEC-4 (Wave F FX, T-X3): the whole operation holds the repository engine
+    lock (``.agents/update-engine.lock``, non-blocking) — a second concurrent
+    apply/restore is refused with EngineBusyError before ANY state change.
+    SEC-1 (Wave F FX, T-X1): every destination read/write is contained via
+    assert_within BEFORE any journal entry is created.
     """
     repo_root = Path(repo_root)
+    with engine_operation_lock(repo_root):
+        return _apply_updates_locked(
+            repo_root, plan, actor_id, installation_id,
+            resolved_pin=resolved_pin, plan_file=plan_file,
+        )
+
+
+def _apply_updates_locked(
+    repo_root: Path,
+    plan: Dict[str, Any],
+    actor_id: str,
+    installation_id: str,
+    resolved_pin: Optional[Dict[str, str]] = None,
+    plan_file: Optional[str] = None,
+) -> Dict[str, Any]:
+    """apply_updates body, running under the exclusive engine lock (SEC-4)."""
 
     admission_denial = _actor_admission_denial(repo_root, actor_id)
     if admission_denial:
@@ -1642,13 +2042,16 @@ def apply_updates(
     # target state before the first write; any mismatch -> ApplyError with
     # ZERO writes. The resolved destination is the action's ``target``
     # (runtime layout, T6.5), falling back to the manifest path.
+    # SEC-1: each destination is containment-checked BEFORE it is read — a
+    # plan (or approved plan file) carrying an escaping target is refused
+    # before the journal is even created.
     stale_targets: List[str] = []
     for action in actions:
         rel = _posix(action.get("path", ""))
         if not rel or "expected_before_sha256" not in action:
             continue
         expected = action.get("expected_before_sha256")
-        dest = repo_root / _posix(action.get("target") or rel)
+        dest = assert_within(repo_root, _posix(action.get("target") or rel))
         actual = _sha256_file(dest) if dest.is_file() else None
         if actual != expected:
             stale_targets.append(
@@ -1687,7 +2090,10 @@ def apply_updates(
         for action in actions:
             rel = _posix(action["path"])
             dest_rel = _posix(action.get("target") or rel)
-            dest = repo_root / dest_rel
+            # SEC-1: contained, symlink-refused destination — the plan's
+            # target must resolve INSIDE the repository root before any
+            # byte is read or written through it.
+            dest = assert_within(repo_root, dest_rel)
             if action.get("op") == "adopt":
                 # Sha-match adoption (T6.7): the on-disk bytes were verified
                 # against expected_before_sha256 above — record them in the
@@ -1822,6 +2228,7 @@ def apply_updates(
             applied_actions=applied_actions,
             lock_before=lock_before,
             plan_file=plan_file,
+            run_id=run_id,
         )
         saved = save_report(repo_root, installation_id, REPORT_TYPE, report)
         report_path = str(saved)
@@ -1849,8 +2256,84 @@ def restore_updates(repo_root: Path) -> Dict[str, Any]:
     with before/after bytes before writing, so a successful restore returns
     files AND ``.agents/framework-lock.json`` to the coherent pre-apply
     state.
+
+    SEC-4 (Wave F FX, T-X3): restore holds the repository engine lock — a
+    concurrent apply/restore is refused (EngineBusyError). SEC-1: every
+    journaled path is containment-checked (hostile journal paths and symlink
+    destinations are refused, never followed). U11 (T-X5): the update report
+    of the journaled run is marked ``status: "restored"`` (audit trail
+    preserved in place).
     """
     repo_root = Path(repo_root)
+    with engine_operation_lock(repo_root):
+        return _restore_updates_locked(repo_root)
+
+
+def _mark_update_report_restored(repo_root: Path, run_id: str) -> Optional[str]:
+    """U11 (Wave F FX, T-X5): mark the update report of ``run_id``
+    ``status: "restored"`` — in place, preserving the audit trail. Returns
+    the report's repo-relative path, or None when no matching report exists
+    (e.g. the report engine was unavailable during apply)."""
+    reports_root = Path(repo_root) / ".agents" / "reports"
+    needle = str(run_id or "").strip()
+    if not needle or not reports_root.is_dir():
+        return None
+    marked: Optional[Path] = None
+    for update_dir in sorted(reports_root.glob("*/update")):
+        if not update_dir.is_dir():
+            continue
+        for report_file in sorted(update_dir.glob("*.json")):
+            if report_file.name == "latest.json":
+                continue
+            try:
+                data = _read_json(report_file)
+            except (OSError, ValueError):
+                continue
+            if (
+                not isinstance(data, dict)
+                or str(data.get("report_type", "")) != REPORT_TYPE
+                or str(data.get("run_id", "")) != needle
+            ):
+                continue
+            data["status"] = "restored"
+            try:
+                assert_within(repo_root, _posix(
+                    report_file.relative_to(Path(repo_root))
+                ))
+                _atomic_write_bytes(
+                    report_file,
+                    (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode(
+                        "utf-8"
+                    ),
+                )
+            except (OSError, ValueError, UpdateEngineError):
+                continue
+            marked = report_file
+            # Keep the latest.json pointer coherent with the marked report.
+            pointer = update_dir / "latest.json"
+            try:
+                if pointer.is_file():
+                    ptr = _read_json(pointer)
+                    if isinstance(ptr, dict) and str(ptr.get("run_id", "")) == needle:
+                        ptr["status"] = "restored"
+                        assert_within(repo_root, _posix(
+                            pointer.relative_to(Path(repo_root))
+                        ))
+                        _atomic_write_bytes(
+                            pointer,
+                            (json.dumps(ptr, indent=2, ensure_ascii=False) + "\n").encode(
+                                "utf-8"
+                            ),
+                        )
+            except (OSError, ValueError, UpdateEngineError):
+                pass
+    if marked is None:
+        return None
+    return _posix(marked.relative_to(Path(repo_root)))
+
+
+def _restore_updates_locked(repo_root: Path) -> Dict[str, Any]:
+    """restore_updates body, running under the exclusive engine lock (SEC-4)."""
     journal_path = repo_root / UPDATE_JOURNAL_RELPATH
     if not journal_path.is_file():
         return {
@@ -1871,7 +2354,9 @@ def restore_updates(repo_root: Path) -> Dict[str, Any]:
         rel = _posix(entry.get("path", ""))
         if not rel:
             continue
-        target = repo_root / rel
+        # SEC-1: a journal is engine data, but restore never follows a path
+        # outside the repository root or through a symlink.
+        target = assert_within(repo_root, rel)
         after_sha = entry.get("after_sha256")
         before_sha = entry.get("before_sha256")
         before_bytes = _unb64(entry.get("before_b64"))
@@ -1915,12 +2400,19 @@ def restore_updates(repo_root: Path) -> Dict[str, Any]:
     journal["restored_at"] = _utc_now_iso()
     _save_journal(repo_root, journal)
 
+    # U11 (T-X5): the report of the journaled run is marked "restored" so
+    # the audit trail shows the update was rolled back.
+    marked_report = _mark_update_report_restored(
+        repo_root, str(journal.get("run_id", "") or "")
+    )
+
     return {
         "status": "restored",
         "journal": UPDATE_JOURNAL_RELPATH,
         "restored": restored,
         "kept": kept,
         "skipped": skipped,
+        "marked_report": marked_report,
     }
 
 
@@ -2054,8 +2546,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             result = check_updates(repo_root, args.source, args.ref, cache_dir)
         except UpdateEngineError as exc:
+            # U8 (Wave F FX, T-X6): a failing check reports itself in the
+            # JSON payload as check_status="failed"; the rc contract is
+            # UNCHANGED (rc 1 on failure).
             sys.stderr.write(f"[CHECK-FAILED] {exc}\n")
+            print(json.dumps({"check_status": "failed", "error": str(exc)}))
             return 1
+        result["check_status"] = "ok"
         print(json.dumps(result, indent=2, default=str))
         return 0 if not (result["updates_available"] or result["drifted"]) else 1
 
@@ -2107,7 +2604,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 plan = _rematerialize_plan_content(repo_root, plan, cache_dir)
             else:
                 pin = resolve_pin_with_cache_fallback(args.source, args.ref, cache_dir)
-                bundle = load_bundle(pin, cache_dir)
+                # SEC-2 (T-X2): apply seals a cross-verified cache entry at
+                # load time so later offline loads can verify it.
+                bundle = load_bundle(pin, cache_dir, seal_cache=True)
                 if components:
                     bundle = _filter_bundle(bundle, components)
                 lock = read_lock(repo_root)
@@ -2131,6 +2630,20 @@ def main(argv: Optional[List[str]] = None) -> int:
                 plan_file=plan_file,
             )
         except UpdateEngineError as exc:
+            if isinstance(exc, EngineBusyError):
+                # SEC-4 (T-X3): a concurrent engine operation holds the
+                # repository lock.
+                sys.stderr.write(_error_envelope(
+                    "ENGINE_BUSY",
+                    str(repo_root),
+                    "another engine operation (apply or restore) is already "
+                    "running on this repository",
+                    "exclusive acquisition of .agents/update-engine.lock",
+                    str(exc),
+                    "wait for the running apply/restore to finish, then retry",
+                ) + "\n")
+                sys.stderr.write(f"[ENGINE-BUSY] {exc}\n")
+                return 1
             sys.stderr.write(_error_envelope(
                 "APPLY_REFUSED",
                 str(plan_file) if plan_file else str(repo_root),
@@ -2163,6 +2676,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.subcommand == "restore":
         try:
             result = restore_updates(repo_root)
+        except EngineBusyError as exc:
+            # SEC-4 (T-X3): a concurrent engine operation holds the lock.
+            sys.stderr.write(_error_envelope(
+                "ENGINE_BUSY",
+                str(repo_root),
+                "another engine operation (apply or restore) is already "
+                "running on this repository",
+                "exclusive acquisition of .agents/update-engine.lock",
+                str(exc),
+                "wait for the running apply/restore to finish, then retry",
+            ) + "\n")
+            sys.stderr.write(f"[ENGINE-BUSY] {exc}\n")
+            return 1
         except (UpdateEngineError, OSError, ValueError) as exc:
             sys.stderr.write(f"[RESTORE-FAILED] {exc}\n")
             return 1

@@ -122,9 +122,14 @@ Any unmapped path is strictly Red Zone by default.
 # NOTE (Wave D, E1/п.2): the framework lock is NO LONGER excluded — restore
 # must roll back files AND `.agents/framework-lock.json`, so lock bytes are
 # part of every coherent-state comparison.
+# NOTE (Wave F FX, SEC-4/T-X3): `.agents/update-engine.lock` is the
+# serialization mutex and is PERMANENT by design (deleting a held lock file
+# is a concurrency race), so — like the journal — it is engine bookkeeping,
+# not working-tree content.
 _ENGINE_METADATA_PREFIXES = (
     ".git/",
     ".agents/update-journal.json",
+    ".agents/update-engine.lock",
     ".agents/reports/",
 )
 
@@ -254,12 +259,37 @@ def _make_origin_repo(tmp: Path) -> tuple[Path, str]:
     return origin, first_sha
 
 
+def _seal_bundle_dir(bundle_root: Path, commit_sha: str, ref: str = "") -> None:
+    """SEC-2 cache trust anchor (Wave F FX, T-X2): write
+    ``<bundle_root>/cache-manifest.json`` — the sha256 of every bundle file
+    (``manifest.json`` + components) plus the ref-pin (commit sha) the bundle
+    was built from. Test-side mirror of the engine contract; plain hashlib so
+    suites still build valid fixtures before the engine verifies them."""
+    files: dict[str, str] = {}
+    for path in sorted(bundle_root.rglob("*")):
+        if path.is_file() and path.name != "cache-manifest.json":
+            files[path.relative_to(bundle_root).as_posix()] = hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+    payload = {
+        "schema_version": "1.0.0",
+        "commit_sha": commit_sha,
+        "ref": ref or commit_sha,
+        "files": files,
+    }
+    (bundle_root / "cache-manifest.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
 def _make_cache_dir(parent: Path, origin_sha: str) -> Path:
     """Integral cache: a full copy of the FIRST sha's component set laid out
-    as ``<cache_dir>/<commit_sha>/`` (manifest + all component files)."""
+    as ``<cache_dir>/<commit_sha>/`` (manifest + all component files), sealed
+    with ``cache-manifest.json`` (SEC-2, Wave F FX T-X2)."""
     bundle_root = parent / origin_sha
     bundle_root.mkdir(parents=True, exist_ok=True)
     _write_tree(bundle_root, _manifest_v1(), _origin_files_v1())
+    _seal_bundle_dir(bundle_root, origin_sha)
     return parent
 
 

@@ -15,6 +15,12 @@ import subprocess
 import sys
 from typing import Dict, List, Optional, Set, Tuple
 
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.check_boundaries import ...)
+    from scripts._common import _error_envelope
+except ImportError:  # direct script execution: python scripts/check_boundaries.py
+    from _common import _error_envelope
+
 
 # Scoped staged-mode override (Wave D T3.1): when the pre-commit hook would
 # otherwise block a user-sanctioned Red Zone change, the operator may run
@@ -37,27 +43,6 @@ def env_allows_red_zone() -> bool:
 class BoundaryGateError(RuntimeError):
     """Raised when a git query fails; the gate must fail closed, never
     silently degrade into an empty 'Clean' result (audit §2)."""
-
-
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a failure block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters gate decisions, refusal payloads, exit codes,
-    or rc semantics — it wraps the existing structured refusals, which keep
-    their full content on the following lines."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
 
 
 def glob_to_regex(pat: str) -> re.Pattern:

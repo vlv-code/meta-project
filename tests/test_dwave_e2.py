@@ -26,6 +26,7 @@ import contextlib
 import io
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -210,9 +211,11 @@ class TestIdentityAdmission(WaveE2TestCase):
         """apply with an actor that is not admitted by the project registry
         must raise ApplyError('actor not admitted ...') with ZERO writes."""
         self.require_engine(ApplyError, resolve_source, load_bundle, read_lock, plan_updates, apply_updates)
-        origin, _first = _make_origin_repo(self.tmp)
+        origin, first_sha = _make_origin_repo(self.tmp)
         target = _make_target(self.tmp)
-        cache = _make_cache_dir(self.tmp / "cache", _git_ok(origin, "rev-parse", "HEAD").stdout.strip())
+        # Truthful cache: the helper writes v1 content, so it must be keyed by
+        # the v1 pin (a HEAD-pinned v1 cache is a lying cache — SEC-2 refuses).
+        cache = _make_cache_dir(self.tmp / "cache", first_sha)
         plan = self._clean_plan(target, origin, cache)
 
         lock_before = self._lock_bytes(target)
@@ -1014,17 +1017,22 @@ class TestManifestReadabilityFallback(WaveE2TestCase):
             "fixture sanity: the canonical manifest registers the updater",
         )
 
-        # Integral cache bundle built from the framework WORKING TREE at the
-        # HEAD pin — laid out exactly as the source repo (manifest ONLY at
+        # Integral cache bundle built from the PINNED COMMIT's git blobs (not
+        # the working tree: a worktree copy under the HEAD pin is a lying
+        # cache whenever the tree carries uncommitted changes — SEC-2 refuses
+        # lying caches). Laid out exactly as the source repo (manifest ONLY at
         # templates/release_manifest.json, no root manifest.json).
         cache = self.tmp / "fw-cache"
         bundle_root = cache / head_sha
         for rel in component_paths:
-            src = REPO_ROOT / rel
-            self.assertTrue(src.is_file(), f"fixture component missing: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "cat-file", "blob", f"{head_sha}:{rel}"],
+                capture_output=True,
+                check=True,
+            ).stdout
             dst = bundle_root / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(src.read_bytes())
+            dst.write_bytes(blob)
         self.assertFalse(
             (bundle_root / "manifest.json").exists(),
             "fixture sanity: no root manifest.json in the bundle",
@@ -1038,9 +1046,16 @@ class TestManifestReadabilityFallback(WaveE2TestCase):
         )
         files = bundle.get("files") or {}
         self.assertIn("scripts/update_meta_project.py", files)
+        pinned_updater = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "cat-file", "blob",
+             f"{head_sha}:scripts/update_meta_project.py"],
+            capture_output=True,
+            check=True,
+        ).stdout
         self.assertEqual(
             files.get("scripts/update_meta_project.py"),
-            (REPO_ROOT / "scripts" / "update_meta_project.py").read_bytes(),
+            pinned_updater,
+            "cache-served bytes must equal the PINNED commit's blob",
         )
 
 

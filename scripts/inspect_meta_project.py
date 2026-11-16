@@ -30,6 +30,12 @@ except ImportError:  # direct script execution: python scripts/inspect_meta_proj
     except ImportError:
         validate_identity_registry = None
 
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.inspect_meta_project import ...)
+    from scripts._common import _error_envelope
+except ImportError:  # direct script execution: python scripts/inspect_meta_project.py
+    from _common import _error_envelope
+
 
 def _registry_validation_errors(repo_root: Path) -> List[str]:
     """Returns registry validity errors, or [] when the validator is
@@ -43,27 +49,6 @@ def _registry_validation_errors(repo_root: Path) -> List[str]:
         return [f"registry validation failed unexpectedly: {exc}"]
 
 SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1", "1"}
-
-
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a diagnostic block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters inspection decisions, the stdout report/JSON,
-    exit codes, or the zero-write invariant — it is a stderr notice wrapped
-    around the existing structured diagnostics."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
 
 
 CANONICAL_ACTIONS = {

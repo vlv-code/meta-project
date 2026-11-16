@@ -18,6 +18,12 @@ import sys
 import time
 from typing import Any, List, Optional, Set, Union
 
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.record_obs import ...)
+    from scripts._common import _error_envelope
+except ImportError:  # direct script execution: python scripts/record_obs.py
+    from _common import _error_envelope
+
 # Unified vocabulary (D8): union of the skill-doc list and the engine list.
 # Explicit domain tags already recorded in live knowledge bases stay accepted.
 CANONICAL_CATEGORIES: Set[str] = {
@@ -41,26 +47,6 @@ CANONICAL_CATEGORIES: Set[str] = {
 
 DEFAULT_OBSERVATIONS_PATH = Path(".agents/project_knowledge/observations.md")
 
-
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a failure block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters validation decisions, refusal payloads, exit
-    codes, or rc semantics — it wraps the existing structured refusals, which
-    keep their full content on the following lines."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
 
 DEFAULT_HEADER = """# Agent Observations Base
 

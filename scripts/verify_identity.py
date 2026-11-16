@@ -14,6 +14,12 @@ import re
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
+try:  # shared helpers (ADR #22): package-style import (tests: from
+    # scripts.verify_identity import ...)
+    from scripts._common import _error_envelope
+except ImportError:  # direct script execution: python scripts/verify_identity.py
+    from _common import _error_envelope
+
 DEFAULT_REGISTRY_REL = Path(".agents/meta-project.json")
 
 VALID_SCENARIO_PROFILES = {
@@ -41,27 +47,6 @@ SUPPORTED_REGISTRY_SCHEMA_VERSIONS = ("1.0", "1.1")
 # installation (see evaluate_actor_admission).
 VALID_INSTALLATION_STATUSES = {"planned", "active", "disabled", "archived"}
 VALID_BINDING_STATUSES = {"planned", "active", "disabled", "archived"}
-
-
-def _error_envelope(
-    code: str,
-    file: str,
-    reason: str,
-    expected: str,
-    actual: str,
-    next_step: str,
-) -> str:
-    """Uniform Wave E error envelope (presentation ONLY).
-
-    Returns the canonical leading line of a failure block:
-        [CODE] <file>: <reason> | expected: <X> | actual: <Y> | next: <step>
-    The envelope never alters resolution decisions, refusal payloads, exit
-    codes, or rc semantics — it wraps the existing structured refusals, which
-    keep their full content on the following lines."""
-    return (
-        f"[{code}] {file}: {reason} | expected: {expected} | "
-        f"actual: {actual} | next: {next_step}"
-    )
 
 
 def validate_schema_version(value: Any) -> List[str]:
