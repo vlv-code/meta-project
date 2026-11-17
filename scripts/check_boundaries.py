@@ -640,6 +640,23 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
+    # Wave P acceptance D7: the sanction flags are a mutual trio. A subset
+    # used to crash with a raw TypeError deep in the sanction reader
+    # (open(NoneType)); fail-closed stays, but the surface is a clean
+    # argparse usage error (rc=2) naming the missing flags.
+    sanction_trio = [args.sanction_file, args.sanction_base_sha, args.sanction_actor]
+    provided = [flag for flag, value in (
+        ("--sanction-file", args.sanction_file),
+        ("--sanction-base-sha", args.sanction_base_sha),
+        ("--sanction-actor", args.sanction_actor),
+    ) if value]
+    if any(sanction_trio) and len(provided) != 3:
+        parser.error(
+            "the sanction flags are a mutual trio: --sanction-file, "
+            "--sanction-base-sha and --sanction-actor must be supplied "
+            f"together; missing: {', '.join(set(('--sanction-file', '--sanction-base-sha', '--sanction-actor')) - set(provided))}"
+        )
+
     # Authoritative repository root for all modes and git operations (audit §2:
     # --repo-root must define the repository for every git invocation).
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
