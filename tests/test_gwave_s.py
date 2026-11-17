@@ -315,6 +315,7 @@ class TestManageResourcesByteCanonical(unittest.TestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
 
 
     def test_resources_match_canonical_bytes(self):

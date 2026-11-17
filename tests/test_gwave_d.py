@@ -101,6 +101,7 @@ class TestDecommissionSectionReferences(unittest.TestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
 
 
     def test_template_canon_is_8_sections_with_roster_at_7(self):
@@ -161,6 +162,7 @@ class TestScanSectionReferences(unittest.TestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
 
 
     def _assert_skill(self, skill_file: Path):
@@ -206,6 +208,7 @@ class TestTuneFieldNamesEnglish(unittest.TestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
 
 
     def _phase3_block(self, skill_file: Path) -> str:
