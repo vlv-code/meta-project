@@ -257,10 +257,6 @@ class EngineBusyError(UpdateEngineError):
     holds the repository lock; concurrent operations are refused."""
 
 
-class BaseUnavailableError(UpdateEngineError):
-    """No merge base matching the lock record is available."""
-
-
 class LegacyDuplicateError(UpdateEngineError):
     """Divergent canonical/legacy copies of a managed utility: halt."""
 
@@ -284,6 +280,25 @@ def _sha256_bytes(data: bytes) -> str:
 
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _installed_match(local_bytes: Optional[bytes], recorded_sha: str) -> tuple:
+    """Compare working-copy bytes against the lock-recorded installed sha256.
+
+    Returns ``(matched, eol_only)``. A raw hash match is an exact match; a
+    match after CRLF→LF normalization is an EOL-only match (autocrlf smudge
+    on a fresh checkout) — still an installed match, flagged for an explicit
+    diagnostic. Content changes never match. Cache-manifest verification and
+    origin cross-verification do NOT use this helper: they stay byte-exact
+    (Wave G Lane H)."""
+    if not recorded_sha or local_bytes is None:
+        return (False, False)
+    if _sha256_bytes(local_bytes) == recorded_sha:
+        return (True, False)
+    normalized = local_bytes.replace(b"\r\n", b"\n")
+    if _sha256_bytes(normalized) == recorded_sha:
+        return (True, True)
+    return (False, False)
 
 
 def _entry_installed_sha(entry: Optional[Dict[str, Any]]) -> str:
@@ -395,10 +410,6 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
         except OSError:
             pass
         raise
-
-
-def _atomic_write_text(path: Path, text: str) -> None:
-    _atomic_write_bytes(path, text.encode("utf-8"))
 
 
 def _split_list(value: Optional[str]) -> List[str]:
@@ -900,10 +911,10 @@ def load_bundle(
     offline loads can verify it.
 
     Raises MixedBundleError when neither source yields one integral revision,
-    PartialCacheError for a partial cache entry, CacheVerificationError for a
-    tampered/mis-pinned/unverifiable cache, and BaseUnavailableError
-    semantics are carried by the empty ``base`` pool (plan_updates turns it
-    into ``needs_base`` entries).
+    PartialCacheError for a partial cache entry, and CacheVerificationError
+    for a tampered/mis-pinned/unverifiable cache. A missing merge base is NOT
+    an exception: the empty ``base`` pool flows into plan_updates, which
+    turns it into ``needs_base`` entries.
 
     Returns: {manifest, files: {path: bytes}, base: {path: bytes},
     commit_sha, origin_repo, ref, origin: 'cache'|'upstream'}.
@@ -1099,8 +1110,10 @@ def check_updates(
             })
             drifted.append(path)
             continue
-        current = _sha256_file(local)
-        if recorded and current != recorded:
+        local_bytes = local.read_bytes()
+        current = _sha256_bytes(local_bytes)
+        matched, eol_only = _installed_match(local_bytes, recorded)
+        if recorded and not matched:
             diagnostics.append({
                 "path": path,
                 "status": "diverged",
@@ -1113,6 +1126,21 @@ def check_updates(
                 ),
             })
             drifted.append(path)
+        elif eol_only:
+            # Wave G Lane H: a fresh autocrlf checkout smudges LF-installed
+            # files to CRLF. Line-endings-only difference is NOT drift — the
+            # content matches the installation record (an EOL-only flip is
+            # not tampering; cache-manifest and origin cross-verification
+            # remain byte-exact). Surface an explicit diagnostic instead.
+            diagnostics.append({
+                "path": path,
+                "status": "eol_normalized",
+                "detail": (
+                    "working-copy bytes differ from the lock record by "
+                    "CRLF/LF line endings only (autocrlf checkout); content "
+                    "matches the installation record"
+                ),
+            })
 
     for comp in _components_of(bundle.get("manifest") or {}):
         path = _posix(comp.get("path", ""))
@@ -1524,14 +1552,21 @@ def plan_updates(
             })
             continue
 
-        if recorded_installed and current_sha == recorded_installed:
-            # Local content matches the installation record: fast-forward,
-            # no merge base bytes needed. NEVER a plain overwrite when the
-            # local file carries local_repo_data blocks (п.1): the blocks are
-            # extracted and re-injected into the new bytes — equivalent to a
-            # merge with an empty base delta. Plain overwrite remains only
-            # for marker-free files.
-            if new_bytes == local_bytes:
+        matched_installed, eol_only = _installed_match(
+            local_bytes, recorded_installed
+        )
+        if matched_installed:
+            # Local content matches the installation record (exact, or
+            # EOL-only after an autocrlf smudge — Wave G Lane H): fast-
+            # forward, no merge base bytes needed. NEVER a plain overwrite
+            # when the local file carries local_repo_data blocks (п.1): the
+            # blocks are extracted and re-injected into the new bytes —
+            # equivalent to a merge with an empty base delta. Plain overwrite
+            # remains only for marker-free files. EOL-only matches always
+            # produce a write (normalizing the copy back to pinned LF bytes);
+            # expected_before_sha256 stays the RAW working-tree sha so the
+            # apply-time TOCTOU guard remains exact.
+            if new_bytes == local_bytes and not eol_only:
                 up_to_date.append({"path": rel, "kind": kind, "sha256": current_sha})
             else:
                 local_blocks = _extract_local_blocks(local_bytes, rel)
@@ -2468,12 +2503,6 @@ def build_cli_parser() -> argparse.ArgumentParser:
         "check", help="Read-only availability & drift check (zero-write)"
     )
     _add_source_args(p_check, repo_root_required=False)
-    p_check.add_argument(
-        "--full",
-        action="store_true",
-        help="Unused for check (output carries no content blobs by design); "
-        "accepted for flag symmetry with `plan`",
-    )
 
     p_plan = subparsers.add_parser(
         "plan", help="Read-only three-way merge plan (zero-write)"
