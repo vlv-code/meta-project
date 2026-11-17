@@ -183,6 +183,14 @@ class TestInspectEnvelope(TempRootTestCase):
     the CONTEXT_UNRESOLVED state: the report (stdout JSON, rc 0) is unchanged
     and the envelope appears on stderr as the leading line."""
 
+    def setUp(self):
+        # Dogfood-branch contract: the envelope contract under test is defined
+        # against the live meta-project installation schema.
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
     def test_context_unresolved_state_envelope(self):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):

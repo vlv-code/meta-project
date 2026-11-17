@@ -161,6 +161,13 @@ class TestTuneCostAccounting(unittest.TestCase):
 class TestSkillMirrorsByteIdentical(unittest.TestCase):
     """C.5 lock-in: mirrors of the three touched skills stay byte-identical."""
 
+    def setUp(self):
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
+
     def test_manage_mirror_in_sync(self):
         canonical = read_text(MANAGE_SKILL)
         mirror = read_text(REPO_ROOT / ".agents" / "skills" / "manage-meta-project" / "SKILL.md")

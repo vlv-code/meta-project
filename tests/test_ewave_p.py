@@ -295,6 +295,13 @@ class TestSyncResourcesZeroDrift(unittest.TestCase):
 class TestResourcesByteCanonical(unittest.TestCase):
     """(e) Every resources/ file is byte-equal to its canonical source (and mirror)."""
 
+    def setUp(self):
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
+
     def test_resources_match_canonical_bytes(self):
         for name, canon_rel in CANONICAL_SOURCES.items():
             res_path = RESOURCES_DIR / name
