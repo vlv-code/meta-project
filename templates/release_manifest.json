@@ -1,54 +1,290 @@
 {
   "schema_version": "1.0.0",
-  "framework_version": "1.0.0-alpha.6",
+  "framework_version": "1.0.0-alpha.7",
   "channel": "preview",
-  "supported_registry_schemas": ["1.0", "1.1"],
+  "supported_registry_schemas": [
+    "1.0",
+    "1.1"
+  ],
   "components": [
-    {"path": "scripts/_common.py", "kind": "script", "requires": []},
-    {"path": "scripts/check_boundaries.py", "kind": "script", "requires": ["scripts/_common.py"]},
-    {"path": "scripts/verify_identity.py", "kind": "script", "requires": ["scripts/_common.py"]},
-    {"path": "scripts/inspect_meta_project.py", "kind": "script", "requires": ["scripts/verify_identity.py", "scripts/_common.py"]},
-    {"path": "scripts/manage_reports.py", "kind": "script", "requires": ["scripts/verify_identity.py", "scripts/_common.py"]},
-    {"path": "scripts/record_obs.py", "kind": "script", "requires": ["scripts/_common.py"]},
-    {"path": "scripts/compact_memory.py", "kind": "script", "requires": ["scripts/_common.py"]},
-    {"path": "scripts/sync_templates.py", "kind": "script", "requires": []},
-    {"path": "scripts/update_meta_project.py", "kind": "script", "requires": ["scripts/_common.py"]},
-    {"path": "skills/init-meta-project/SKILL.md", "kind": "skill", "requires": []},
-    {"path": "skills/init-meta-project/resources/observations.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/boundaries.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/weak_spots.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/architecture.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/tasks.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/AGENTS.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/record-observation-SKILL.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/sync-architecture-SKILL.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/init-meta-project/resources/ground-meta-project-SKILL.md", "kind": "resource", "requires": ["skills/init-meta-project/SKILL.md"]},
-    {"path": "skills/manage-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/manage_reports.py"]},
-    {"path": "skills/manage-meta-project/resources/profile.md", "kind": "resource", "requires": ["skills/manage-meta-project/SKILL.md"]},
-    {"path": "skills/manage-meta-project/resources/notes.md", "kind": "resource", "requires": ["skills/manage-meta-project/SKILL.md"]},
-    {"path": "skills/manage-meta-project/resources/system_prompt.md", "kind": "resource", "requires": ["skills/manage-meta-project/SKILL.md"]},
-    {"path": "skills/record-observation/SKILL.md", "kind": "skill", "requires": ["scripts/record_obs.py", "scripts/compact_memory.py"]},
-    {"path": "skills/sync-architecture/SKILL.md", "kind": "skill", "requires": []},
-    {"path": "skills/ground-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/inspect_meta_project.py"]},
-    {"path": "skills/update-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/update_meta_project.py"]},
-    {"path": "skills/decommission-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/verify_identity.py"]},
-    {"path": "skills/scan-meta-project/SKILL.md", "kind": "skill", "requires": ["scripts/check_boundaries.py"]},
-    {"path": "skills/tune-meta-project/SKILL.md", "kind": "skill", "requires": []},
-    {"path": "templates/AGENTS.md", "kind": "template", "requires": []},
-    {"path": "templates/global/AGENTS.md", "kind": "template", "requires": []},
-    {"path": "templates/project_knowledge/architecture.md", "kind": "template", "requires": []},
-    {"path": "templates/project_knowledge/boundaries.md", "kind": "template", "requires": []},
-    {"path": "templates/project_knowledge/observations.md", "kind": "template", "requires": []},
-    {"path": "templates/project_knowledge/tasks.md", "kind": "template", "requires": []},
-    {"path": "templates/project_knowledge/weak_spots.md", "kind": "template", "requires": []},
-    {"path": "templates/release_manifest.json", "kind": "template", "requires": []},
-    {"path": "templates/team/notes.md", "kind": "template", "requires": []},
-    {"path": "templates/team/profile.md", "kind": "template", "requires": []},
-    {"path": "templates/team/system_prompt.md", "kind": "template", "requires": []},
-    {"path": "templates/reports/init_report.json", "kind": "report_schema", "requires": []},
-    {"path": "templates/reports/manage_report.json", "kind": "report_schema", "requires": []},
-    {"path": "templates/reports/tune_report.json", "kind": "report_schema", "requires": []},
-    {"path": "templates/reports/update_report.json", "kind": "report_schema", "requires": []}
+    {
+      "path": "scripts/_common.py",
+      "kind": "script",
+      "requires": []
+    },
+    {
+      "path": "scripts/check_boundaries.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/verify_identity.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/inspect_meta_project.py",
+      "kind": "script",
+      "requires": [
+        "scripts/verify_identity.py",
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/manage_reports.py",
+      "kind": "script",
+      "requires": [
+        "scripts/verify_identity.py",
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/record_obs.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/compact_memory.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/sync_templates.py",
+      "kind": "script",
+      "requires": []
+    },
+    {
+      "path": "scripts/update_meta_project.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": []
+    },
+    {
+      "path": "skills/init-meta-project/resources/observations.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/boundaries.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/weak_spots.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/architecture.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/tasks.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/AGENTS.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/record-observation-SKILL.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/sync-architecture-SKILL.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/init-meta-project/resources/ground-meta-project-SKILL.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/manage-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/manage_reports.py"
+      ]
+    },
+    {
+      "path": "skills/manage-meta-project/resources/profile.md",
+      "kind": "resource",
+      "requires": [
+        "skills/manage-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/manage-meta-project/resources/notes.md",
+      "kind": "resource",
+      "requires": [
+        "skills/manage-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/manage-meta-project/resources/system_prompt.md",
+      "kind": "resource",
+      "requires": [
+        "skills/manage-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/record-observation/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/record_obs.py",
+        "scripts/compact_memory.py"
+      ]
+    },
+    {
+      "path": "skills/sync-architecture/SKILL.md",
+      "kind": "skill",
+      "requires": []
+    },
+    {
+      "path": "skills/ground-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/inspect_meta_project.py"
+      ]
+    },
+    {
+      "path": "skills/update-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/update_meta_project.py"
+      ]
+    },
+    {
+      "path": "skills/decommission-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/verify_identity.py"
+      ]
+    },
+    {
+      "path": "skills/scan-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/check_boundaries.py"
+      ]
+    },
+    {
+      "path": "skills/tune-meta-project/SKILL.md",
+      "kind": "skill",
+      "requires": []
+    },
+    {
+      "path": "templates/AGENTS.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/global/AGENTS.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/project_knowledge/architecture.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/project_knowledge/boundaries.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/project_knowledge/observations.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/project_knowledge/tasks.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/project_knowledge/weak_spots.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/release_manifest.json",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/team/notes.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/team/profile.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/team/system_prompt.md",
+      "kind": "template",
+      "requires": []
+    },
+    {
+      "path": "templates/reports/init_report.json",
+      "kind": "report_schema",
+      "requires": []
+    },
+    {
+      "path": "templates/reports/manage_report.json",
+      "kind": "report_schema",
+      "requires": []
+    },
+    {
+      "path": "templates/reports/tune_report.json",
+      "kind": "report_schema",
+      "requires": []
+    },
+    {
+      "path": "templates/reports/update_report.json",
+      "kind": "report_schema",
+      "requires": []
+    }
   ],
   "migrations": []
 }

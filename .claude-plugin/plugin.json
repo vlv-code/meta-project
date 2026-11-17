@@ -1,7 +1,7 @@
 {
   "name": "meta-project",
   "description": "Agentic environment and context organization framework: project passport (AGENTS.md), dynamic knowledge slices, and procedural skills for any repository. Install, inspect, and adapt your agent environment with one command.",
-  "version": "1.0.0-alpha.6",
+  "version": "1.0.0-alpha.7",
   "author": {
     "name": "vlv-code"
   },
