@@ -5,6 +5,8 @@ Verifies zone parsing, Default Deny evaluation, glob matching, and exit codes.
 
 from pathlib import Path
 import subprocess
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 import sys
 import tempfile
 import unittest
@@ -425,5 +427,49 @@ class TestArchitectureDrift(unittest.TestCase):
         self.assertIn("skills/my-new-skill/SKILL.md", drift_files)
 
 
+
+
+class TestSanctionFlagPairing(unittest.TestCase):
+    """Wave P acceptance D7: --sanction-base-sha / --sanction-file /
+    --sanction-actor are a mutual trio. Supplying a subset crashed with a
+    raw TypeError (open(NoneType)); the CLI must fail with a clean usage
+    error instead (fail-closed preserved, crash-form removed)."""
+
+    def _run(self, *flags):
+        import subprocess
+
+        return subprocess.run(
+            [sys.executable, "-B", str(REPO_ROOT / "scripts" / "check_boundaries.py"), *flags],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+
+    def test_base_sha_without_file_is_clean_usage_error(self):
+        proc = self._run("--diff", "HEAD", "--sanction-base-sha", "abc")
+        self.assertEqual(proc.returncode, 2, "argparse usage error must exit rc=2")
+        self.assertIn("usage:", proc.stderr)
+        self.assertNotIn("Traceback", proc.stderr)
+        self.assertNotIn("TypeError", proc.stderr)
+
+    def test_file_without_base_sha_is_clean_usage_error(self):
+        proc = self._run("--diff", "HEAD", "--sanction-file", "x.json")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("usage:", proc.stderr)
+        self.assertNotIn("Traceback", proc.stderr)
+
+    def test_actor_alone_is_clean_usage_error(self):
+        proc = self._run("--diff", "HEAD", "--sanction-actor", "someone")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("usage:", proc.stderr)
+        self.assertNotIn("Traceback", proc.stderr)
+
+    def test_full_trio_still_parses(self):
+        proc = self._run("--diff", "HEAD", "--sanction-file", "x.json",
+                         "--sanction-base-sha", "abc", "--sanction-actor", "op")
+        self.assertNotIn("Traceback", proc.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
+
