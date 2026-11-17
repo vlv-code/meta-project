@@ -73,6 +73,11 @@ class TestSkillsIntegrity(unittest.TestCase):
 
     def test_skills_parity_between_canonical_and_agent_copies(self):
         """Verify that every skill in skills/ has an identical copy in .agents/skills/."""
+        if not (ROOT_DIR / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+        super().setUp()
         skills_dir = ROOT_DIR / "skills"
         agent_skills_dir = ROOT_DIR / ".agents" / "skills"
         self.assertTrue(agent_skills_dir.is_dir(), ".agents/skills directory not found")
@@ -210,6 +215,11 @@ class TestTemplatesIntegrity(unittest.TestCase):
 
     def test_team_profiles_have_valid_yaml_frontmatter(self):
         """Verify that templates/team/profile.md and active .agents/team/*/profile.md files have valid YAML frontmatter."""
+        if not (ROOT_DIR / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+        super().setUp()
         required_fields = ["name:", "role_id:", "description:", "tools:", "model:", "invocation_triggers:"]
 
         # 1. Check template

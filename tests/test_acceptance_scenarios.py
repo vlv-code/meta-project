@@ -396,6 +396,11 @@ class TestAcceptanceScenarios(unittest.TestCase):
     # =========================================================================
     def test_scenario_9_readme_entry_without_skills(self):
         """Scenario 9: Agent without global skills navigates via self-contained AGENTS.md and local CLIs."""
+        if not (REPO_ROOT / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+        super().setUp()
         # Verify repository canonical entry in root README.md
         readme_path = REPO_ROOT / "README.md"
         self.assertTrue(readme_path.is_file(), "Root README.md must exist")
