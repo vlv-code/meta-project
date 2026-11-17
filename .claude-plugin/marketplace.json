@@ -1,0 +1,13 @@
+{
+  "name": "meta-project",
+  "owner": {
+    "name": "vlv-code"
+  },
+  "plugins": [
+    {
+      "name": "meta-project",
+      "source": "./",
+      "description": "Agentic environment and context organization framework: project passport, dynamic knowledge slices, and procedural skills for any repository."
+    }
+  ]
+}
