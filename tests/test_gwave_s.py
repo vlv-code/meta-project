@@ -310,6 +310,13 @@ class TestManageSkillLoadingContract(unittest.TestCase):
 class TestManageResourcesByteCanonical(unittest.TestCase):
     """(e) Every manage resources/ file is byte-equal to its canonical source (and mirror)."""
 
+    def setUp(self):
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
+
     def test_resources_match_canonical_bytes(self):
         for name, canon_rel in MANAGE_CANONICAL_SOURCES.items():
             res_path = MANAGE_RESOURCES_DIR / name

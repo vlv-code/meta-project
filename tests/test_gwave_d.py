@@ -96,6 +96,13 @@ class TestDecommissionSectionReferences(unittest.TestCase):
     passport roster; the stale legacy "## 6. Project Agent Team" reference
     is gone (canonical structure verified against templates/AGENTS.md)."""
 
+    def setUp(self):
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
+
     def test_template_canon_is_8_sections_with_roster_at_7(self):
         template = _read(REPO_ROOT / "templates" / "AGENTS.md")
         headings = re.findall(r"^## (\d+)\. (.+)$", template, flags=re.M)
@@ -149,6 +156,13 @@ class TestScanSectionReferences(unittest.TestCase):
     section names (Sections 2-5) instead of bare stale numbers — the names
     must match templates/AGENTS.md headings exactly (nothing invented)."""
 
+    def setUp(self):
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
+
     def _assert_skill(self, skill_file: Path):
         text = _read(skill_file)
         self.assertIn(
@@ -186,6 +200,13 @@ class TestTuneFieldNamesEnglish(unittest.TestCase):
     """Plan §5.2 / §5.4(c): the Phase 3 proposal-record field names are
     English — the artifact must not mix Russian field names into an English
     procedure (init's bilingual interview exemption does not apply here)."""
+
+    def setUp(self):
+        if not (Path(__file__).resolve().parent.parent / ".agents" / "meta-project.json").is_file():
+            self.skipTest(
+                "dogfood-branch contract: requires the live meta-project installation"
+            )
+
 
     def _phase3_block(self, skill_file: Path) -> str:
         text = _read(skill_file)
