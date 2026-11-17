@@ -12,6 +12,9 @@ on:
       - 'CONTRIBUTING.ru.md'
   pull_request:
     branches: [main]
+  # Manual dispatch is the ONLY trigger for the opt-in `claude-validate`
+  # job; it never runs on push/PR and never blocks merge gating.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -128,6 +131,22 @@ jobs:
 
       - name: Run integrity tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      # External dev-tool validation (auditor v2 §2.4): the Agent Skills
+      # reference validator (`skills-ref validate`, one call per skill
+      # directory — its real CLI has no `check --strict`). External dev-tool;
+      # non-blocking until the alpha.7 validator decision.
+      - name: External skills-ref validation (non-blocking)
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eu
+          # pin: bump deliberately (skills-ref@0.1.5 — npm "Reference library
+          # for Agent Skills"; exact pin, never @latest).
+          for skill_dir in ./skills/*/; do
+            npx --yes skills-ref@0.1.5 validate "$skill_dir"
+          done
 
       - name: Verify installation identity (verify_identity --check)
         if: ${{ hashFiles('.agents/meta-project.json') != '' }}
@@ -291,3 +310,21 @@ jobs:
             exit 1
           fi
           echo "All Checks Green: every validate leg succeeded."
+
+  # Opt-in manual validation of the Claude Code plugin manifests. Triggered
+  # ONLY via workflow_dispatch (see the `on:` block) and not part of the
+  # `all-checks` aggregate, so it can never block push/PR gating.
+  # Requires Claude Code CLI on the runner; manual validation until proven.
+  claude-validate:
+    name: Claude Plugin Validate (manual, opt-in)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Validate plugin manifests (Claude Code CLI)
+        shell: bash
+        run: |
+          set -eu
+          claude plugin validate --strict .

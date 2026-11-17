@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "red_zone_sanction",
+  "base_sha": "78501516d7252b9e2e0c9905630ec85fa54717ba",
+  "authorized_by": "vlv-code",
+  "paths": [
+    ".github/workflows/ci.yml",
+    ".agents/project_knowledge/boundaries.md",
+    ".github/red-zone-sanction.json"
+  ],
+  "reason": "Wave P: plugin packaging (owner decision in-session 2026-11-17: 'это будет плагин'); expires with the bound revision."
+}
