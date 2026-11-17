@@ -14,6 +14,28 @@
 
 ---
 
+## [1.0.0-alpha.6] - 2026-11-17
+
+### Added / Добавлено
+- **Волна G — Context Economy II и гигиенический хвост**:
+  - **manage-slim (lane S, init-P2 паттерн)**: встроенные team-шаблоны вынесены в `skills/manage-meta-project/resources/` (байт-копии `templates/team/*`); SKILL.md сокращён 394 → ~230 строк с сохранением контракта загрузки ресурсов (конверт `MISSING_RESOURCE`), таблицы 5 операций и инвариантов топологии; `sync_templates` перевёл manage с EMBEDDED_TARGETS на RESOURCE_TARGETS; манифест вырос до 12 ресурсных компонентов (kind `resource`, requires manage-скилл) — runtime-layout маппинг движка покрывает их без изменений.
+  - **`--facts-digest` (lane I)**: `inspect_meta_project` отдаёт детерминированный компактный JSON-отпечаток «проверенных фактов» (состояние репо, sha256 пяти срезов + реестра, матрица возможностей, версия тулинга); байт-стабилен на одинаковых входах; zero-write; ground-скилл: застэшенный дайджест заменяет перечитывание неизменённых срезов, несовпадение называет ровно те срезы, которые стоит перечитать.
+  - **Словарь примитивов (lane D)**: `docs/primitives.md` — 4 повторяющиеся операции, смаппленные на работающие реализации (survey → `inspect_meta_project`, identity admission → `verify_identity.evaluate_actor_admission`, report intake → `manage_reports.evaluate_manage_intake`, observation recording → `record_obs.record_observation`).
+  - **Канон документации (lane D)**: section-map drift устранён (decommission — канонические 8 секций паспорта; scan — фактический проверяемый набор секций); tune-поля протокола переведены на английский (артефактные поля, двуязычная-интервью-исключение не применяется).
+- **Манифест**: `framework_version` = `1.0.0-alpha.6` (= тег).
+
+### Removed / Удалено
+- **Мёртвый код движка (lane H, U4/U10)**: `BaseUnavailableError` (никогда не поднимался) и `_atomic_write_text` (не вызывался) удалены; grep-lock тест против регенерации; мёртвый флаг `--full` команды `check` снят вместе с остатками парсинга.
+
+### Fixed / Исправлено
+- **EOL false-drift контракт (lane H)**: LF-запись в lock + CRLF-копия в рабочем дереве (симуляция свежего чекаута с autocrlf) больше не даёт ложный `drifted` — `check`/`plan` отдают диагностическое `eol_normalized: true`, когда LF-нормализованные байты совпадают с записью lock; подделка контента по-прежнему детектируется (EOL-флип — не тамперинг; семантика lock/installed_sha неизменна).
+
+### Known Limitations / Известные ограничения
+- SHA-привязанная авторизация Red-Zone правок мейнтейнером — открыта; Branch Protection: single required check **`all-checks`** (владельцу).
+- Ресурсные байт-копии — parity с нормализацией EOL (контракт lane H); CRLF-writer синхронизатора — вне волны.
+
+---
+
 ## [1.0.0-alpha.5] - 2026-11-17
 
 ### Added / Добавлено
