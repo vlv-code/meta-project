@@ -14,6 +14,21 @@
 
 ---
 
+## [1.0.0-alpha.7] - 2026-11-17
+
+### Added / Добавлено
+- **Волна P — Plugin Packaging: установка в один комманду через три канала**:
+  - **Три манифеста каналов**: `plugin.json` (Agent Plugins 1.0.0), `.claude-plugin/plugin.json` (Claude Code plugin), `.claude-plugin/marketplace.json` (маркетплейс) — версионные замки приравнивают `version` обоих манифестов к `framework_version` релизного манифеста (single source of truth).
+  - **Лицензионно-совместимый frontmatter** во всех девяти скиллах (`license`, `compatibility`) — требование плагинных каналов; ресурсные копии ресинхронизированы (0 drift).
+  - **Каналы установки в README** (EN/RU): one-command пути для Claude Code plugin, Agent Plugins и skills.sh.
+  - **CI-валидация формата** манифестов (pinned, non-blocking — Default Closed Tooling); zero dual-canon: скрипты остаются в корне репо, requires-граф — честная декларация зависимостей (per-skill embedding отклонён по уроку волны G).
+  - `framework_version` = `1.0.0-alpha.7` (= тег = оба plugin-манифеста).
+
+### Fixed / Исправлено
+- **D7 (Step 86)**: частичное использование тройки sanction-флагов гейта падало сырым TypeError в глубине sanction-ридера (`open(NoneType)`); fail-closed сохранён, поверхность — чистая argparse usage error (rc=2) с именованием недостающих флагов.
+
+---
+
 ## [1.0.0-alpha.6] - 2026-11-17
 
 ### Added / Добавлено
