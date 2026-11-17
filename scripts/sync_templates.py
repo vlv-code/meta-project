@@ -2,10 +2,15 @@
 """
 Template Injection & Skill Parity Synchronizer.
 Zero-dependency utility (pure Python 3.10+ standard library).
-Injects canonical templates from templates/ into embedded sections of skills/,
-byte-copies canonical templates/skills into skills/init-meta-project/resources/
-(Wave E Lane P2 lazy-load pilot), and mirrors canonical skills/ (SKILL.md plus
-resources/) into .agents/skills/.
+Byte-copies canonical templates/skills into per-skill resources/ directories
+(skills/init-meta-project/resources/ — Wave E Lane P2 lazy-load pilot;
+skills/manage-meta-project/resources/ — Wave G Lane S manage-slim), and
+mirrors canonical skills/ (SKILL.md plus resources/) into .agents/skills/.
+
+Wave G Lane S supersession: the embedded TEMPLATE-block injection mechanism
+(EMBEDDED_TARGETS / replace_embedded_template / sync_embedded_templates) is
+removed — its last consumer (manage-meta-project) moved to resource
+byte-copy semantics, so no embedded sections remain anywhere.
 """
 
 from __future__ import annotations
@@ -14,14 +19,6 @@ import argparse
 from pathlib import Path
 import sys
 from typing import Dict, List, Optional, Tuple
-
-EMBEDDED_TARGETS: Dict[str, Dict[str, str]] = {
-    "skills/manage-meta-project/SKILL.md": {
-        "profile.md": "templates/team/profile.md",
-        "notes.md": "templates/team/notes.md",
-        "system_prompt.md": "templates/team/system_prompt.md",
-    },
-}
 
 # Wave E Lane P2: init ships its templates/skills as sibling resource files
 # (byte-copies of the canonical sources) instead of embedded TEMPLATE blocks.
@@ -41,126 +38,69 @@ RESOURCE_TARGETS: Dict[str, str] = {
     "ground-meta-project-SKILL.md": "skills/ground-meta-project/SKILL.md",
 }
 
+# Wave G Lane S: manage ships its team templates the same way (init-P2
+# pattern). Canonical sources stay in templates/team/ — the resource files
+# are byte-copies, never independent edits.
+MANAGE_RESOURCES_DIR = "skills/manage-meta-project/resources"
 
-def replace_embedded_template(
-    text: str, tmpl_name: str, new_template_content: str
-) -> Tuple[str, bool, Optional[str]]:
-    """
-    Locates an embedded template block between:
-      <!-- TEMPLATE:BEGIN tmpl_name -->
-      ...
-      <!-- TEMPLATE:END tmpl_name -->
-    and replaces its inner body with new_template_content wrapped in a fenced block.
-    Returns (updated_text, modified, error_message).
-    """
-    begin_marker = f"<!-- TEMPLATE:BEGIN {tmpl_name} -->"
-    end_marker = f"<!-- TEMPLATE:END {tmpl_name} -->"
+MANAGE_RESOURCE_TARGETS: Dict[str, str] = {
+    "profile.md": "templates/team/profile.md",
+    "notes.md": "templates/team/notes.md",
+    "system_prompt.md": "templates/team/system_prompt.md",
+}
 
-    begin_idx = text.find(begin_marker)
-    end_idx = text.find(end_marker)
-
-    if begin_idx == -1 or end_idx == -1 or end_idx < begin_idx:
-        return text, False, f"Missing template block: sentinel markers '{begin_marker}' ... '{end_marker}' not found"
-
-    inner_start = begin_idx + len(begin_marker)
-    old_inner = text[inner_start:end_idx]
-
-    formatted_new_inner = f"\n```markdown\n{new_template_content.rstrip()}\n```\n"
-
-    if old_inner.strip() == formatted_new_inner.strip():
-        return text, False, None
-
-    new_text = text[:inner_start] + formatted_new_inner + text[end_idx:]
-    return new_text, True, None
-
-
-def sync_embedded_templates(
-    repo_root: Path, write: bool = False
-) -> Tuple[bool, List[str]]:
-    """
-    Synchronizes canonical templates from templates/ into embedded sections of skills/.
-    Returns (in_sync, list_of_drift_messages).
-    """
-    drift_messages: List[str] = []
-
-    for target_skill_rel, tmpl_map in EMBEDDED_TARGETS.items():
-        skill_path = repo_root / target_skill_rel
-        if not skill_path.is_file():
-            drift_messages.append(f"Missing target skill file: {target_skill_rel}")
-            continue
-
-        content = skill_path.read_text(encoding="utf-8")
-        original_content = content
-
-        for tmpl_name, tmpl_rel in tmpl_map.items():
-            tmpl_path = repo_root / tmpl_rel
-            if not tmpl_path.is_file():
-                drift_messages.append(
-                    f"Missing canonical template file: {tmpl_rel} (required by {target_skill_rel})"
-                )
-                continue
-
-            canonical_content = tmpl_path.read_text(encoding="utf-8")
-            updated, modified, err = replace_embedded_template(
-                content, tmpl_name, canonical_content
-            )
-            if err:
-                drift_messages.append(f"Error in {target_skill_rel}: {err}")
-            elif modified:
-                drift_messages.append(
-                    f"Drift: Embedded template '{tmpl_name}' in {target_skill_rel} diverges from {tmpl_rel}"
-                )
-                content = updated
-
-        if write and content != original_content:
-            skill_path.write_text(content, encoding="utf-8")
-
-    in_sync = len(drift_messages) == 0
-    return in_sync, drift_messages
+# Per-skill resource sync registry: skill resources/ directory ->
+# {resource file name -> canonical source (relative to repo root)}.
+RESOURCE_SYNC_SETS: Dict[str, Dict[str, str]] = {
+    INIT_RESOURCES_DIR: RESOURCE_TARGETS,
+    MANAGE_RESOURCES_DIR: MANAGE_RESOURCE_TARGETS,
+}
 
 
 def sync_skill_resources(
     repo_root: Path, write: bool = False
 ) -> Tuple[bool, List[str]]:
     """
-    Byte-copies canonical sources into skills/init-meta-project/resources/
-    per RESOURCE_TARGETS (Wave E Lane P2): the 6 canonical templates plus the
-    3 shell-skill SKILL.md files (canonical in skills/ themselves, deployed
-    by verbatim file copy). Returns (in_sync, list_of_drift_messages).
+    Byte-copies canonical sources into per-skill resources/ directories per
+    RESOURCE_SYNC_SETS (Wave E Lane P2 for init; Wave G Lane S for manage):
+    the canonical knowledge/passport/team templates plus the 3 shell-skill
+    SKILL.md files (canonical in skills/ themselves, deployed by verbatim
+    file copy). Returns (in_sync, list_of_drift_messages).
 
     Missing CANONICAL sources are unrecoverable ("Missing canonical ..." —
     fatal on --write); a missing or diverged RESOURCE file is recoverable
     drift that --write repairs by byte copy.
     """
     drift_messages: List[str] = []
-    resources_dir = repo_root / INIT_RESOURCES_DIR
 
-    for res_name, canon_rel in RESOURCE_TARGETS.items():
-        canon_path = repo_root / canon_rel
-        if not canon_path.is_file():
-            drift_messages.append(
-                f"Missing canonical source file: {canon_rel} "
-                f"(required by resource {INIT_RESOURCES_DIR}/{res_name})"
-            )
-            continue
-        canon_bytes = canon_path.read_bytes()
-        res_path = resources_dir / res_name
-        if not res_path.is_file():
-            drift_messages.append(
-                f"Drift: Missing resource file {INIT_RESOURCES_DIR}/{res_name} "
-                f"(canonical: {canon_rel})"
-            )
-            if write:
-                resources_dir.mkdir(parents=True, exist_ok=True)
-                res_path.write_bytes(canon_bytes)
-            continue
-        if res_path.read_bytes() != canon_bytes:
-            drift_messages.append(
-                f"Drift: Resource '{INIT_RESOURCES_DIR}/{res_name}' diverges "
-                f"from {canon_rel}"
-            )
-            if write:
-                res_path.write_bytes(canon_bytes)
+    for resources_rel, targets in RESOURCE_SYNC_SETS.items():
+        resources_dir = repo_root / resources_rel
+        for res_name, canon_rel in targets.items():
+            canon_path = repo_root / canon_rel
+            if not canon_path.is_file():
+                drift_messages.append(
+                    f"Missing canonical source file: {canon_rel} "
+                    f"(required by resource {resources_rel}/{res_name})"
+                )
+                continue
+            canon_bytes = canon_path.read_bytes()
+            res_path = resources_dir / res_name
+            if not res_path.is_file():
+                drift_messages.append(
+                    f"Drift: Missing resource file {resources_rel}/{res_name} "
+                    f"(canonical: {canon_rel})"
+                )
+                if write:
+                    resources_dir.mkdir(parents=True, exist_ok=True)
+                    res_path.write_bytes(canon_bytes)
+                continue
+            if res_path.read_bytes() != canon_bytes:
+                drift_messages.append(
+                    f"Drift: Resource '{resources_rel}/{res_name}' diverges "
+                    f"from {canon_rel}"
+                )
+                if write:
+                    res_path.write_bytes(canon_bytes)
 
     in_sync = len(drift_messages) == 0
     return in_sync, drift_messages
@@ -277,15 +217,12 @@ def run_sync(
 ) -> Tuple[bool, List[str]]:
     """
     Executes full synchronization pass:
-      1. Embed canonical templates into skills/ (embedded-section skills).
-      2. Byte-copy canonical sources into skills/init-meta-project/resources/.
-      3. Mirror skills/ (SKILL.md + resources/) into .agents/skills/.
-      4. (Optional) Mirror skills/ into global_dir.
+      1. Byte-copy canonical sources into per-skill resources/ directories
+         (init + manage, per RESOURCE_SYNC_SETS).
+      2. Mirror skills/ (SKILL.md + resources/) into .agents/skills/.
+      3. (Optional) Mirror skills/ into global_dir.
     """
     all_drifts: List[str] = []
-
-    emb_ok, emb_drifts = sync_embedded_templates(repo_root, write=write)
-    all_drifts.extend(emb_drifts)
 
     res_ok, res_drifts = sync_skill_resources(repo_root, write=write)
     all_drifts.extend(res_drifts)
@@ -310,13 +247,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Dry-run check: verify that embedded templates and mirrored skills have zero drift",
+        help="Dry-run check: verify that skill resources and mirrored skills have zero drift",
     )
     parser.add_argument(
         "--write",
         action="store_true",
-        help="Write updates: inject canonical templates into embedded sections, "
-        "byte-copy resources/ for init, and mirror to .agents/skills/",
+        help="Write updates: byte-copy resources/ for skills with sync-managed "
+        "resources (init, manage) and mirror to .agents/skills/",
     )
     parser.add_argument(
         "--repo-root",

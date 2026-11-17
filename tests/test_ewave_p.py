@@ -160,7 +160,15 @@ class TestManifestResourceComponents(unittest.TestCase):
             "release heading (bump both together at release time)",
         )
 
-    def test_nine_resource_components_declared(self):
+    def test_init_resource_components_declared(self):
+        """Wave G Lane S supersession (plan
+        docs/superpowers/plans/2026-11-17-wave-g-context-economy-2.md §4 —
+        mandated manifest change): the manifest resource set grew from 9 to 12
+        (3 manage resources riding the same init-P2 pattern), so the former
+        exact-set equality over ALL resource components is superseded to a
+        subset lock: the 9 init resources are declared with their init-SKILL.md
+        requires edge. The 3 manage components are locked by
+        tests/test_gwave_s.py (TestManifestManageResourceComponents)."""
         resources = {
             str(c.get("path", "")): c
             for c in self.components
@@ -169,12 +177,14 @@ class TestManifestResourceComponents(unittest.TestCase):
         expected = {
             f"skills/init-meta-project/resources/{name}" for name in CANONICAL_SOURCES
         }
-        self.assertEqual(
-            set(resources),
-            expected,
-            "manifest resource components must cover exactly the 9 init resources",
+        self.assertTrue(
+            expected.issubset(resources),
+            f"manifest resource components must cover the 9 init resources; "
+            f"missing: {sorted(expected - set(resources))}",
         )
         for path, comp in resources.items():
+            if not path.startswith("skills/init-meta-project/resources/"):
+                continue
             self.assertEqual(
                 comp.get("requires"),
                 ["skills/init-meta-project/SKILL.md"],
