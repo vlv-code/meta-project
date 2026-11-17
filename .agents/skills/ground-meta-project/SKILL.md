@@ -49,6 +49,7 @@ Read ONLY what the situation needs, by semantic section reference:
 - the assigned role's OWN `notes.md` (foreign passports are not loaded);
 - situation-relevant reports and observations (a found report is context,
   NOT an authorization).
+- a stashed facts digest (`python scripts/inspect_meta_project.py --facts-digest`) may substitute for re-reading unchanged slices — a digest mismatch names exactly which file to re-read.
 Prior-session chat is assumed unavailable; if the original task is not
 recoverable from the sources above, state the absence.
 
