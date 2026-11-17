@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "red_zone_sanction",
+  "base_sha": "5760f3dcdae2e96b04d8488a691d215d5c0a4d03",
+  "authorized_by": "vlv-code",
+  "paths": [
+    "scripts/check_boundaries.py",
+    "scripts/sync_templates.py",
+    ".github/workflows/ci.yml",
+    ".agents/project_knowledge/boundaries.md",
+    ".gitattributes"
+  ],
+  "reason": "Wave H: SHA-bound maintainer sanction mechanism (roadmap 7.2.2 item 4) + EOL contract. Sanctioned by the repo owner in-session; expires with the bound revision."
+}

@@ -10,6 +10,7 @@ Files and directories that the agent can modify autonomously to accomplish the c
 - `docs/**`, `*.md` (except the root `AGENTS.md`) — technical documentation and reports (`CHANGELOG.md`, `CONTRIBUTING.md`, `README.md`).
 - `.agents/team/*/notes.md` — private workspace notes modified exclusively by the role owner.
 - In-code documentation (docstrings, function comments).
+- `.gitattributes` — repository-wide EOL contract configuration (LF checkout policy).
 
 ---
 
