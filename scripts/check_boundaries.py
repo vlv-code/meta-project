@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import json
 import sys
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -29,6 +30,21 @@ except ImportError:  # direct script execution: python scripts/check_boundaries.
 # other value (including unset/empty) keeps the refusal. Default Deny
 # (unmapped) paths are never admitted by this override.
 RED_ZONE_ENV_VAR = "META_PROJECT_ALLOW_RED_ZONE"
+
+# Wave H: SHA-bound maintainer sanction (roadmap 7.2.2 item 4, all three
+# requirements). The sanction is a JSON file carried by the INCOMING push
+# (.github/red-zone-sanction.json) but verified against the PRE-PUSH base
+# revision passed via --sanction-base-sha, so a new push shifts the base and
+# invalidates every older sanction automatically (requirement 3). "WHO" is
+# anchored on two independent checks: the sanction's authorized_by actor AND
+# the platform-provided push actor must both belong to the authorized
+# maintainer set below (the CODEOWNERS owner; requirement 1). Coverage is
+# explicit-path only - no wildcards, every violating Red Zone file must be
+# listed (requirement 2 / no over-broad grants). Default Deny (unmapped)
+# paths are never sanctionable.
+SANCTION_AUTHORIZED_ACTORS = frozenset({"vlv-code"})
+SANCTION_KIND = "red_zone_sanction"
+SANCTION_SCHEMA_VERSION = "1.0.0"
 
 
 def env_allows_red_zone() -> bool:
@@ -603,6 +619,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="Root directory of the repository (default: current working directory)",
     )
+    parser.add_argument(
+        "--sanction-file",
+        type=str,
+        default=None,
+        help="Path to a red_zone_sanction JSON file carried by the incoming push (Wave H SHA-bound maintainer sanction)",
+    )
+    parser.add_argument(
+        "--sanction-base-sha",
+        type=str,
+        default=None,
+        help="The base revision this diff is evaluated against; the sanction must be bound to exactly this SHA",
+    )
+    parser.add_argument(
+        "--sanction-actor",
+        type=str,
+        default=None,
+        help="Platform-provided push actor (GitHub login); must match the sanction's authorized_by maintainer",
+    )
 
     args = parser.parse_args(argv)
 
@@ -717,6 +751,91 @@ def main(argv: Optional[List[str]] = None) -> int:
         env_override_active = True
 
     passed, violations = evaluate_files(files, zones, allow_red_zone=allow_red_zone)
+
+    # Wave H: SHA-bound maintainer sanction. Evaluated ONLY when Red Zone
+    # violations exist and all three sanction flags were provided. Fail-closed
+    # on every tamper pattern; Default Deny (unmapped/black) violations are
+    # never sanctionable.
+    sanction_flags_provided = any(
+        [
+            getattr(args, "sanction_file", None),
+            getattr(args, "sanction_base_sha", None),
+            getattr(args, "sanction_actor", None),
+        ]
+    )
+    if violations and sanction_flags_provided:
+        black_violations = [v for v in violations if v["zone"] == "black"]
+        red_violations = [v for v in violations if v["zone"] == "red"]
+        sanction_base = getattr(args, "sanction_base_sha", None) or ""
+        sanction_actor = getattr(args, "sanction_actor", None) or ""
+        admitted, reject_reason = False, ""
+        try:
+            with open(args.sanction_file, "r", encoding="utf-8") as fh:
+                sanction = json.load(fh)
+            if not isinstance(sanction, dict):
+                reject_reason = "sanction file is not a JSON object"
+            elif sanction.get("kind") != SANCTION_KIND:
+                reject_reason = f"sanction kind mismatch: expected '{SANCTION_KIND}'"
+            elif sanction.get("schema_version") != SANCTION_SCHEMA_VERSION:
+                reject_reason = "sanction schema_version mismatch"
+            elif sanction.get("base_sha") != sanction_base:
+                reject_reason = (
+                    "sanction is bound to a different base revision "
+                    f"(sanction: {sanction.get('base_sha')}, diff base: {sanction_base}); "
+                    "a new push invalidates older sanctions"
+                )
+            elif sanction.get("authorized_by") not in SANCTION_AUTHORIZED_ACTORS:
+                reject_reason = "sanction authorized_by is not an authorized maintainer"
+            elif sanction_actor != sanction.get("authorized_by"):
+                reject_reason = "push actor does not match the sanction's authorized maintainer"
+            else:
+                sanctioned_paths = sanction.get("paths")
+                if not isinstance(sanctioned_paths, list) or not sanctioned_paths:
+                    reject_reason = "sanction paths must be a non-empty explicit list"
+                else:
+                    uncovered = [
+                        v["file"]
+                        for v in red_violations
+                        if v["file"] not in sanctioned_paths
+                    ]
+                    if uncovered:
+                        reject_reason = (
+                            "Red Zone violation(s) not covered by the sanction: "
+                            + ", ".join(uncovered)
+                        )
+                    else:
+                        admitted = True
+        except (OSError, ValueError) as exc:
+            reject_reason = f"sanction file unreadable or malformed: {exc}"
+
+        if admitted:
+            violations = [v for v in violations if v["zone"] != "red"]
+            sys.stderr.write(
+                "[SANCTIONED] Red Zone changes admitted by a SHA-bound maintainer sanction:\n"
+            )
+            sys.stderr.write(f"   Authorized by: {sanction.get('authorized_by')}\n")
+            sys.stderr.write(f"   Bound revision: {sanction.get('base_sha')}\n")
+            for p in sorted(set(sanction.get("paths", []))):
+                sys.stderr.write(f"   Covered: {p}\n")
+            sys.stderr.write(
+                "   Note: this sanction expires with its bound revision; the next push requires a new sanction.\n\n"
+            )
+            passed = len(violations) == 0
+        elif red_violations:
+            sys.stderr.write(
+                _error_envelope(
+                    "SANCTION-REJECTED",
+                    args.sanction_file or "(no sanction file)",
+                    "SHA-bound maintainer sanction refused",
+                    "all three sanction requirements must hold: authorized maintainer, "
+                    "exact base revision binding, explicit path coverage",
+                    reject_reason or "sanction not admitted",
+                    "re-issue the sanction bound to the current base revision, "
+                    "or revert the Red Zone changes",
+                )
+                + "\n\n"
+            )
+            passed = len(violations) == 0
 
     has_drift, drift_files = check_architecture_drift(files)
     if has_drift:
