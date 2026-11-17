@@ -52,6 +52,7 @@ jobs:
       # determine the admissibility of that same PR (no self-certification).
       - name: Determine trusted base revision
         id: trusted_base
+        if: ${{ hashFiles('.agents/project_knowledge/boundaries.md') != '' }}
         shell: bash
         run: |
           set -eu
@@ -78,6 +79,9 @@ jobs:
           echo "Trusted base revision: $BASE_SHA"
 
       - name: Materialize trusted gate and policy from base revision
+        # Distribution branches (framework content only) carry no boundary
+        # policy: the trusted-base gate is a dogfood-branch contract.
+        if: ${{ hashFiles('.agents/project_knowledge/boundaries.md') != '' }}
         shell: bash
         run: |
           set -eu
@@ -91,6 +95,7 @@ jobs:
           echo "Enforcing with gate and policy from trusted base $BASE_SHA"
 
       - name: Boundary Gate audit-tree (trusted policy over incoming tree)
+        if: ${{ hashFiles('.agents/project_knowledge/boundaries.md') != '' }}
         shell: bash
         run: |
           set -eu
@@ -100,14 +105,22 @@ jobs:
             --repo-root .
 
       - name: Evaluate change diff against trusted base
+        if: ${{ hashFiles('.agents/project_knowledge/boundaries.md') != '' }}
         shell: bash
         run: |
           set -eu
           BASE_SHA="${{ steps.trusted_base.outputs.sha }}"
+          # Wave H: SHA-bound maintainer sanction. The sanction file is carried
+          # by the incoming push and verified against THIS base revision, so a
+          # new push invalidates older sanctions. The push actor (GitHub-level,
+          # not forgeable inside Actions) must match the authorized maintainer.
           python /tmp/trusted_gate/check_boundaries.py \
             --boundaries /tmp/trusted_gate/boundaries.md \
             --diff "$BASE_SHA" \
-            --repo-root .
+            --repo-root . \
+            --sanction-file .github/red-zone-sanction.json \
+            --sanction-base-sha "$BASE_SHA" \
+            --sanction-actor "${{ github.actor }}"
       # ─────────────────────────────────────────────────────────────────────
 
       - name: Verify Template Parity
@@ -117,6 +130,7 @@ jobs:
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Verify installation identity (verify_identity --check)
+        if: ${{ hashFiles('.agents/meta-project.json') != '' }}
         run: python scripts/verify_identity.py --check
 
       # Machine-check of the documented update-engine `check` rc contract on
