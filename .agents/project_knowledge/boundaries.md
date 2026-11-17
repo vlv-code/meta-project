@@ -27,6 +27,7 @@ Areas requiring elevated caution and mandatory local test execution (`python -m 
 - `.agents/*.json` — project registries and identity binding definitions.
 - `.agents/reports/**` — initialization and team management audit reports.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
+- `.claude-plugin/**`, `plugin.json` — plugin packaging manifests (declarative metadata, version-locked by tests).
 
 ---
 
@@ -39,6 +40,7 @@ Critical areas of the project. Any modification requires mandatory prior confirm
 - `.github/CODEOWNERS` — repository code ownership and pull request approval rules.
 - `LICENSE` — repository legal license (MIT).
 - `.gitignore` — global git ignore rules.
+- `.github/red-zone-sanction.json` — SHA-bound maintainer sanction carried by incoming pushes (gate trust input; Wave P coverage backfill).
 
 ---
 
