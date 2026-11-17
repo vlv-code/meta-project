@@ -120,6 +120,12 @@ def sync_skill_mirroring(
     if not skills_dir.is_dir():
         return True, []
 
+    # Wave G follow-up (distribution contract): mirror parity applies only
+    # when a self-installation mirror exists. A distribution checkout (the
+    # framework branch carries no .agents/) is a valid tree without mirrors.
+    if not agent_skills_dir.is_dir():
+        return True, []
+
     for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
         skill_name = skill_file.parent.name
         mirror_file = agent_skills_dir / skill_name / "SKILL.md"

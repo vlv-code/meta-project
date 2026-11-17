@@ -341,5 +341,53 @@ class TestSyncTemplatesCLI(unittest.TestCase):
             self.assertEqual(len(drifts_after), 0)
 
 
+class TestAbsentMirrorContract(unittest.TestCase):
+    """Wave G follow-up (distribution contract): mirror parity applies only
+    when a self-installation mirror exists. A distribution checkout (the
+    framework branch carries no .agents/) is a valid tree without mirrors -
+    the sync must stay green over canonical sources and per-skill resources."""
+
+    def setUp(self):
+        if sync_templates is None:
+            self.skipTest("sync_templates module not implemented yet")
+
+    def test_dist_tree_without_agents_mirror_is_valid(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            tmpl_k = root / "templates" / "project_knowledge"
+            tmpl_k.mkdir(parents=True)
+            for name in ("boundaries.md", "observations.md", "weak_spots.md", "architecture.md", "tasks.md"):
+                (tmpl_k / name).write_text(f"canonical {name}\n", encoding="utf-8")
+            (root / "templates" / "AGENTS.md").write_text("canonical AGENTS.md\n", encoding="utf-8")
+            team = root / "templates" / "team"
+            team.mkdir(parents=True)
+            for name in ("profile.md", "notes.md", "system_prompt.md"):
+                (team / name).write_text(f"canonical {name}\n", encoding="utf-8")
+            for skill in ("init-meta-project", "manage-meta-project", "record-observation", "sync-architecture", "ground-meta-project"):
+                sdir = root / "skills" / skill
+                sdir.mkdir(parents=True)
+                (sdir / "SKILL.md").write_text(f"# {skill}\n", encoding="utf-8")
+            in_sync, _ = sync_templates.run_sync(root, write=True)  # repair pass
+            in_sync_after, drifts_after = sync_templates.run_sync(root, write=False)
+            self.assertTrue(
+                in_sync_after,
+                f"dist tree must be valid without .agents after repair: {drifts_after}",
+            )
+            self.assertEqual([], drifts_after)
+
+    def test_mirror_present_keeps_parity_enforced(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            skill = root / "skills" / "init-meta-project"
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text("# init v2\n", encoding="utf-8")
+            mirror = root / ".agents" / "skills" / "init-meta-project"
+            mirror.mkdir(parents=True)
+            (mirror / "SKILL.md").write_text("# init v1 diverged\n", encoding="utf-8")
+            in_sync, drifts = sync_templates.run_sync(root, write=False)
+            self.assertFalse(in_sync, "a diverged mirror must still report drift")
+            self.assertTrue(drifts)
+
+
 if __name__ == "__main__":
     unittest.main()
