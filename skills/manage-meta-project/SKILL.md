@@ -1,5 +1,7 @@
 ---
 name: manage-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Analyze repository architecture and stack to discover, configure, and orchestrate specialized
   agent roles (.agents/team/), audit existing roles for activity/pruning, and enforce human-in-the-loop coordination rules.

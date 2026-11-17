@@ -1,5 +1,7 @@
 ---
 name: init-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Scaffold and initialize the meta-project agent environment in any repository:
   checks for existing setup to safely upgrade without data loss, or runs a 2-pass
