@@ -28,6 +28,7 @@ Context organization framework and separation of concerns between permanent rule
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Architectural Principles](#architectural-principles)
 - [Target Repository Structure](#target-repository-structure)
 - [Repository Inspection & Canonical States](#repository-inspection--canonical-states)
@@ -38,6 +39,37 @@ Context organization framework and separation of concerns between permanent rule
 - [Contributing](#contributing)
 - [Support the Project](#support-the-project)
 - [License](#license)
+
+---
+
+## Installation
+
+Install Meta-Project as a plugin or package — no manual copying required. Three channels are supported:
+
+### Claude Code (plugin marketplace)
+
+```bash
+claude plugin marketplace add vlv-code/meta-project
+```
+
+Then inside Claude Code: `/plugin install meta-project`
+
+### Agent Plugins (VS Code, Cursor, Copilot, Codex)
+
+```bash
+npx plugins add vlv-code/meta-project
+```
+
+Installs the Agent Plugins 1.0.0 package for compatible hosts.
+
+### skills.sh (per-skill install)
+
+```bash
+npx skills add vlv-code/meta-project
+```
+
+> [!IMPORTANT]
+> Per-skill installers copy the skill folders only. `sync-architecture` is the single standalone skill; the other eight require the repository's `scripts/` and `templates/` to run — install the full plugin or package instead of cherry-picking individual skills.
 
 ---
 
