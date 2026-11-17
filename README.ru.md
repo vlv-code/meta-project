@@ -28,6 +28,7 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 
 ## Содержание
 
+- [Установка](#установка)
 - [Архитектурные принципы](#архитектурные-принципы)
 - [Структура целевого репозитория](#структура-целевого-репозитория)
 - [Обследование репозитория и 7 канонических состояний](#обследование-репозитория-и-7-канонических-состояний)
@@ -38,6 +39,37 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 - [Участие в разработке (Contributing)](#участие-в-разработке-contributing)
 - [Поддержать проект](#поддержать-проект)
 - [Лицензия](#лицензия)
+
+---
+
+## Установка
+
+Установите Meta-Project как плагин или пакет — без ручного копирования. Поддерживаются три канала:
+
+### Claude Code (маркетплейс плагинов)
+
+```bash
+claude plugin marketplace add vlv-code/meta-project
+```
+
+Затем внутри Claude Code: `/plugin install meta-project`
+
+### Agent Plugins (VS Code, Cursor, Copilot, Codex)
+
+```bash
+npx plugins add vlv-code/meta-project
+```
+
+Устанавливает пакет Agent Plugins 1.0.0 для совместимых хостов.
+
+### skills.sh (установка отдельных навыков)
+
+```bash
+npx skills add vlv-code/meta-project
+```
+
+> [!IMPORTANT]
+> Установщики отдельных навыков копируют только папки навыков. `sync-architecture` — единственный автономный навык; остальные восемь требуют `scripts/` и `templates/` репозитория — устанавливайте полный плагин или пакет вместо выборочной установки отдельных навыков.
 
 ---
 
