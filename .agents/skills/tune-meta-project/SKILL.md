@@ -53,9 +53,9 @@ Separate FACTS (e.g. "five handoffs between roles") from HYPOTHESES
 
 ### Phase 3: Verifiable Proposals
 For each proposal record EXACTLY:
-Наблюдаемая проблема / Свидетельства и ограничения данных / Предполагаемая
-причина (hypothesis) / Предлагаемое изменение и область / Ожидаемый эффект /
-Способ проверки / Сохраняемые ограничения / Способ отмены / Исполнитель
+Observed problem / Evidence and data limits / Hypothesized cause / Proposed
+change and scope / Expected effect / Verification method / Preserved
+constraints / Rollback method / Executor
 (own the fact–hypothesis split). Select a SMALL set with the highest expected
 value. "No justified proposals" is a normal result — say so explicitly.
 

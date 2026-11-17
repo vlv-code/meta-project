@@ -51,7 +51,7 @@ Before performing any file operations:
    - Ensure target directory `.agents/team/archive/` exists.
    - Atomically move `.agents/team/<role_id>/` to `.agents/team/archive/<role_id>/`.
 3. **Passport Synchronization (`AGENTS.md`):**
-   - Remove the decommissioned role's link and description from Section `## 7. Project Agent Team & Multi-Harness Identity (.agents/team/)` in root `AGENTS.md`.
+   - Remove the decommissioned role's link and description from Section `## 7. Project Agent Team & Multi-Harness Identity` in root `AGENTS.md`.
 4. **Orphaned Tasks Reassignment:**
    - Scan `.agents/project_knowledge/tasks.md`.
    - Reassign any pending subtasks delegated to this role to the default generalist (`agent-general-worker` / `agent-dev-lead`) or mark them as `[CANCELLED]`.
@@ -73,7 +73,7 @@ Before performing any file operations:
    - Move all active role directories from `.agents/team/<role_id>/` into `.agents/team/archive/<role_id>/`.
    *(If a role with the same ID already exists in archive, append timestamp suffix: `.agents/team/archive/<role_id>-<YYYYMMDD>/`)*.
 3. **Passport Section Reset:**
-   - In root `AGENTS.md`, clear the decommissioned entries under `## 6. Project Agent Team (.agents/team/)` to prepare for the new synthesized team.
+   - In root `AGENTS.md`, clear the decommissioned entries under `## 7. Project Agent Team & Multi-Harness Identity` to prepare for the new synthesized team.
 4. **Tasks Quarantine:**
    - In `.agents/project_knowledge/tasks.md`, close or quarantine active tasks from the prior team cycle.
 5. **Report & Handoff:**
