@@ -190,6 +190,7 @@ class TestInspectEnvelope(TempRootTestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
 
     def test_context_unresolved_state_envelope(self):
         out, err = io.StringIO(), io.StringIO()
