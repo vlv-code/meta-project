@@ -1,5 +1,7 @@
 ---
 name: scan-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Inspect repository meta-knowledge integrity, verify 100% boundary coverage,
   detect architectural drift, and opportunistically backfill missing facts without re-initialization.

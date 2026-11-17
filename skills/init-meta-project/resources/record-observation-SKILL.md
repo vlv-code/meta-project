@@ -1,5 +1,7 @@
 ---
 name: record-observation
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Use this skill to record an undocumented bug, environment quirk, runtime edge-case,
   or non-obvious solution into the repository's `.agents/project_knowledge/observations.md` table.

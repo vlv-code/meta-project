@@ -1,5 +1,7 @@
 ---
 name: ground-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Context recovery and drift diagnosis skill: restores goal, state, identity
   and authority after session changes, moves, updates or compaction; diagnoses

@@ -1,5 +1,7 @@
 ---
 name: tune-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Evidence-based calibration of the installed agent environment: analyzes
   actual work evidence (tasks, telemetry, observations, reports, history),

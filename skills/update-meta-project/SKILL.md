@@ -1,5 +1,7 @@
 ---
 name: update-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Safely update an installed meta-project framework (skills, templates, scripts)
   by driving the managed update engine scripts/update_meta_project.py:

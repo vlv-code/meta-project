@@ -1,5 +1,7 @@
 ---
 name: decommission-meta-project
+license: MIT
+compatibility: "Requires Python 3.10+ and Git"
 description: >-
   Safely decommission, prune, or hibernate agent team roles (.agents/team/):
   performs non-destructive archiving into .agents/team/archive/, finalizes telemetry,
