@@ -561,6 +561,14 @@ def format_human_report(report: Dict[str, Any]) -> str:
 
 
 def main() -> int:
+    # Deterministic output encoding: section-symbol diagnostics (audit refs)
+    # must reach consumers as UTF-8 regardless of the Windows console/pipe
+    # code page (cp1251 would otherwise emit bare 0xA7 bytes).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
     parser = argparse.ArgumentParser(
         description="Meta-Project Deterministic Repository Inspection Utility (Zero External Dependencies, Python 3.10+ stdlib)"
     )
