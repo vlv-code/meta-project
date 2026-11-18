@@ -38,17 +38,12 @@ if str(REPO_ROOT) not in sys.path:
 
 from tests.test_update_meta_project import (  # fixture reuse (same package)
     ACTOR_ID,
-    HARNESS_ID,
     INSTALLATION_ID,
-    MARKER_BODY,
-    MARKER_CLOSE,
-    MARKER_OPEN,
     ORIGIN_W_V2,
     ORIGIN_X_V1,
     ORIGIN_X_V2,
     ORIGIN_X_V3,
     ORIGIN_Y_V1,
-    ORIGIN_Y_V2,
     ORIGIN_Z_V1,
     _git_ok,
     _make_cache_dir,
@@ -525,7 +520,7 @@ class TestCodeFormMarkers(WaveE2TestCase):
         )
         self.assertNotIn("scripts/x.py", json.dumps(plan.get("conflicts") or []))
 
-        result = apply_updates(target, plan, ACTOR_ID, INSTALLATION_ID)
+        apply_updates(target, plan, ACTOR_ID, INSTALLATION_ID)  # return unused; merged bytes below are the assertion
         merged = (target / "scripts" / "x.py").read_bytes()
         self.assertIn(b"x-v2", merged, "upstream v2 content must be applied")
         self.assertIn(X_HASH_OPEN, merged, "hash-form opener must survive the merge")

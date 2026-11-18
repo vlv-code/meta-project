@@ -203,7 +203,7 @@ class TestStagedEnvOverrideContract(TempRootTestCase):
 
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertIn(
-            f"[ALLOWED] LICENSE",
+            "[ALLOWED] LICENSE",
             res.stdout,
             f"[ALLOWED] notice must name LICENSE (stdout={res.stdout!r})",
         )

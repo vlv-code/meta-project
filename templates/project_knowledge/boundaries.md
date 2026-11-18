@@ -9,6 +9,7 @@ Files and directories that the agent can modify autonomously to accomplish the c
 - Creating new test files (`tests/test_*.py`, `*_test.go`, `*.test.ts`, `*.spec.ts`) to cover new features within a TDD session.
 - `src/utils/**`, `src/helpers/**`, `lib/utils/**` — auxiliary local utilities without side effects.
 - `docs/**`, `*.md` (except the root `AGENTS.md`) — technical documentation.
+- `.gitattributes`, `.gitignore`, `LICENSE` — VCS and repository metadata hygiene.
 - In-code documentation (docstrings, JSDoc, function comments).
 
 ---

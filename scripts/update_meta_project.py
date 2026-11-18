@@ -1111,7 +1111,6 @@ def check_updates(
             drifted.append(path)
             continue
         local_bytes = local.read_bytes()
-        current = _sha256_bytes(local_bytes)
         matched, eol_only = _installed_match(local_bytes, recorded)
         if recorded and not matched:
             diagnostics.append({
@@ -2112,7 +2111,6 @@ def _apply_updates_locked(
         "plan_meta": plan.get("meta") or {},
         "entries": [],
     }
-    journal_path = repo_root / UPDATE_JOURNAL_RELPATH
 
     def _persist_journal() -> None:
         _save_journal(repo_root, journal)

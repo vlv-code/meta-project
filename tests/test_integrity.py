@@ -77,6 +77,7 @@ class TestSkillsIntegrity(unittest.TestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
         skills_dir = ROOT_DIR / "skills"
         agent_skills_dir = ROOT_DIR / ".agents" / "skills"
         self.assertTrue(agent_skills_dir.is_dir(), ".agents/skills directory not found")
@@ -218,6 +219,7 @@ class TestTemplatesIntegrity(unittest.TestCase):
             self.skipTest(
                 "dogfood-branch contract: requires the live meta-project installation"
             )
+        super().setUp()
         required_fields = ["name:", "role_id:", "description:", "tools:", "model:", "invocation_triggers:"]
 
         # 1. Check template

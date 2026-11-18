@@ -5,7 +5,6 @@ Zero-dependency Python 3.10+ stdlib test suite.
 """
 
 import json
-import os
 import subprocess
 import sys
 import tempfile

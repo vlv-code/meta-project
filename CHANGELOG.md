@@ -46,7 +46,7 @@
 - **EOL false-drift контракт (lane H)**: LF-запись в lock + CRLF-копия в рабочем дереве (симуляция свежего чекаута с autocrlf) больше не даёт ложный `drifted` — `check`/`plan` отдают диагностическое `eol_normalized: true`, когда LF-нормализованные байты совпадают с записью lock; подделка контента по-прежнему детектируется (EOL-флип — не тамперинг; семантика lock/installed_sha неизменна).
 
 ### Known Limitations / Известные ограничения
-- SHA-привязанная авторизация Red-Zone правок мейнтейнером — открыта; Branch Protection: single required check **`all-checks`** (владельцу).
+- SHA-привязанная авторизация Red-Zone правок мейнтейнером — [ОБНОВЛЕНО 2026-11-18] реализована волной H (механизм `.github/red-zone-sanction.json` + проверка пре-пуш base + push-actor, 13 adversarial тестов); Branch Protection: single required check **`All Checks Green`** (агрегат `all-checks` переименован) — действие владельца.
 - Ресурсные байт-копии — parity с нормализацией EOL (контракт lane H); CRLF-writer синхронизатора — вне волны.
 
 ---
@@ -84,7 +84,13 @@
 
 ### Known Limitations / Известные ограничения
 - Ресурсные байт-копии чувствительны к CRLF-конверсии чекаута (`core.autocrlf`): parity проверяется с нормализацией переводов строк; конвертация writer'а синхронизатора остаётся вне волны.
-- SHA-привязанная авторизация Red-Zone правок мейнтейнером — открыта; Branch Protection на `main` — ручное действие владельца (4 матричных имени required checks).
+- SHA-привязанная авторизация Red-Zone правок мейнтейнером — [ОБНОВЛЕНО 2026-11-18] реализована волной H этой же линейки (см. Added — волна H); Branch Protection на `main` — ручное действие владельца: single required check **`All Checks Green`** (агрегат; четыре матричных имени больше не нужны).
+
+### Added / Добавлено — волна H (в этой же линейке, между alpha.6 и alpha.7)
+- **SHA-привязанная санкция мейнтейнера (roadmap 7.2.2 п.4)**: `.github/red-zone-sanction.json` едет во входящем пушe, но верифицируется против пре-пуш base SHA (инвалидация при каждом новом пушe автоматична); push-actor дважды сверяется с авторизованным мейнтейнером; explicit-path покрытие, Default Deny не санкционируется; 13 adversarial тестов (`test_red_zone_sanction.py`).
+- **Dist-гварды CI**: trusted-base шаги и identity-шаг скипаются на дистрибутивных ветках (`hashFiles(.agents/**)`) — чистый main гоняет тесты и parity без boundary-политики.
+- **sync absent-mirror контракт**: дистрибутивное дерево без `.agents/skills/` валидно (mirror-parity применяется только при наличии зеркала).
+- **`.gitattributes` `* text=auto eol=lf`**: корневой фикс CRLF-квирка (консистентные LF-чекауты).
 
 ---
 

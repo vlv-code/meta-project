@@ -19,7 +19,6 @@ diagnostics.
 
 from pathlib import Path
 import json
-import subprocess
 import sys
 import tempfile
 import unittest

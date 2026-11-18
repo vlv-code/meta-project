@@ -112,3 +112,5 @@ All tests must pass with an `OK` status.
 3. Ensure local tests pass.
 4. Open a Pull Request targeting `main`, filling out the standard PR template.
 5. Wait for GitHub Actions CI checks to pass.
+
+> **Note for contributors:** the development branch (`dev`) carries the maintainers' live agent installation — `.agents/team/*/notes.md` and `.agents/project_knowledge/observations.md` intentionally contain the maintainers' internal agent-workflow history (dogfooding by design; visible on fork). The `main` branch ships without `.agents/`.

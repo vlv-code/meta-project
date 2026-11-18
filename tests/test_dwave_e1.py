@@ -53,7 +53,6 @@ from tests.test_update_meta_project import (  # fixture reuse (same package)
     _manifest_v2,
     _origin_files_v2,
     _sha,
-    _write_lock,
     _write_tree,
 )
 

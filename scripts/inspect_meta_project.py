@@ -15,10 +15,10 @@ Decouples repository survey from modification:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -200,6 +200,111 @@ def is_metaproject_passport(path: Path) -> bool:
         return False
 
 
+class ReadOnlyViolation(RuntimeError):
+    """Raised when a write/move/delete operation targets a path inside the
+    audited repository while the ``--read-only`` inspection assertion is
+    active (Wave I §6.1)."""
+
+
+# Wave I §6.1: audit events that must never target the audited repository
+# during a --read-only inspection (writes, moves, deletions).
+_READ_ONLY_MUTATION_EVENTS = ("os.remove", "os.rename", "os.replace")
+
+# Characters in an ``open`` mode string that mean "not a pure read".
+_WRITE_OPEN_MODE_CHARS = ("w", "a", "x", "+")
+
+
+def _open_mode_writes(mode: object, flags: object) -> bool:
+    """True when an ``open`` audit event's mode/flags indicate a write.
+
+    Text-level opens carry a mode string ("w", "a", "rb+", ...); fd-level
+    opens (os.open) carry mode=None and an int flags bitmask instead.
+    """
+    if isinstance(mode, str):
+        return any(ch in mode for ch in _WRITE_OPEN_MODE_CHARS)
+    if isinstance(flags, int):
+        return bool(
+            flags
+            & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC)
+        )
+    return False
+
+
+def _norm_case(path: object) -> str:
+    """Lexical absolute normalization (no filesystem syscalls, so the audit
+    hook never re-enters itself through stat/open audit events)."""
+    return os.path.normcase(os.path.abspath(os.fspath(path)))
+
+
+def _path_inside_repo(path: object, root_norm: str) -> bool:
+    """Lexical containment check (symlink-aliased repo roots are matched
+    lexically — deterministic and syscall-free inside the audit hook)."""
+    try:
+        norm = _norm_case(path)
+    except (TypeError, ValueError):
+        return False
+    return norm == root_norm or norm.startswith(root_norm + os.sep)
+
+
+class enforce_read_only:
+    """Context manager: for the duration of the guarded block, a stdlib
+    audit hook (``sys.addaudithook``) refuses any ``open`` for write/append,
+    ``os.remove``, ``os.rename``, or ``os.replace`` that targets a path
+    inside ``repo_root`` by raising :class:`ReadOnlyViolation` (Wave I §6.1:
+    ``--read-only`` is a verifiable assertion, not a promise).
+
+    Scope contract:
+    - The assertion covers the guarded inspection call ONLY. Audit hooks
+      cannot be uninstalled in CPython, so after the block the hook stays
+      installed but flag-dormant and raises nothing.
+    - Operations targeting paths OUTSIDE ``repo_root`` (e.g. the harness's
+      own temp files) are never refused — inspection is a pure read, so
+      normal runs stay byte-identical with and without the flag.
+    - Pure reads inside the repository never fire the hook.
+    """
+
+    def __init__(self, repo_root: Path):
+        self.repo_root = Path(repo_root)
+        self._active = False
+
+    def __enter__(self) -> "enforce_read_only":
+        root_norm = _norm_case(self.repo_root)
+
+        def _hook(event: str, args: tuple) -> None:
+            if not self._active:
+                return  # dormant outside the guarded inspection window
+            if event == "open":
+                path = args[0] if args else None
+                mode = args[1] if len(args) > 1 else None
+                flags = args[2] if len(args) > 2 else None
+                if (
+                    path is not None
+                    and _open_mode_writes(mode, flags)
+                    and _path_inside_repo(path, root_norm)
+                ):
+                    raise ReadOnlyViolation(
+                        f"open for write refused during --read-only "
+                        f"inspection: {path!r} (mode={mode!r}, flags={flags!r})"
+                    )
+            elif event in _READ_ONLY_MUTATION_EVENTS:
+                # args: (path,) for remove; (src, dst) for rename/replace —
+                # either endpoint landing inside the repository is a violation.
+                for candidate in args[:2]:
+                    if candidate is not None and _path_inside_repo(candidate, root_norm):
+                        raise ReadOnlyViolation(
+                            f"{event} refused during --read-only inspection: "
+                            f"{candidate!r}"
+                        )
+
+        sys.addaudithook(_hook)
+        self._active = True
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        self._active = False
+        return False  # never swallow: propagate ReadOnlyViolation and friends
+
+
 def inspect_repository(
     repo_root: Path,
     target_harness: Optional[str] = None,
@@ -240,8 +345,6 @@ def inspect_repository(
     registry_file = agents_dir / "meta-project.json"
 
     boundaries_file = pk_dir / "boundaries.md"
-    tasks_file = pk_dir / "tasks.md"
-    obs_file = pk_dir / "observations.md"
 
     scripts_dir = repo_root / "scripts"
     check_boundaries_script = scripts_dir / "check_boundaries.py"
@@ -595,7 +698,15 @@ def main() -> int:
     parser.add_argument(
         "--read-only",
         action="store_true",
-        help="Strict audit assertion ensuring zero write operations are executed.",
+        help=(
+            "Strict audit assertion (Wave I §6.1): for the duration of the "
+            "inspection call, a stdlib audit hook refuses any "
+            "write/append/move/delete targeting a path inside the audited "
+            "repository (READ_ONLY_VIOLATION envelope, rc != 0, no "
+            "traceback). Covers the inspection call ONLY — report "
+            "formatting and emission afterwards are not guarded. Pure-read "
+            "runs are byte-identical with and without the flag."
+        ),
     )
     parser.add_argument(
         "--facts-digest",
@@ -618,11 +729,32 @@ def main() -> int:
     args = parser.parse_args()
     repo_path = Path(args.repo_root)
 
-    report = inspect_repository(
-        repo_root=repo_path,
-        target_harness=args.harness,
-        target_installation=args.installation,
+    # Wave I §6.1: --read-only is an enforced assertion, not a label. The
+    # audit hook guards exactly the inspection call; without the flag the
+    # run flow is untouched (nullcontext), so output stays byte-identical.
+    guard = (
+        enforce_read_only(repo_path) if args.read_only else contextlib.nullcontext()
     )
+    try:
+        with guard:
+            report = inspect_repository(
+                repo_root=repo_path,
+                target_harness=args.harness,
+                target_installation=args.installation,
+            )
+    except ReadOnlyViolation as exc:
+        sys.stderr.write(_error_envelope(
+            "READ_ONLY_VIOLATION",
+            str(repo_path),
+            "--read-only assertion fired: a write/move/delete targeted the "
+            "audited repository during the inspection call",
+            "zero write operations targeting the repository during inspection",
+            str(exc),
+            "remove or relocate the offending write; --read-only inspection "
+            "must be a pure read",
+        ) + "\n")
+        sys.stderr.write(f"Error: {exc}\n")
+        return 1
 
     # Wave E diagnostic notice (presentation only): a CONTEXT_UNRESOLVED
     # state is a canonical unresolved-context condition; the stdout report
