@@ -168,6 +168,7 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
 - **`scripts/`**:
   - `scripts/inspect_meta_project.py` — детерминированный движок обследования на Python stdlib, выполняющий классификацию репозитория по 8 каноническим состояниям, проверку матрицы готовности и учёт git worktree (поддерживает `--json`, `--read-only` и контекст выполнения `--harness`/`--installation`).
   - `scripts/check_boundaries.py` — автономный CLI гейта границ (Boundary Gate) на Python stdlib, обеспечивающий принудительный машинный контроль зон (Green/Yellow/Red) и инварианта Default Deny локально и в GitHub Actions CI (поддерживает `--audit-tree` для 100% покрытия дерева и `--install-hook` для настройки pre-commit; установленный хук пропускает санкционированное пользователем Red-Zone изменение только через явную переменную коммита `META_PROJECT_ALLOW_RED_ZONE=1`).
+    Принудительная защита от самоаттестации обеспечивается в CI (trusted-base gate); локальный pre-commit хук — слой удобства, а `META_PROJECT_ALLOW_RED_ZONE=1` — локальное переопределение оператора.
   - `scripts/compact_memory.py` — утилита защиты контекста (Context Rot Shield), автоматически архивирующая разросшиеся таблицы наблюдений (>20 записей) и выполненные задачи в `.agents/project_knowledge/archive/`, с сохранением постоянных инвариантов `[pin]` и кроссплатформенной файловой блокировкой (`msvcrt`/`fcntl`).
   - `scripts/sync_templates.py` — утилита инъекции канонических шаблонов во встроенные скиллы, байт-копирования канонических источников в payload `resources/` пилота ленивой загрузки init и валидации 1-в-1 паритета навыков между `skills/` и `.agents/skills/` (режим `--check` для CI).
   - `scripts/record_obs.py` — автономная CLI-утилита атомарного логирования наблюдений в `observations.md` с единой категорийной шкалой из 16 категорий, синхронизированной с документацией скилла, экранированием пайпов Markdown, указанием `--actor-id` и блокировкой файлов.
@@ -175,7 +176,7 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
   - `scripts/manage_reports.py` — автономный движок отчётов сценариев init/manage/update/tune: канонические схемы (`templates/reports/`), детерминированные run ID, проверка свежести и допуска (`latest`/`verify` принимают `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — движок управляемого обновления (SHA-пиннинг, атомарность, журнал): чтение `check`/`plan`, атомарный `apply` с журналом отката, целостностью согласованного плана и update-отчётом, офлайн-фоллбэком кеша (мёртвый origin + точный SHA + интегральный кеш), маппингом на runtime-layout, маппингом `resource`-компонентов манифеста, `--adopt-existing` усыновлением по sha-match и `restore` собственных изменений движка.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (ADR #1–#8 + Polyglot Monorepo Incident) и перспективный роадмап.
+  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#22 + Polyglot Monorepo Incident) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
   - `docs/temporary_overrides.md` — временные калибровки правил.
 
