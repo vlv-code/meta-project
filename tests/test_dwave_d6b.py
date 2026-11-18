@@ -16,7 +16,6 @@ the post-E2 engine (needs_base refusal), then goes GREEN.
 
 from __future__ import annotations
 
-import subprocess
 import sys
 import tempfile
 import unittest

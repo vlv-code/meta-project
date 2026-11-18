@@ -23,14 +23,13 @@ Verifies the 9 mandatory acceptance scenarios defined in the Universal Repositor
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -161,7 +160,7 @@ class TestAcceptanceScenarios(unittest.TestCase):
                             "profile_path": ".agents/team/agent-dev-lead/profile.md",
                         },
                         "zc-main": {
-                            "actor_id": f"vlv-code/test::zcode::zc-main::agent-dev-lead",
+                            "actor_id": "vlv-code/test::zcode::zc-main::agent-dev-lead",
                             "status": "planned",
                             "profile_path": None,
                         },

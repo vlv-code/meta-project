@@ -25,7 +25,6 @@ Verifies the 8 core acceptance invariants:
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -38,11 +37,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.manage_reports import (
-    VALID_COLLABORATION_MODELS,
-    VALID_DEPLOYMENT_MODES,
-    VALID_REPORT_STATUSES,
-    VALID_SCENARIO_PROFILES,
-    VALID_VERIFICATION_POLICIES,
     check_report_staleness,
     create_init_report,
     create_manage_report,

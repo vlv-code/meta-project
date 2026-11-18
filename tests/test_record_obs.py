@@ -17,13 +17,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.record_obs import (
-    CANONICAL_CATEGORIES,
-    escape_pipes,
     file_lock,
-    format_row,
     main,
-    normalize_category,
-    record_observation,
 )
 
 

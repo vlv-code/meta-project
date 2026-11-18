@@ -58,7 +58,6 @@ from scripts.update_meta_project import (
     _atomic_write_bytes,
     UpdateEngineError,
     apply_updates,
-    check_updates,
     load_bundle,
     main,
     plan_updates,
@@ -69,7 +68,6 @@ from scripts.update_meta_project import (
 from tests.test_update_meta_project import (
     ACTOR_ID,
     INSTALLATION_ID,
-    ORIGIN_W_V2,
     ORIGIN_X_V1,
     ORIGIN_X_V2,
     ORIGIN_Y_V1,
