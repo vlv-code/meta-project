@@ -1,0 +1,66 @@
+name: Sync dist branch
+
+# Process item from audit #3 triage (branch-sync automation, Steward):
+# mirror the distribution content of dev into main automatically after
+# every dev push that touches dist-relevant paths. The self-installation
+# artifacts (.agents/**) and working documents (docs/superpowers/**,
+# docs/archive/**) stay on dev by contract (see scripts/sync_dist_branch.py).
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - '.agents/**'
+      - 'docs/superpowers/**'
+      - 'docs/archive/**'
+      - '.agents/project_knowledge/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-dist
+  cancel-in-progress: false
+
+jobs:
+  sync-dist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main with full history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Mirror dist content from dev
+        shell: bash
+        run: |
+          set -eu
+          git fetch origin dev --quiet
+          python scripts/sync_dist_branch.py \
+            --source origin/dev \
+            --target main \
+            --execute \
+            --commit
+
+      - name: Battery on the mirrored tree
+        shell: bash
+        run: python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Push synced main
+        shell: bash
+        run: |
+          set -eu
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then
+            echo "sync-dist: nothing to push (already in sync)."
+          else
+            git push origin main
+            echo "sync-dist: pushed synced main."
+          fi
