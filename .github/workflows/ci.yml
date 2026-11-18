@@ -134,10 +134,12 @@ jobs:
 
       # Declared opt-in CI dev-tool (Default Closed Tooling exception):
       # zero runtime dependencies unchanged — pyflakes is a dev-time linter,
-      # pinned to the exact version, never @latest.
+      # pinned to the exact version, never @latest. 4.0.3 is the newest
+      # release supporting the full matrix (4.1.0 requires Python >=3.11,
+      # which breaks the 3.10 leg).
       - name: "Static lint: pyflakes (scripts/ + tests/)"
         run: |
-          python -m pip install pyflakes==4.1.0
+          python -m pip install pyflakes==4.0.3
           python -m pyflakes scripts/ tests/
 
       # External dev-tool validation (auditor v2 §2.4): the Agent Skills
