@@ -28,8 +28,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 DIST_PATHS = [
     ".github",
