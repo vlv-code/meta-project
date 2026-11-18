@@ -6,20 +6,19 @@ self-installation artifacts (.agents/**) or working documents
 
 Process item from the audit #3 triage (branch-sync automation, Steward).
 
-Model: content mirror over a fixed path set, NOT a merge. For every
-path in DIST_PATHS the script takes the source branch tree, subtracts
-DIST_EXCLUDE prefixes, checks the files out into the current worktree
-(which must be on --target), and removes dist-tracked files that no
-longer exist in the source. No-op when the mirrored content already
-matches. The result is committed (unless --no-commit) and optionally
-pushed (--push).
+Model: content restore over a fixed path set with exclude pathspecs, NOT
+a merge. The current worktree (checked out on --target) receives the
+dist paths from --source via `git restore --worktree`; dist-tracked
+files absent from the source are removed. No-op when the mirrored
+content already matches. Result is committed (unless --no-commit) and
+optionally pushed (--push).
 
 Zero-dependency (Python 3.10+ stdlib + git subprocess), same contract as
 the rest of the utility belt.
 
 Usage:
-  python scripts/sync_dist_branch.py --source origin/dev --target main            # dry-run
-  python scripts/sync_dist_branch.py --source origin/dev --target main --execute  # stage + commit
+  python scripts/sync_dist_branch.py --source origin/dev --target main              # dry-run
+  python scripts/sync_dist_branch.py --source origin/dev --target main --execute    # restore + commit
   python scripts/sync_dist_branch.py --source origin/dev --target main --execute --push
 """
 
@@ -28,8 +27,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 DIST_PATHS = [
     ".github",
@@ -49,17 +47,20 @@ DIST_PATHS = [
     "tests",
 ]
 
-# Working documents that stay on the source (dev) branch only.
-DIST_EXCLUDE_PREFIXES = [
-    "docs/superpowers/",
-    "docs/archive/",
+# Working documents that stay on the source (dev) branch only. Passed to
+# git as exclude pathspecs so restore/ls-tree skip them natively (no
+# per-path argv quoting issues with non-ASCII names).
+DIST_EXCLUDE_PATHSPECS = [
+    ":(exclude).agents/**",
+    ":(exclude)docs/superpowers/**",
+    ":(exclude)docs/archive/**",
 ]
 
 SELF_INSTALL_PREFIX = ".agents/"
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], capture_output=True, text=True)
+    return subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8")
 
 
 def _git_ok(*args: str) -> subprocess.CompletedProcess:
@@ -69,31 +70,18 @@ def _git_ok(*args: str) -> subprocess.CompletedProcess:
     return res
 
 
-def _source_file_set(source: str) -> List[str]:
-    """All file paths in the source tree under DIST_PATHS, minus excludes."""
-    files: List[str] = []
-    for path in DIST_PATHS:
-        res = _git("ls-tree", "-r", "--name-only", f"{source}::{path}" if False else f"{source}", "--", path)
-        if res.returncode != 0:
-            continue  # path absent in source branch entirely
-        for line in res.stdout.splitlines():
-            f = line.strip()
-            if not f:
-                continue
-            if f.startswith(SELF_INSTALL_PREFIX):
-                continue
-            if any(f.startswith(pref) for pref in DIST_EXCLUDE_PREFIXES):
-                continue
-            files.append(f)
-    return sorted(set(files))
+def _pathspec_args() -> List[str]:
+    return [*DIST_PATHS, *DIST_EXCLUDE_PATHSPECS]
 
 
-def _current_target_files(target_paths: List[str]) -> List[str]:
-    files: List[str] = []
-    for path in target_paths:
-        res = _git("ls-files", "--", path)
-        files.extend(line.strip() for line in res.stdout.splitlines() if line.strip())
-    return sorted(set(files))
+def _source_dist_files(source: str) -> List[str]:
+    res = _git_ok("ls-tree", "-r", "--name-only", "-z", source, "--", *_pathspec_args())
+    return [f for f in res.stdout.split("\0") if f]
+
+
+def _target_dist_files() -> List[str]:
+    res = _git_ok("ls-files", "-z", "--", *DIST_PATHS)
+    return [f for f in res.stdout.split("\0") if f]
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -102,8 +90,8 @@ def main(argv: List[str] | None = None) -> int:
     )
     parser.add_argument("--source", default="origin/dev", help="Source branch ref (default: origin/dev)")
     parser.add_argument("--target", default="main", help="Target branch = the CURRENT working tree branch (default: main)")
-    parser.add_argument("--execute", action="store_true", help="Stage the mirrored content (default: dry-run report only)")
-    parser.add_argument("--commit", action="store_true", help="Commit the staged result (implies --execute)")
+    parser.add_argument("--execute", action="store_true", help="Restore the mirrored content (default: dry-run report only)")
+    parser.add_argument("--commit", action="store_true", help="Commit the restored result (implies --execute)")
     parser.add_argument("--push", action="store_true", help="Push the target branch after commit (implies --commit)")
     args = parser.parse_args(argv)
 
@@ -116,39 +104,43 @@ def main(argv: List[str] | None = None) -> int:
             "Run this script with the target branch checked out."
     )
 
-    source_files = _source_file_set(args.source)
-    current_files = _current_target_files(DIST_PATHS)
+    source_files = _source_dist_files(args.source)
+    target_files = _target_dist_files()
+    source_set = set(source_files)
 
-    to_checkout = [f for f in source_files if f not in current_files or True]
-    # checkout of an identical file is a no-op for git; the authoritative
-    # diff is computed by git itself after staging:
-    stale = [f for f in current_files if f not in set(source_files)]
+    stale = [f for f in target_files if f not in source_set]
 
+    plan = []
     if execute:
-        # Batch checkout in chunks to stay under argv limits.
-        CHUNK = 40
-        for i in range(0, len(to_checkout), CHUNK):
-            _git_ok("checkout", args.source, "--", *to_checkout[i : i + CHUNK])
+        # Restore in worktree; pathspec excludes keep dev-only documents out.
+        _git_ok("restore", "--source", args.source, "--worktree", "--", *_pathspec_args())
         if stale:
             CHUNK = 40
             for i in range(0, len(stale), CHUNK):
-                _git_ok("rm", "-q", "-r", "--", *stale[i : i + CHUNK])
+                _git_ok("rm", "-q", "-f", "--", *stale[i : i + CHUNK])
         _git_ok("add", "-A", "--", *DIST_PATHS)
+        staged = _git("diff", "--cached", "--name-status")
+        plan = [l for l in staged.stdout.splitlines() if l.strip()]
+    else:
+        # Dry-run plan: files differing between HEAD and source (git diff
+        # across branches restricted to the dist path set).
+        diff = _git("diff", "--name-status", "HEAD", args.source, "--", *_pathspec_args())
+        plan = [l for l in diff.stdout.splitlines() if l.strip()]
+        plan = [f"{status}\t{path}" for status, path in (l.split("\t", 1) for l in plan)]
+        plan.extend(f"D\t{f}" for f in stale if f not in set())
+        plan = sorted(set(plan))
 
-    staged = _git("diff", "--cached", "--name-status")
-    staged_lines = [l for l in staged.stdout.splitlines() if l.strip()]
-
-    if not staged_lines:
+    if not plan:
         print(f"sync-dist: '{args.target}' already mirrors {args.source} dist content. No-op.")
         return 0
 
-    updates = sum(1 for l in staged_lines if l.startswith(("M", "A")))
-    deletes = sum(1 for l in staged_lines if l.startswith("D"))
+    updates = sum(1 for l in plan if not l.startswith("D"))
+    deletes = sum(1 for l in plan if l.startswith("D"))
     print(f"sync-dist plan: {updates} file update(s)/addition(s), {deletes} deletion(s).")
-    for line in staged_lines[:20]:
-        print("  ", line)
-    if len(staged_lines) > 20:
-        print(f"   ... and {len(staged_lines) - 20} more")
+    for line in plan[:20]:
+        print("  ", line.replace("\t", "  "))
+    if len(plan) > 20:
+        print(f"   ... and {len(plan) - 20} more")
 
     if not execute:
         print("Dry-run only. Re-run with --execute to apply.")
@@ -161,7 +153,7 @@ def main(argv: List[str] | None = None) -> int:
         f"sync-dist: mirror {args.source} dist content into {args.target}\n\n"
         f"Source: {args.source} @ {source_sha}\n"
         f"Updates: {updates}, deletions: {deletes}\n"
-        f"Excluded: {SELF_INSTALL_PREFIX}*, {', '.join(DIST_EXCLUDE_PREFIXES)}*",
+        f"Excluded: {SELF_INSTALL_PREFIX}*, {', '.join(DIST_EXCLUDE_PATHSPECS)}",
     )
     print(f"Committed dist sync on '{args.target}'.")
     if args.push:
