@@ -328,8 +328,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     obs_path = Path(args.observations)
     tasks_path = Path(args.tasks)
 
-    compacted_any = False
-
     # 1. Compact observations
     # Audit §9: --dry-run must be strictly read-only — not even a .lock file
     # may be created; all writes and locks happen only in write mode.
@@ -351,7 +349,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             obs_content, max_rows=args.max_observations, keep_rows=args.keep_observations
         )
         if compacted:
-            compacted_any = True
             current_month = datetime.now().strftime("%Y%m")
             archive_obs_file = archive_dir / f"observations_{current_month}.md"
             if args.dry_run:
@@ -408,7 +405,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             keep_completed=args.keep_completed_tasks,
         )
         if compacted:
-            compacted_any = True
             archive_tasks_file = archive_dir / "tasks_archive.md"
             if args.dry_run:
                 sys.stdout.write(

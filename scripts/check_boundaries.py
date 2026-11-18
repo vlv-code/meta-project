@@ -14,7 +14,7 @@ import re
 import subprocess
 import json
 import sys
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 try:  # shared helpers (ADR #22): package-style import (tests: from
     # scripts.check_boundaries import ...)
@@ -96,11 +96,59 @@ def glob_to_regex(pat: str) -> re.Pattern:
     return re.compile(regex, re.IGNORECASE)
 
 
+# Wave I §6.4 (honest parser): a bullet line is treated as a COMMAND LINE
+# only when its body STARTS with one of these CLI verbs (anchored: verb
+# followed by whitespace, or the bare verb). The historical per-candidate
+# substring blacklist ("python ", "pytest", "assert", "expect", "git "
+# ANYWHERE in the candidate) silently dropped real path patterns such as
+# `docs/expected_behavior.md` (substring "expect") — parser honesty fix.
+CLI_COMMAND_VERBS = ("python", "pytest", "git", "pip", "npm", "mkdir", "cp", "mv")
+
+
+def _is_command_line(line_str: str) -> bool:
+    """True when a bullet line documents a shell invocation, not paths.
+
+    The decision is ANCHORED: the line body (bullet marker and surrounding
+    backticks stripped) must start with a known CLI verb followed by
+    whitespace, or be exactly a verb. A bullet like
+    ``- `docs/expected_behavior.md` — spec`` is a path line even though it
+    contains the substring "expect"; a bullet like
+    ``- `python scripts/gate.py --staged` — enforce`` is a command line.
+    Matching is case-sensitive on purpose: CLI invocations in zone docs are
+    lowercase, while prose sentences often capitalize ("Python developers
+    note `scripts/x.py`." must keep mapping `scripts/x.py`).
+    """
+    body = line_str.lstrip("-").strip().strip("`").strip()
+    for verb in CLI_COMMAND_VERBS:
+        if body == verb or body.startswith(verb + " "):
+            return True
+    return False
+
+
 def parse_boundaries(content: str) -> Dict[str, List[str]]:
     """
     Extract glob patterns for Green, Yellow, and Red zones from markdown text.
     Handles headers in English and Russian.
     Strips parenthesized exception phrases like (except ...) before extraction.
+
+    Parsing rule (Wave I §6.4 — honest parser):
+    - A bullet line ("- ...") inside a zone section is treated as a COMMAND
+      LINE only when its body (after the bullet marker and surrounding
+      backticks) starts with a known CLI verb (python, pytest, git, pip,
+      npm, mkdir, cp, mv) followed by whitespace, or is exactly a verb —
+      such lines document shell invocations, never path patterns, and are
+      skipped whole (``_is_command_line``).
+    - EVERY OTHER bullet line is a path-candidate line: each backticked
+      span is a pattern LIST. A span containing commas is split on commas
+      into separate whitespace-trimmed patterns, so
+      ``- `docs/**, *.md` — docs`` registers BOTH "docs/**" and "*.md"
+      (previously the whole span became one never-matching glob).
+    - Parenthesized "(except ...)" / "(кроме ...)" clauses are stripped
+      before candidate extraction.
+    - A candidate is registered when it looks path-like: it contains "/",
+      "*", or ".", or is a single bare word (e.g. ``LICENSE``).
+    There is deliberately NO substring keyword filter: the old blacklist
+    dropped legitimate paths whose names merely contained "assert"/"expect".
     """
     zones: Dict[str, List[str]] = {"green": [], "yellow": [], "red": []}
     current_zone: Optional[str] = None
@@ -124,6 +172,9 @@ def parse_boundaries(content: str) -> Dict[str, List[str]]:
             continue
 
         if current_zone and line_str.startswith("-"):
+            if _is_command_line(line_str):
+                # Command documentation bullet: never a path pattern.
+                continue
             # Strip parenthesized exclusion / exception clauses before candidate extraction
             # e.g. "docs/**, *.md (except the root AGENTS.md)" -> "docs/**, *.md "
             cleaned_line = re.sub(
@@ -132,15 +183,17 @@ def parse_boundaries(content: str) -> Dict[str, List[str]]:
             # Extract backticked candidates
             matches = re.findall(r"`([^`]+)`", cleaned_line)
             for m in matches:
-                candidate = m.strip()
-                # Exclude command strings and assert/expect keywords
-                if any(kw in candidate for kw in ["python ", "pytest", "assert", "expect", "git "]):
-                    continue
-                # Include paths/globs with slashes, wildcards, extensions, or standalone filenames (e.g. LICENSE)
-                if "/" in candidate or "*" in candidate or "." in candidate or " " not in candidate:
-                    clean_pat = re.sub(r"\s*\(.*?\)$", "", candidate).strip()
-                    if clean_pat and clean_pat not in zones[current_zone]:
-                        zones[current_zone].append(clean_pat)
+                # Wave I §6.4: a backticked span is a pattern LIST — split
+                # comma-multi-patterns into separate trimmed patterns.
+                for piece in m.split(","):
+                    candidate = piece.strip()
+                    if not candidate:
+                        continue
+                    # Include paths/globs with slashes, wildcards, extensions, or standalone filenames (e.g. LICENSE)
+                    if "/" in candidate or "*" in candidate or "." in candidate or " " not in candidate:
+                        clean_pat = re.sub(r"\s*\(.*?\)$", "", candidate).strip()
+                        if clean_pat and clean_pat not in zones[current_zone]:
+                            zones[current_zone].append(clean_pat)
 
 
     return zones
@@ -781,7 +834,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         ]
     )
     if violations and sanction_flags_provided:
-        black_violations = [v for v in violations if v["zone"] == "black"]
         red_violations = [v for v in violations if v["zone"] == "red"]
         sanction_base = getattr(args, "sanction_base_sha", None) or ""
         sanction_actor = getattr(args, "sanction_actor", None) or ""
