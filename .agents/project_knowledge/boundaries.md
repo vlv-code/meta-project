@@ -40,7 +40,7 @@ Critical areas of the project. Any modification requires mandatory prior confirm
 - `.github/CODEOWNERS` — repository code ownership and pull request approval rules.
 - `LICENSE` — repository legal license (MIT).
 - `.gitignore` — global git ignore rules.
-- `.github/red-zone-sanction.json` — SHA-bound maintainer sanction carried by incoming pushes (gate trust input; Wave P coverage backfill).
+- `.github/red-zone-sanction.json` — SHA-bound maintainer sanction file (root of trust for sanctioned Red Zone pushes; changes are themselves Red Zone and require sanction coverage).
 
 ---
 

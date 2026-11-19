@@ -156,18 +156,27 @@ def sync_skill_mirroring(
             )
             if write:
                 mirror_file.parent.mkdir(parents=True, exist_ok=True)
-                mirror_file.write_text(skill_file.read_text(encoding="utf-8"), encoding="utf-8")
+                # Byte-exact mirror write (EOL contract): canonical skills/
+                # blobs are LF; text-mode write_text would translate \n to
+                # \r\n on Windows and make byte audits report phantom drift.
+                mirror_file.write_bytes(skill_file.read_bytes())
             continue
 
-        canonical_text = skill_file.read_text(encoding="utf-8")
-        mirrored_text = mirror_file.read_text(encoding="utf-8")
+        # Byte-exact drift detection (EOL contract): compare raw bytes so an
+        # EOL-only divergence (LF canonical vs CRLF mirror, the Windows
+        # write_text artifact this sync exists to repair) is caught by
+        # --check, not normalized away by text-mode decoding.
+        canonical_bytes = skill_file.read_bytes()
+        mirrored_bytes = mirror_file.read_bytes()
 
-        if canonical_text != mirrored_text:
+        if canonical_bytes != mirrored_bytes:
             drift_messages.append(
                 f"Drift: .agents/skills/{skill_name}/SKILL.md is out of sync with skills/{skill_name}/SKILL.md"
             )
             if write:
-                mirror_file.write_text(canonical_text, encoding="utf-8")
+                # Byte-exact rewrite (EOL contract, same as the resource
+                # path above): write_bytes keeps LF canonical on Windows.
+                mirror_file.write_bytes(canonical_bytes)
 
     in_sync = len(drift_messages) == 0
     return in_sync, drift_messages
@@ -197,20 +206,25 @@ def sync_global_skills(
             )
             if write:
                 target_skill_dir.mkdir(parents=True, exist_ok=True)
-                target_file.write_text(
-                    skill_file.read_text(encoding="utf-8"), encoding="utf-8"
-                )
+                # Byte-exact global mirror write (EOL contract): keeps LF
+                # canonical blobs byte-identical on every platform.
+                target_file.write_bytes(skill_file.read_bytes())
             continue
 
-        canonical_text = skill_file.read_text(encoding="utf-8")
-        current_text = target_file.read_text(encoding="utf-8")
+        # Byte-exact drift detection (EOL contract, same as the mirror
+        # path above): raw-byte comparison catches EOL-only divergence
+        # that text-mode decoding would normalize away.
+        canonical_bytes = skill_file.read_bytes()
+        current_bytes = target_file.read_bytes()
 
-        if canonical_text != current_text:
+        if canonical_bytes != current_bytes:
             drift_messages.append(
                 f"Global Drift: Global skill '{skill_name}' diverges from canonical skills/{skill_name}/SKILL.md"
             )
             if write:
-                target_file.write_text(canonical_text, encoding="utf-8")
+                # Byte-exact rewrite (EOL contract): write_bytes keeps the
+                # global mirror byte-identical to the LF canonical blob.
+                target_file.write_bytes(canonical_bytes)
 
     in_sync = len(drift_messages) == 0
     return in_sync, drift_messages

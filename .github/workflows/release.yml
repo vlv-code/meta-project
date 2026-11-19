@@ -1,0 +1,160 @@
+name: Release
+
+# Release Automation wave (parity hardening item 3): a push of a v* tag
+# assembles and publishes the GitHub Release WITHOUT manual Steward steps
+# (the manual tag push itself remains the deliberate human gate).
+#
+# Steward contract encoded here (fail-fast, no self-certification):
+#   1. PARITY - the tag must equal templates/release_manifest.json
+#      framework_version AND the latest release section of CHANGELOG.md.
+#      The manifest <-> CHANGELOG half of this lock is already enforced by
+#      tests/test_ewave_p.py (Wave F T-D6); this workflow extends it to the
+#      tag itself and fails the publish BEFORE anything is uploaded.
+#   2. PRERELEASE - computed from the tag suffix (alpha/beta/rc => true),
+#      never remembered from a manual flag.
+#   3. ASSETS - source archive via git archive + a distribution zip with
+#      templates/release_manifest.json kept at the archive root so the
+#      update engine (manifest-at-root fallback) can consume it directly.
+#
+# Red Zone note: .github/workflows/** is Red Zone; this file ships under
+# the Wave H SHA-bound sanction mechanism (see
+# .github/red-zone-sanction.json, entry for this path).
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag Parity, Assets & GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify tag / manifest / CHANGELOG parity (fail-fast)
+        shell: bash
+        run: |
+          set -eu
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path("templates/release_manifest.json").read_text(encoding="utf-8"))
+          print(m["framework_version"])
+          PY
+          )"
+          CHANGELOG="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for line in Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines():
+              m = re.match(r"^##\s*\[([^\]]+)\]", line.strip())
+              if m and m.group(1) != "Unreleased":
+                  print(m.group(1))
+                  break
+          else:
+              raise SystemExit("no release section found in CHANGELOG.md")
+          PY
+          )"
+          echo "tag=${TAG} manifest=${MANIFEST} changelog=${CHANGELOG}"
+          if [ "$TAG" != "$MANIFEST" ] || [ "$TAG" != "$CHANGELOG" ]; then
+            echo "::error::Release parity violated: tag=${TAG}, manifest=${MANIFEST}, changelog=${CHANGELOG}. Bump templates/release_manifest.json, CHANGELOG.md and both README badges together."
+            exit 1
+          fi
+
+      - name: Assemble release assets
+        shell: bash
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          # Source archive: exactly the tagged tree, tracked files only.
+          git archive --format=zip --prefix="meta-project-v${VERSION}/" \
+            -o "dist/meta-project-v${VERSION}-source.zip" HEAD
+          # Distribution zip: the FULL tagged tree at the archive root (no
+          # subdirectory prefix) — the update engine locates the manifest by
+          # the templates/release_manifest.json component path, so a
+          # root-level layout keeps every engine path valid as-is.
+          git archive --format=zip --prefix="" \
+            -o "dist/meta-project-v${VERSION}-dist.zip" HEAD
+          ls -la dist/
+
+      - name: Extract CHANGELOG section for this version
+        shell: bash
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 - "$VERSION" > dist/release-notes.md <<'PY'
+          import sys
+          from pathlib import Path
+          version = sys.argv[1]
+          lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          start = None
+          for i, line in enumerate(lines):
+              if line.strip().startswith(f"## [{version}]"):
+                  start = i
+                  break
+          if start is None:
+              raise SystemExit(f"no CHANGELOG section for {version}")
+          end = len(lines)
+          for j in range(start + 1, len(lines)):
+              if lines[j].strip().startswith("## ["):
+                  end = j
+                  break
+          body = "\n".join(lines[start + 1:end]).strip()
+          header = f"Meta-Project v{version}"
+          print(header + "\n\n" + (body or "(no changes recorded)"))
+          PY
+          head -5 dist/release-notes.md
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -eu
+          TAG="${VERSION}"
+          VERSION_NUM="${TAG#v}"
+          # Channel by version suffix. Notes on the pattern:
+          #   - a bare suffix WITHOUT a segment (1.0.0-alpha, no dot after)
+          #     is classified stable — semver requires alpha.N form for the
+          #     framework's channels, and a malformed tag is better released
+          #     as stable (visible) than silently buried as prerelease;
+          #   - compound suffixes (alpha.7-rc.1) match the FIRST segment's
+          #     pattern — documented behavior, not a bug.
+          case "$VERSION_NUM" in
+            *-alpha.*|*-beta.*|*-rc.*|*-pre.*)
+              PRERELEASE="--prerelease"
+              echo "channel: prerelease (suffix detected: $VERSION_NUM)"
+              ;;
+            *)
+              PRERELEASE=""
+              echo "channel: stable"
+              ;;
+          esac
+          # No --target: the tag already points at its commit; passing
+          # GITHUB_SHA for an annotated tag would hand gh the TAG OBJECT's
+          # sha, which gh ignores for existing tags anyway.
+          gh release create "$TAG" \
+            --title "Meta-Project $TAG" \
+            --notes-file dist/release-notes.md \
+            $PRERELEASE \
+            "dist/meta-project-v${VERSION_NUM}-source.zip" \
+            "dist/meta-project-v${VERSION_NUM}-dist.zip"
