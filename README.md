@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
-[![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--alpha.7-orange.svg)](CHANGELOG.md)
+[![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--alpha.8-orange.svg)](CHANGELOG.md)
 [![CI](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml/badge.svg)](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml)
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#support-the-project)

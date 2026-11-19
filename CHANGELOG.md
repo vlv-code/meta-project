@@ -14,6 +14,27 @@
 
 ---
 
+## [1.0.0-alpha.8] - 2026-11-19
+
+### Added / Добавлено
+- **Автоматизация релизов и замки версий**:
+  - GitHub Actions workflow `release.yml` автоматически публикует релиз и артефакты при пуше тега `v*` с fail-fast проверкой соответствия версии манифесту и CHANGELOG.
+  - Замок паритета бейджей версий в `README.md` и `README.ru.md` в `tests/test_integrity.py`.
+- **Защита от Anchoring Bias и детекция среды выполнения (Step 89)**:
+  - Автоопределение хост-харнесса (`detect_host_harness`) в `scripts/inspect_meta_project.py` и `scripts/verify_identity.py`.
+  - Инвариант самоидентификации среды Step 0 в `init-meta-project` и Rule 11 (Anti-Anchoring Invariant) в системных промптах ролей.
+- **Волна I — Audit Response III**:
+  - Честный CLI-парсинг гейта границ (префиксные глаголы `python/pytest/git/pip`, разбор списков через запятую).
+  - Верифицируемый `--read-only` через `sys.addaudithook`.
+  - Замок 100% покрытия границ дерева репозитория (`--audit-tree`).
+  - Автоматизация зеркалирования чистой дистрибуции `scripts/sync_dist_branch.py`.
+
+### Fixed / Исправлено
+- Исправлена совместимость CI-матрицы с Python 3.10 (`pyflakes==4.0.3`).
+- Исправлена работа `scripts/sync_dist_branch.py` с `git ls-tree` и путями исключений.
+
+---
+
 ## [1.0.0-alpha.7] - 2026-11-17
 
 ### Added / Добавлено
