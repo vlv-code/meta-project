@@ -137,7 +137,7 @@ jobs:
       # pinned to the exact version, never @latest.
       - name: "Static lint: pyflakes (scripts/ + tests/)"
         run: |
-          python -m pip install pyflakes==4.1.0
+          python -m pip install pyflakes==4.0.3
           python -m pyflakes scripts/ tests/
 
       # External dev-tool validation (auditor v2 §2.4): the Agent Skills
