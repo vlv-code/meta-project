@@ -30,6 +30,7 @@ import sys
 from typing import List
 
 DIST_PATHS = [
+    ".claude-plugin",
     ".github",
     ".gitattributes",
     ".gitignore",
@@ -41,6 +42,7 @@ DIST_PATHS = [
     "README.md",
     "README.ru.md",
     "docs",
+    "plugin.json",
     "scripts",
     "skills",
     "templates",
@@ -54,9 +56,16 @@ DIST_EXCLUDE_PATHSPECS = [
     ":(exclude).agents/**",
     ":(exclude)docs/superpowers/**",
     ":(exclude)docs/archive/**",
+    ":(exclude)download/**",
 ]
 
 SELF_INSTALL_PREFIX = ".agents/"
+DIST_EXCLUDE_PREFIXES = (
+    ".agents/",
+    "docs/superpowers/",
+    "docs/archive/",
+    "download/",
+)
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:
@@ -75,13 +84,21 @@ def _pathspec_args() -> List[str]:
 
 
 def _source_dist_files(source: str) -> List[str]:
-    res = _git_ok("ls-tree", "-r", "--name-only", "-z", source, "--", *_pathspec_args())
-    return [f for f in res.stdout.split("\0") if f]
+    res = _git_ok("ls-tree", "-r", "--name-only", "-z", source, "--", *DIST_PATHS)
+    return [
+        f
+        for f in res.stdout.split("\0")
+        if f and not any(f.startswith(pref) for pref in DIST_EXCLUDE_PREFIXES)
+    ]
 
 
 def _target_dist_files() -> List[str]:
     res = _git_ok("ls-files", "-z", "--", *DIST_PATHS)
-    return [f for f in res.stdout.split("\0") if f]
+    return [
+        f
+        for f in res.stdout.split("\0")
+        if f and not any(f.startswith(pref) for pref in DIST_EXCLUDE_PREFIXES)
+    ]
 
 
 def main(argv: List[str] | None = None) -> int:
