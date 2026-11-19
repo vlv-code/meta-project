@@ -71,6 +71,7 @@ Before defining or modifying roles, inspect initialization results and repositor
    - **Fail-Closed Block:** if the init report is missing, or its status is `awaiting_decision` or `blocked`, **HALT**. Do not plan or deploy the team; report the pending decisions or blockers to the user.
    - **Machine-Enforced Intake:** admission is executed by the engine, not by agent judgment. Team changes are recorded via `python scripts/manage_reports.py manage --action create ...`, which runs fail-closed intake (`evaluate_manage_intake`: local-registry project/installation/harness match, admitted actor, existing init run, completed + ready status, fresh input fingerprints). Hand-assembled manage reports are prohibited; a refused intake must be resolved (fresh init run), never bypassed.
    - **Staleness Protocol:** if the git commit in the report differs from current `HEAD`, execute a limited re-survey to verify that boundaries, stacks, and registry remain valid. Do NOT wipe the existing team or force a full re-initialization due to normal commits. Read the agreed `scenario` block from the report or `.agents/meta-project.json`.
+   - **Host Runtime Self-Identification (Anti-Anchoring Invariant):** The managing agent MUST identify its target execution context strictly from its actual host harness (e.g. environment variables `ANTIGRAVITY_AGENT`, `ZCODE_AGENT`, system prompt, or AppData path). Roles and bindings are configured strictly for the agent's real host harness (`<harness_id>`). It is strictly prohibited to adopt or simulate a foreign installation from existing `.agents/meta-project.json` or report files to force admission.
 1. **Rapid repository scan for role-relevant markers:** hosting/CI (`.github/`, workflows, PR/issue templates); licenses and open-source governance (`LICENSE`, `CONTRIBUTING.md`, dependency manifests); containerization/orchestration (`Dockerfile`, `docker-compose*.yml`, `k8s/`, `helm/`); testing infrastructure (`tests/`, runner configs, fixtures); security and sensitive data (`auth/`, `security/`, token handling, encryption); UI and design (frontend modules, bot keyboards, assets, design tokens); current project passport (`AGENTS.md`, `.agents/project_knowledge/` slices); secondary / polyglot stacks (`.cpp`, `.c`, `.h`, `.rs`, `.go`, `.swift` in `client/`, `native/`, `core/`, `desktop/`).
 
 ---
@@ -78,6 +79,8 @@ Before defining or modifying roles, inspect initialization results and repositor
 ### Phase 2: Scenario-Driven Team Topology Planning & Sizing
 
 Team composition is determined by the agreed **`scenario`** and technology stack (codebase LOC is a secondary sizing guideline).
+
+**Anti-Anchoring Invariant (Host Runtime Awareness):** Roles and bindings MUST be planned and bound strictly to the real host harness of the acting agent (or the explicit multi-harness target designated by the user). It is strictly prohibited to assign roles to or borrow credentials/actor IDs from a foreign installation (e.g. adopting `zcode::zc-main` while executing in Antigravity) from existing configuration files.
 
 **Topology Precedence Invariants (`resolve_team_topology`):**
 1. The explicitly agreed `collaboration_model` is the USER'S DECISION and is never silently downgraded by size heuristics (LOC never turns an agreed triad into a duo).
