@@ -51,6 +51,33 @@ def _registry_validation_errors(repo_root: Path) -> List[str]:
 
 SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1", "1"}
 
+HOST_HARNESS_SIGNATURES: list[tuple[str, tuple[str, ...]]] = [
+    ("antigravity", ("ANTIGRAVITY_AGENT", "ANTIGRAVITY_APP_DATA_DIR", "AGY_BROWSER_WS_URL")),
+    ("zcode", ("ZCODE_AGENT", "ZCODE_WORKSPACE")),
+    ("cursor", ("CURSOR_AGENT", "CURSOR_TRACE", "CURSOR_VERSION")),
+    ("claude-code", ("CLAUDE_CODE", "CLAUDE_PROJECT_DIR")),
+    ("codex", ("CODEX_AGENT", "CODEX_HOME")),
+]
+
+
+def detect_host_harness(env: Optional[Dict[str, str]] = None) -> Optional[str]:
+    """Deterministically detect host execution harness from environment variables.
+
+    Checked signatures:
+    - Antigravity: ANTIGRAVITY_AGENT, ANTIGRAVITY_APP_DATA_DIR, AGY_BROWSER_WS_URL
+    - ZCode: ZCODE_AGENT, ZCODE_WORKSPACE
+    - Cursor: CURSOR_AGENT, CURSOR_TRACE, CURSOR_VERSION
+    - Claude Code: CLAUDE_CODE, CLAUDE_PROJECT_DIR
+    - Codex: CODEX_AGENT, CODEX_HOME
+
+    Returns canonical harness id (e.g. 'antigravity', 'zcode') or None.
+    """
+    target_env = os.environ if env is None else env
+    for harness, env_vars in HOST_HARNESS_SIGNATURES:
+        if any(target_env.get(var) for var in env_vars):
+            return harness
+    return None
+
 
 # Wave G Lane I (facts digest): version of the digest payload contract.
 FACTS_DIGEST_VERSION = "1"
@@ -313,6 +340,20 @@ def inspect_repository(
     """Inspect repository and return structured diagnostic state."""
     repo_root = repo_root.resolve()
     is_worktree, gitdir = detect_git_worktree(repo_root)
+
+    detected_harness = detect_host_harness()
+    host_mismatch_warning: Optional[str] = None
+
+    if target_harness and target_harness.lower() == "auto":
+        target_harness = detected_harness
+    elif (
+        target_harness
+        and detected_harness
+        and target_harness.lower() != detected_harness.lower()
+    ):
+        host_mismatch_warning = (
+            f"CLI flag --harness '{target_harness}' contradicts detected host environment '{detected_harness}'"
+        )
 
     # Worktree directory resolution (audit §4): for a linked worktree,
     # `gitdir` points into <main>/.git/worktrees/<name>; resolve the main
@@ -584,6 +625,14 @@ def inspect_repository(
                         except Exception:
                             pass
 
+    runtime_context: Dict[str, Any] = {
+        "target_harness": target_harness,
+        "target_installation": target_installation,
+        "resolved": state in ("HEALTHY_REGISTERED",),
+    }
+    if host_mismatch_warning:
+        runtime_context["host_mismatch_warning"] = host_mismatch_warning
+
     return {
         "inspection_version": "1.0.0",
         "repo_root": str(repo_root).replace("\\", "/"),
@@ -592,11 +641,7 @@ def inspect_repository(
         "state": state,
         "state_description": STATE_DESCRIPTIONS.get(state, "Unknown state"),
         "recommended_action": CANONICAL_ACTIONS.get(state, "diagnose_and_repair"),
-        "runtime_context": {
-            "target_harness": target_harness,
-            "target_installation": target_installation,
-            "resolved": state in ("HEALTHY_REGISTERED",),
-        },
+        "runtime_context": runtime_context,
         "schema_version": schema_version,
         "project_id": project_id,
         "scenario": scenario,
@@ -634,6 +679,10 @@ def format_human_report(report: Dict[str, Any]) -> str:
     if report.get("latest_init_report"):
         ir = report["latest_init_report"]
         lines.append(f"Latest Init Report: {ir.get('run_id')} (status: {ir.get('status')})")
+
+    runtime_ctx = report.get("runtime_context", {})
+    if runtime_ctx.get("host_mismatch_warning"):
+        lines.append(f"Host Mismatch:      [WARNING] {runtime_ctx['host_mismatch_warning']}")
 
     lines.extend([
         "",
@@ -688,7 +737,7 @@ def main() -> int:
     parser.add_argument(
         "--harness",
         default=None,
-        help="Target execution harness identifier (e.g., antigravity, zcode).",
+        help="Target execution harness identifier (e.g., antigravity, zcode, or auto).",
     )
     parser.add_argument(
         "--installation",
@@ -729,6 +778,11 @@ def main() -> int:
     args = parser.parse_args()
     repo_path = Path(args.repo_root)
 
+    target_harness = args.harness
+    if target_harness and target_harness.lower() == "auto":
+        target_harness = detect_host_harness()
+        args.harness = target_harness
+
     # Wave I §6.1: --read-only is an enforced assertion, not a label. The
     # audit hook guards exactly the inspection call; without the flag the
     # run flow is untouched (nullcontext), so output stays byte-identical.
@@ -739,7 +793,7 @@ def main() -> int:
         with guard:
             report = inspect_repository(
                 repo_root=repo_path,
-                target_harness=args.harness,
+                target_harness=target_harness,
                 target_installation=args.installation,
             )
     except ReadOnlyViolation as exc:
@@ -768,10 +822,15 @@ def main() -> int:
             "in the registry",
             "no runtime context supplied or resolvable; refusing to "
             "silently adopt an arbitrary active installation",
-            "re-run with --harness <id> --installation <id> (see "
-            ".agents/meta-project.json), or resolve context via the "
-            "ground-meta-project skill",
+            "specify --harness <id> matching your ACTUAL agent host runtime "
+            "(e.g. antigravity, zcode, cursor, claude-code). DO NOT copy an active "
+            "harness from .agents/meta-project.json! If your harness is not yet "
+            "registered, this will correctly trigger HEALTHY_NEW_HARNESS.",
         ) + "\n")
+
+    mismatch_warning = report.get("runtime_context", {}).get("host_mismatch_warning")
+    if mismatch_warning:
+        sys.stderr.write(f"[WARNING] {mismatch_warning}\n")
 
     if args.facts_digest:
         # Wave G Lane I: the digest is the whole payload (compact, sorted,
