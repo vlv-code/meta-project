@@ -49,6 +49,7 @@ Before starting work, every agent MUST review the active task list and, if neces
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-19 14:15] Step 89: Git hygiene audit and atomic conventional commits for Anti-Anchoring Safeguards & Host Runtime Detection (4 atomic commits, 537/537 tests pass, 0 drift, 100% boundary coverage across 201 files) [COMPLETED]
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-19 16:45] Release Automation & Parity Hardening wave integration (automated release workflow, badge parity lock, sync LF byte-writer, session reload notice, 538/538 tests OK) [COMPLETED]
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-19 17:25] Clean distribution synchronization to main branch & pyflakes 4.0.3 pin fix: fixed scripts/sync_dist_branch.py pathspec handling, pinned pyflakes 4.0.3 for Python 3.10 CI compatibility, mirrored pure distribution files (114 files) to main with 0 .agents/telemetry/notes, verified GitHub Actions CI run 44504739918 all checks green [COMPLETED]
+- [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-19 17:42] Release v1.0.0-alpha.8 published on main: bumped release manifest, plugin manifests, README badges, and CHANGELOG to 1.0.0-alpha.8, mirrored clean dist to main, created and pushed tag v1.0.0-alpha.8, verified GitHub Actions Release run 44507838203 (pre-release created with zip assets) and main CI run 44507680773 (All Checks Green) [COMPLETED]
 
 ---
 
