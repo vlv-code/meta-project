@@ -49,9 +49,14 @@ Guidance (verbatim contract): missing mandatory resource 'resources/<name>' — 
 
 **Survey-First Zero-Write Invariant:** Phase 1 performs only discovery and diagnosis — no file creation, telemetry, `.lock` files, or execution of untrusted repository scripts.
 
+0. **Step 0: Host Runtime Self-Identification (Anti-Anchoring Invariant):**
+   The agent MUST identify its current harness_id strictly from its own host execution environment (e.g. environment variables `ANTIGRAVITY_AGENT` -> `'antigravity'`, `ZCODE_AGENT` -> `'zcode'`, system prompt, or AppData path), NEVER by reading existing active entries in `.agents/meta-project.json` or `AGENTS.md`.
+   - **Strict Prohibition:** Do NOT copy `--harness` from the registry to force a green `HEALTHY_REGISTERED` status.
+   - **Key Semantics:** If the current harness is not registered or is planned, state `HEALTHY_NEW_HARNESS` (Scenario 4) is the expected, correct state triggering multi-harness adaptation. It is NOT an error to be bypassed.
+
 1. **Execute deterministic inspection** with EXPLICIT runtime context (registration states are undetermined without it — the survey reports `CONTEXT_UNRESOLVED` instead of silently adopting any active installation):
    ```bash
-   python scripts/inspect_meta_project.py --json --harness <harness_id> --installation <installation_id>
+   python scripts/inspect_meta_project.py --json --harness <MY_ACTUAL_HARNESS> (or --harness auto) --installation <installation_id>
    ```
    *(If the script is not yet present, perform equivalent read-only inspection with pure Python stdlib, zero writes.)*
 2. **Classify into one of 8 canonical states:** `NONE` (no scaffolding), `FOREIGN_RULES` (foreign instruction files: `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, foreign `AGENTS.md`), `HEALTHY_REGISTERED`, `HEALTHY_NEW_HARNESS` (target harness/installation unregistered or `planned`), `CONTEXT_UNRESOLVED` (no `--harness`/`--installation` — re-run with explicit context before routing), `LEGACY_UNREGISTERED` (legacy structure without `.agents/meta-project.json`), `PARTIAL_CORRUPTED` (missing/corrupted critical slices), `INCOMPATIBLE_SCHEMA` (registry schema incompatible with current tooling).

@@ -2266,6 +2266,37 @@ def _apply_updates_locked(
         saved = save_report(repo_root, installation_id, REPORT_TYPE, report)
         report_path = str(saved)
 
+    # Harness session reload notice (parity hardening item 4): harnesses
+    # cache the system prompt and skills at session start, so an apply that
+    # touched core instruction files leaves the LIVE session running on the
+    # pre-update texts (observed 2026-11-15 and 2026-11-18). Surface the
+    # restart requirement to the operator directly on the apply result —
+    # stdout stays machine-readable, the notice goes to stderr.
+    # Manifest component casing is authoritative: the core passport ships
+    # as templates/AGENTS.md (see templates/release_manifest.json); the root
+    # AGENTS.md and templates/global/AGENTS.md variants are covered by the
+    # casefold-comparison below so no casing drift can silence the notice.
+    def _is_instruction_file(rel: str) -> bool:
+        posix = _posix(rel).casefold()
+        return (
+            posix == "agents.md"
+            or posix == "templates/agents.md"
+            or posix.startswith("skills/")
+            or posix.startswith("templates/global/")
+        )
+
+    instruction_updates = [
+        action["path"]
+        for action in applied_actions
+        if _is_instruction_file(action.get("path", ""))
+    ]
+    if instruction_updates:
+        sys.stderr.write(
+            "[NOTICE] Core instructions or skills updated "
+            f"({len(instruction_updates)} file(s), e.g. {instruction_updates[0]}). "
+            "Restart harness session to reload prompt context.\n"
+        )
+
     return {
         "status": "completed",
         "run_id": run_id,

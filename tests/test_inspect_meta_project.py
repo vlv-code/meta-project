@@ -12,12 +12,24 @@ Verifies:
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.inspect_meta_project import (
+    detect_host_harness,
+    format_human_report,
+    inspect_repository,
+)
 
 
 class TestInspectMetaProject(unittest.TestCase):
@@ -31,7 +43,7 @@ class TestInspectMetaProject(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    def run_inspect(self, args=None, cwd=None):
+    def run_inspect(self, args=None, cwd=None, env=None):
         cmd = [sys.executable, str(self.script_path)]
         if args:
             cmd.extend(args)
@@ -41,6 +53,7 @@ class TestInspectMetaProject(unittest.TestCase):
             capture_output=True,
             text=True,
             encoding="utf-8",
+            env=env,
         )
         return proc
 
@@ -350,6 +363,168 @@ class TestInspectMetaProject(unittest.TestCase):
         self.assertIn("[Meta-Project Inspection Report]", proc.stdout)
         self.assertIn("State:", proc.stdout)
         self.assertIn("Capability Matrix:", proc.stdout)
+
+
+    # -------------------------------------------------------------------------
+    # Host Harness Detection & Runtime Safeguards
+    # -------------------------------------------------------------------------
+    def test_detect_host_harness_antigravity(self):
+        for var in ("ANTIGRAVITY_AGENT", "ANTIGRAVITY_APP_DATA_DIR", "AGY_BROWSER_WS_URL"):
+            with mock.patch.dict("os.environ", {var: "val"}, clear=True):
+                self.assertEqual(detect_host_harness(), "antigravity", f"Failed for {var}")
+
+    def test_detect_host_harness_zcode(self):
+        for var in ("ZCODE_AGENT", "ZCODE_WORKSPACE"):
+            with mock.patch.dict("os.environ", {var: "val"}, clear=True):
+                self.assertEqual(detect_host_harness(), "zcode", f"Failed for {var}")
+
+    def test_detect_host_harness_cursor(self):
+        for var in ("CURSOR_AGENT", "CURSOR_TRACE", "CURSOR_VERSION"):
+            with mock.patch.dict("os.environ", {var: "val"}, clear=True):
+                self.assertEqual(detect_host_harness(), "cursor", f"Failed for {var}")
+
+    def test_detect_host_harness_claude_code(self):
+        for var in ("CLAUDE_CODE", "CLAUDE_PROJECT_DIR"):
+            with mock.patch.dict("os.environ", {var: "val"}, clear=True):
+                self.assertEqual(detect_host_harness(), "claude-code", f"Failed for {var}")
+
+    def test_detect_host_harness_codex(self):
+        for var in ("CODEX_AGENT", "CODEX_HOME"):
+            with mock.patch.dict("os.environ", {var: "val"}, clear=True):
+                self.assertEqual(detect_host_harness(), "codex", f"Failed for {var}")
+
+    def test_detect_host_harness_none_when_empty(self):
+        with mock.patch.dict("os.environ", {}, clear=True):
+            self.assertIsNone(detect_host_harness())
+
+    def test_runtime_mismatch_warning(self):
+        self._create_minimal_metaproject()
+        with mock.patch.dict("os.environ", {"ANTIGRAVITY_AGENT": "1"}, clear=True):
+            # 1. Direct inspect_repository call
+            report = inspect_repository(
+                self.root,
+                target_harness="zcode",
+                target_installation="zc-main",
+            )
+            self.assertIn("host_mismatch_warning", report["runtime_context"])
+            expected_msg = "CLI flag --harness 'zcode' contradicts detected host environment 'antigravity'"
+            self.assertEqual(report["runtime_context"]["host_mismatch_warning"], expected_msg)
+
+            # 2. Reflected in format_human_report
+            human_text = format_human_report(report)
+            self.assertIn(expected_msg, human_text)
+            self.assertIn("[WARNING]", human_text)
+
+        # 3. Reflected on stderr via CLI run
+        base_env = dict(os.environ)
+        for k in list(base_env.keys()):
+            if k.startswith(("ZCODE_", "CURSOR_", "CLAUDE_", "CODEX_")):
+                del base_env[k]
+        base_env["ANTIGRAVITY_AGENT"] = "1"
+        proc = self.run_inspect(
+            ["--repo-root", str(self.root), "--harness", "zcode", "--installation", "zc-main"],
+            env=base_env,
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn(
+            "CLI flag --harness 'zcode' contradicts detected host environment 'antigravity'",
+            proc.stderr,
+        )
+        self.assertIn("[WARNING]", proc.stderr)
+
+    def test_runtime_no_mismatch_warning_when_matching(self):
+        self._create_minimal_metaproject()
+        with mock.patch.dict("os.environ", {"ANTIGRAVITY_AGENT": "1"}, clear=True):
+            report = inspect_repository(
+                self.root,
+                target_harness="antigravity",
+                target_installation="ag-main",
+            )
+            self.assertNotIn("host_mismatch_warning", report["runtime_context"])
+
+    def test_context_unresolved_safe_envelope_notice(self):
+        self._create_minimal_metaproject()
+        proc = self.run_inspect(["--repo-root", str(self.root), "--json"])
+        self.assertEqual(proc.returncode, 0)
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["state"], "CONTEXT_UNRESOLVED")
+
+        # Must have canonical leading line
+        self.assertIn("[CONTEXT_UNRESOLVED] .agents/meta-project.json:", proc.stderr)
+        self.assertIn("expected:", proc.stderr)
+        self.assertIn("actual:", proc.stderr)
+        self.assertIn("next:", proc.stderr)
+
+        # Safe text verification: MUST NOT say 'see .agents/meta-project.json'
+        self.assertNotIn("see .agents/meta-project.json", proc.stderr)
+
+        # Must contain anti-anchoring instructions
+        safe_phrase = (
+            "specify --harness <id> matching your ACTUAL agent host runtime "
+            "(e.g. antigravity, zcode, cursor, claude-code). DO NOT copy an active "
+            "harness from .agents/meta-project.json! If your harness is not yet "
+            "registered, this will correctly trigger HEALTHY_NEW_HARNESS."
+        )
+        self.assertIn(safe_phrase, proc.stderr)
+
+    def test_harness_auto_resolution(self):
+        self._create_minimal_metaproject()
+
+        # Case A: Antigravity detected -> resolves to registered ag-main (HEALTHY_REGISTERED)
+        base_env = dict(os.environ)
+        for k in list(base_env.keys()):
+            if k.startswith(("ANTIGRAVITY_", "AGY_", "ZCODE_", "CURSOR_", "CLAUDE_", "CODEX_")):
+                del base_env[k]
+        base_env["ANTIGRAVITY_AGENT"] = "1"
+
+        proc = self.run_inspect(
+            ["--repo-root", str(self.root), "--harness", "auto", "--json"],
+            env=base_env,
+        )
+        self.assertEqual(proc.returncode, 0, f"Stderr: {proc.stderr}")
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["state"], "HEALTHY_REGISTERED")
+        self.assertEqual(data["runtime_context"]["target_harness"], "antigravity")
+        self.assertNotIn("host_mismatch_warning", data["runtime_context"])
+
+        # Case B: ZCode detected -> resolves to planned zc-main (HEALTHY_NEW_HARNESS)
+        base_env_zc = dict(os.environ)
+        for k in list(base_env_zc.keys()):
+            if k.startswith(("ANTIGRAVITY_", "AGY_", "ZCODE_", "CURSOR_", "CLAUDE_", "CODEX_")):
+                del base_env_zc[k]
+        base_env_zc["ZCODE_WORKSPACE"] = "/some/workspace"
+
+        proc_zc = self.run_inspect(
+            ["--repo-root", str(self.root), "--harness", "auto", "--json"],
+            env=base_env_zc,
+        )
+        self.assertEqual(proc_zc.returncode, 0, f"Stderr: {proc_zc.stderr}")
+        data_zc = json.loads(proc_zc.stdout)
+        self.assertEqual(data_zc["state"], "HEALTHY_NEW_HARNESS")
+        self.assertEqual(data_zc["runtime_context"]["target_harness"], "zcode")
+        self.assertNotIn("host_mismatch_warning", data_zc["runtime_context"])
+
+        # Case C: Unknown host -> resolves to None -> CONTEXT_UNRESOLVED
+        base_env_none = dict(os.environ)
+        for k in list(base_env_none.keys()):
+            if k.startswith(("ANTIGRAVITY_", "AGY_", "ZCODE_", "CURSOR_", "CLAUDE_", "CODEX_")):
+                del base_env_none[k]
+
+        proc_none = self.run_inspect(
+            ["--repo-root", str(self.root), "--harness", "auto", "--json"],
+            env=base_env_none,
+        )
+        self.assertEqual(proc_none.returncode, 0, f"Stderr: {proc_none.stderr}")
+        data_none = json.loads(proc_none.stdout)
+        self.assertEqual(data_none["state"], "CONTEXT_UNRESOLVED")
+        self.assertIsNone(data_none["runtime_context"]["target_harness"])
+
+        # Direct function call with target_harness="auto"
+        with mock.patch.dict("os.environ", {"ANTIGRAVITY_AGENT": "1"}, clear=True):
+            direct_rep = inspect_repository(self.root, target_harness="auto")
+            self.assertEqual(direct_rep["state"], "HEALTHY_REGISTERED")
+            self.assertEqual(direct_rep["runtime_context"]["target_harness"], "antigravity")
+            self.assertNotIn("host_mismatch_warning", direct_rep["runtime_context"])
 
 
 if __name__ == "__main__":

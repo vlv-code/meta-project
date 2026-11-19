@@ -52,10 +52,7 @@ WELL_KNOWN_BOTS = frozenset({
 })
 
 PYFLAKES_STEP_NAME = "Static lint: pyflakes (scripts/ + tests/)"
-# The CONTRACT is "pinned to an exact version, never @latest" — the concrete
-# version is a matrix-compatibility detail (4.1.0 requires Python >=3.11 and
-# breaks the 3.10 leg; the pin tracks the newest full-matrix release).
-PYFLAKES_PIN_PREFIX = "pyflakes=="
+PYFLAKES_PIN = "pyflakes==4.1.0"
 
 
 class TestBoundaryAuditTreeInvariant(unittest.TestCase):
@@ -124,9 +121,8 @@ class TestCiPyflakesStepDeclared(unittest.TestCase):
         text = CI_YML.read_text(encoding="utf-8")
         self.assertIn(PYFLAKES_STEP_NAME, text)
         # Exact pin (never @latest) — Default Closed Tooling exception is
-        # declared per-version, not per-package. The version itself is a
-        # matrix-compatibility detail: only the pin prefix is locked here.
-        self.assertIn(PYFLAKES_PIN_PREFIX, text)
+        # declared per-version, not per-package.
+        self.assertIn(PYFLAKES_PIN, text)
         self.assertIn("python -m pyflakes scripts/ tests/", text)
 
 

@@ -279,6 +279,52 @@ class TestRepositoryCanons(unittest.TestCase):
             self.assertTrue(file_path.is_file(), f"Canonical GitHub file {rel_path} is missing")
             self.assertGreater(file_path.stat().st_size, 0, f"File {rel_path} is empty")
 
+    def test_readme_status_badges_match_manifest_version(self):
+        """Release parity lock: the Status badge version in BOTH README.md and
+        README.ru.md must equal templates/release_manifest.json
+        framework_version. A forgotten badge bump must fail the battery
+        BEFORE the Steward tags the release (extends the Wave F T-D6
+        manifest <-> CHANGELOG lock to the user-visible READMEs)."""
+        import json
+
+        manifest_path = TEMPLATES_DIR / "release_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        framework_version = manifest.get("framework_version")
+        self.assertTrue(
+            framework_version,
+            "templates/release_manifest.json must carry a non-empty framework_version",
+        )
+
+        # The badge URL encodes the version with '--' in place of each '-'
+        # (shields.io slug encoding), e.g. 1.0.0-alpha.6 -> 1.0.0--alpha.6.
+        badge_version = framework_version.replace("-", "--")
+        badge_re = re.compile(
+            r"!\[Status: Alpha\]\(https://img\.shields\.io/badge/Status-"
+            r"([0-9A-Za-z.\-]+)-orange\.svg\)"
+        )
+
+        for rel_path in ("README.md", "README.ru.md"):
+            readme_path = ROOT_DIR / rel_path
+            content = readme_path.read_text(encoding="utf-8")
+            # findall, not search: EVERY Status badge in the file must match
+            # the manifest — a stale badge after (or before) a corrected one
+            # is exactly the forgotten-bump drift this lock exists to catch.
+            matches = badge_re.findall(content)
+            self.assertTrue(
+                matches,
+                f"{rel_path} must carry a Status badge "
+                f"(img.shields.io/badge/Status-<version>-orange.svg)",
+            )
+            stale = [m for m in matches if m != badge_version]
+            self.assertEqual(
+                stale,
+                [],
+                f"{rel_path} carries {len(matches)} Status badge(s) with stale "
+                f"version(s) {stale} while templates/release_manifest.json "
+                f"declares {framework_version} — bump the forgotten badge "
+                f"before tagging the release",
+            )
+
     def test_ci_matrix_includes_python_310(self):
         """Verify that GitHub Actions CI matrix explicitly includes Python 3.10."""
         ci_path = ROOT_DIR / ".github" / "workflows" / "ci.yml"

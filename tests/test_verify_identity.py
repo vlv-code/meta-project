@@ -6,10 +6,12 @@ Pure Python 3.10+ standard library (unittest).
 
 from pathlib import Path
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -256,6 +258,23 @@ actor_id: "vlv-code/meta-project::zcode::zc-main::agent-dev-lead"
             self.assertFalse(valid, "Expected validation failure for invalid scenario profile")
             self.assertTrue(any("scenario" in e.lower() for e in errors), f"Errors: {errors}")
 
+    def test_detect_host_harness(self):
+        """Verify host harness detection for supported environment variables."""
+        cases = [
+            ("ANTIGRAVITY_AGENT", "antigravity"),
+            ("ZCODE_AGENT", "zcode"),
+            ("CURSOR_AGENT", "cursor"),
+            ("CLAUDE_CODE", "claude-code"),
+            ("CODEX_AGENT", "codex"),
+        ]
+        for env_var, expected_harness in cases:
+            with self.subTest(env_var=env_var):
+                with mock.patch.dict(os.environ, {env_var: "1"}, clear=True):
+                    self.assertEqual(verify_identity.detect_host_harness(), expected_harness)
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(verify_identity.detect_host_harness())
+
 
 class TestVerifyIdentityCLI(unittest.TestCase):
     """Test CLI exit codes and output formatting."""
@@ -283,6 +302,129 @@ class TestVerifyIdentityCLI(unittest.TestCase):
             )
             self.assertEqual(res.returncode, 1)
             self.assertIn("missing", res.stderr.lower() + res.stdout.lower())
+
+    def test_actor_host_harness_mismatch_warning_emitted(self):
+        """CLI emits warning on stderr when detected host harness does not match actor_id harness."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            agents_dir = root / ".agents"
+            agents_dir.mkdir(parents=True)
+            registry = {
+                "schema_version": "1.0.0",
+                "project_id": "vlv-code/meta-project",
+                "installations": {
+                    "zc-main": {
+                        "harness_id": "zcode",
+                        "status": "active",
+                    },
+                },
+                "roles": {
+                    "agent-dev-lead": {
+                        "bindings": {
+                            "zc-main": {
+                                "actor_id": "vlv-code/meta-project::zcode::zc-main::agent-dev-lead",
+                                "status": "active",
+                            },
+                        },
+                    },
+                },
+            }
+            (agents_dir / "meta-project.json").write_text(
+                json.dumps(registry, indent=2), encoding="utf-8"
+            )
+
+            actor_id = "vlv-code/meta-project::zcode::zc-main::agent-dev-lead"
+            test_env = os.environ.copy()
+            for var in (
+                "ANTIGRAVITY_AGENT",
+                "ZCODE_AGENT",
+                "CURSOR_AGENT",
+                "CLAUDE_CODE",
+                "CODEX_AGENT",
+            ):
+                test_env.pop(var, None)
+            test_env["ANTIGRAVITY_AGENT"] = "1"
+
+            with mock.patch.dict(os.environ, test_env, clear=True):
+                res = subprocess.run(
+                    [
+                        sys.executable,
+                        str(self.script_path),
+                        "--repo-root",
+                        str(root),
+                        "--actor",
+                        actor_id,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=os.environ,
+                )
+                self.assertEqual(res.returncode, 0)
+                expected_warning = (
+                    "[WARNING] Host harness mismatch: Current process environment appears to be 'antigravity', "
+                    "but checked actor_id specifies harness 'zcode'. "
+                    "Verify that you are not running in a foreign harness session."
+                )
+                self.assertIn(expected_warning, res.stderr)
+
+    def test_actor_host_harness_matching_no_warning(self):
+        """CLI does not emit warning when detected host harness matches actor_id harness."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            agents_dir = root / ".agents"
+            agents_dir.mkdir(parents=True)
+            registry = {
+                "schema_version": "1.0.0",
+                "project_id": "vlv-code/meta-project",
+                "installations": {
+                    "ag-main": {
+                        "harness_id": "antigravity",
+                        "status": "active",
+                    },
+                },
+                "roles": {
+                    "agent-dev-lead": {
+                        "bindings": {
+                            "ag-main": {
+                                "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+                                "status": "active",
+                            },
+                        },
+                    },
+                },
+            }
+            (agents_dir / "meta-project.json").write_text(
+                json.dumps(registry, indent=2), encoding="utf-8"
+            )
+
+            actor_id = "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead"
+            test_env = os.environ.copy()
+            for var in (
+                "ANTIGRAVITY_AGENT",
+                "ZCODE_AGENT",
+                "CURSOR_AGENT",
+                "CLAUDE_CODE",
+                "CODEX_AGENT",
+            ):
+                test_env.pop(var, None)
+            test_env["ANTIGRAVITY_AGENT"] = "1"
+
+            with mock.patch.dict(os.environ, test_env, clear=True):
+                res = subprocess.run(
+                    [
+                        sys.executable,
+                        str(self.script_path),
+                        "--repo-root",
+                        str(root),
+                        "--actor",
+                        actor_id,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=os.environ,
+                )
+                self.assertEqual(res.returncode, 0)
+                self.assertNotIn("Host harness mismatch", res.stderr)
 
 
 if __name__ == "__main__":
