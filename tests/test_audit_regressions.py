@@ -83,7 +83,37 @@ VERIFY_IDENTITY_SCRIPT = REPO_ROOT / "scripts" / "verify_identity.py"
 MANAGE_REPORTS_SCRIPT = REPO_ROOT / "scripts" / "manage_reports.py"
 RECORD_OBS_SCRIPT = REPO_ROOT / "scripts" / "record_obs.py"
 
-POSIX_SHELL = shutil.which("bash") or shutil.which("sh")
+def _find_posix_shell() -> str | None:
+    candidates: list[str] = []
+    for name in ("bash", "sh"):
+        p = shutil.which(name)
+        if p:
+            candidates.append(p)
+    git_path = shutil.which("git")
+    if git_path:
+        git_dir = Path(git_path).resolve().parent
+        for rel in (
+            Path("../bin/bash.exe"),
+            Path("../bin/sh.exe"),
+            Path("../usr/bin/bash.exe"),
+            Path("../usr/bin/sh.exe"),
+        ):
+            cand = (git_dir / rel).resolve()
+            if cand.is_file():
+                candidates.append(str(cand))
+    for cand in candidates:
+        try:
+            res = subprocess.run(
+                [cand, "-c", "exit 0"], capture_output=True, timeout=5
+            )
+            if res.returncode == 0:
+                return cand
+        except Exception:
+            continue
+    return None
+
+
+POSIX_SHELL = _find_posix_shell()
 
 MINIMAL_BOUNDARIES = """# Responsibility Zones and Change Boundaries
 

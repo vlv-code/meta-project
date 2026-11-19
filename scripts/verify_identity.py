@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -47,6 +48,32 @@ SUPPORTED_REGISTRY_SCHEMA_VERSIONS = ("1.0", "1.1")
 # installation (see evaluate_actor_admission).
 VALID_INSTALLATION_STATUSES = {"planned", "active", "disabled", "archived"}
 VALID_BINDING_STATUSES = {"planned", "active", "disabled", "archived"}
+
+HARNESS_ENV_MAP: Tuple[Tuple[str, str], ...] = (
+    ("ANTIGRAVITY_AGENT", "antigravity"),
+    ("ZCODE_AGENT", "zcode"),
+    ("CURSOR_AGENT", "cursor"),
+    ("CLAUDE_CODE", "claude-code"),
+    ("CODEX_AGENT", "codex"),
+)
+
+
+def detect_host_harness(env: Optional[Dict[str, str]] = None) -> Optional[str]:
+    """
+    Detects the current host harness runtime from environment variables:
+    ANTIGRAVITY_AGENT -> 'antigravity'
+    ZCODE_AGENT -> 'zcode'
+    CURSOR_AGENT -> 'cursor'
+    CLAUDE_CODE -> 'claude-code'
+    CODEX_AGENT -> 'codex'
+    Returns canonical harness identifier if recognized, or None.
+    """
+    target_env = os.environ if env is None else env
+    for env_var, harness_id in HARNESS_ENV_MAP:
+        val = target_env.get(env_var)
+        if val is not None and val.strip():
+            return harness_id
+    return None
 
 
 def validate_schema_version(value: Any) -> List[str]:
@@ -411,6 +438,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     root = Path(args.repo_root).resolve()
 
     if args.actor:
+        parts = args.actor.split("::")
+        harness_id = parts[1] if len(parts) == 4 else None
+        detected = detect_host_harness()
+        mismatch_warning: Optional[str] = None
+        if detected is not None and harness_id and detected != harness_id:
+            mismatch_warning = (
+                f"[WARNING] Host harness mismatch: Current process environment appears to be '{detected}', "
+                f"but checked actor_id specifies harness '{harness_id}'. "
+                f"Verify that you are not running in a foreign harness session.\n"
+            )
+
         found, binding = resolve_actor_binding(root, args.actor)
         if not found:
             sys.stderr.write(_error_envelope(
@@ -425,6 +463,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "--check",
             ) + "\n")
             sys.stderr.write(f"[ERROR] Unresolved identity: actor_id '{args.actor}' not found in registry.\n")
+            if mismatch_warning:
+                sys.stderr.write(mismatch_warning)
             return 1
         # Admission control (audit §3): lookup success does not authorize
         # runtime actions; the binding and its installation must be 'active'.
@@ -441,7 +481,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "before performing runtime actions",
             ) + "\n")
             sys.stderr.write(f"[ERROR] {denial}\n")
+            if mismatch_warning:
+                sys.stderr.write(mismatch_warning)
             return 1
+        if mismatch_warning:
+            sys.stderr.write(mismatch_warning)
         sys.stdout.write(f"[OK] Identity resolved and admitted: {args.actor} -> role={binding['role_id']}, installation={binding['installation_id']}, status={binding.get('status')}\n")
         return 0
 
