@@ -32,6 +32,80 @@ from scripts.inspect_meta_project import (
 )
 
 
+def _write_minimal_metaproject(
+    root: Path, active_harness: str = "antigravity", active_installation: str = "ag-main"
+) -> None:
+    """Shared clean-room fixture: a minimal healthy meta-project tree with
+    its own registry. Module-level so multiple test classes reuse it
+    without inheriting each other's test collections."""
+    agents_md = root / "AGENTS.md"
+    agents_md.write_text(
+        "# Project Passport: Test\n## 1. Concept, Principles, and North Stars\n"
+        "## 3. Directive Meta-Knowledge Protocol\n## 6. Project Agent Team & Multi-Harness Identity\n",
+        encoding="utf-8",
+    )
+    pk = root / ".agents" / "project_knowledge"
+    pk.mkdir(parents=True)
+    (pk / "boundaries.md").write_text("# Responsibility Zones\n## Green Zone\n- src/**\n", encoding="utf-8")
+    (pk / "tasks.md").write_text("# Tasks\n- [x] Step 1\n", encoding="utf-8")
+    (pk / "observations.md").write_text("# Obs\n| Date | Cat | Comp | Obs | Sol |\n", encoding="utf-8")
+    (pk / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
+    (pk / "weak_spots.md").write_text("# Weak spots\n", encoding="utf-8")
+
+    scripts_dir = root / "scripts"
+    scripts_dir.mkdir(parents=True)
+    (scripts_dir / "check_boundaries.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    (scripts_dir / "verify_identity.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+    skills_dir = root / ".agents" / "skills" / "record-observation"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text("---\nname: record-observation\n---\n# Skill\n", encoding="utf-8")
+
+    team_dir = root / ".agents" / "team" / "agent-dev-lead"
+    team_dir.mkdir(parents=True)
+    (team_dir / "profile.md").write_text(
+        f"---\nrole_id: agent-dev-lead\nharness_id: {active_harness}\n"
+        f"installation_id: {active_installation}\nactor_id: vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead\n---\n",
+        encoding="utf-8",
+    )
+
+    registry = {
+        "schema_version": "1.0.0",
+        "project_id": "vlv-code/test-project",
+        "installations": {
+            active_installation: {
+                "harness_id": active_harness,
+                "status": "active",
+                "description": "Active installation",
+            },
+            "zc-main": {
+                "harness_id": "zcode",
+                "status": "planned",
+                "description": "Planned target",
+            },
+        },
+        "roles": {
+            "agent-dev-lead": {
+                "description": "Dev Lead",
+                "bindings": {
+                    active_installation: {
+                        "actor_id": f"vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead",
+                        "status": "active",
+                        "profile_path": ".agents/team/agent-dev-lead/profile.md",
+                    },
+                    "zc-main": {
+                        "actor_id": "vlv-code/test-project::zcode::zc-main::agent-dev-lead",
+                        "status": "planned",
+                        "profile_path": None,
+                    },
+                },
+            }
+        },
+    }
+    (root / ".agents" / "meta-project.json").write_text(json.dumps(registry, indent=2), encoding="utf-8")
+
+
+
 class TestInspectMetaProject(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp(prefix="test_inspect_")
@@ -92,72 +166,7 @@ class TestInspectMetaProject(unittest.TestCase):
     # Helper to scaffold minimal Meta-Project structure
     # -------------------------------------------------------------------------
     def _create_minimal_metaproject(self, active_harness="antigravity", active_installation="ag-main"):
-        agents_md = self.root / "AGENTS.md"
-        agents_md.write_text(
-            "# Project Passport: Test\n## 1. Concept, Principles, and North Stars\n"
-            "## 3. Directive Meta-Knowledge Protocol\n## 6. Project Agent Team & Multi-Harness Identity\n",
-            encoding="utf-8",
-        )
-        pk = self.root / ".agents" / "project_knowledge"
-        pk.mkdir(parents=True)
-        (pk / "boundaries.md").write_text("# Responsibility Zones\n## Green Zone\n- src/**\n", encoding="utf-8")
-        (pk / "tasks.md").write_text("# Tasks\n- [x] Step 1\n", encoding="utf-8")
-        (pk / "observations.md").write_text("# Obs\n| Date | Cat | Comp | Obs | Sol |\n", encoding="utf-8")
-        (pk / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
-        (pk / "weak_spots.md").write_text("# Weak spots\n", encoding="utf-8")
-
-        scripts_dir = self.root / "scripts"
-        scripts_dir.mkdir(parents=True)
-        (scripts_dir / "check_boundaries.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-        (scripts_dir / "verify_identity.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-
-        skills_dir = self.root / ".agents" / "skills" / "record-observation"
-        skills_dir.mkdir(parents=True)
-        (skills_dir / "SKILL.md").write_text("---\nname: record-observation\n---\n# Skill\n", encoding="utf-8")
-
-        team_dir = self.root / ".agents" / "team" / "agent-dev-lead"
-        team_dir.mkdir(parents=True)
-        (team_dir / "profile.md").write_text(
-            f"---\nrole_id: agent-dev-lead\nharness_id: {active_harness}\n"
-            f"installation_id: {active_installation}\nactor_id: vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead\n---\n",
-            encoding="utf-8",
-        )
-
-        registry = {
-            "schema_version": "1.0.0",
-            "project_id": "vlv-code/test-project",
-            "installations": {
-                active_installation: {
-                    "harness_id": active_harness,
-                    "status": "active",
-                    "description": "Active installation",
-                },
-                "zc-main": {
-                    "harness_id": "zcode",
-                    "status": "planned",
-                    "description": "Planned target",
-                },
-            },
-            "roles": {
-                "agent-dev-lead": {
-                    "description": "Dev Lead",
-                    "bindings": {
-                        active_installation: {
-                            "actor_id": f"vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead",
-                            "status": "active",
-                            "profile_path": ".agents/team/agent-dev-lead/profile.md",
-                        },
-                        "zc-main": {
-                            "actor_id": "vlv-code/test-project::zcode::zc-main::agent-dev-lead",
-                            "status": "planned",
-                            "profile_path": None,
-                        },
-                    },
-                }
-            },
-        }
-        (self.root / ".agents" / "meta-project.json").write_text(json.dumps(registry, indent=2), encoding="utf-8")
-
+        _write_minimal_metaproject(self.root, active_harness, active_installation)
     # -------------------------------------------------------------------------
     # State 3: HEALTHY_REGISTERED
     # -------------------------------------------------------------------------
@@ -548,6 +557,13 @@ class TestDetectHostHarness(unittest.TestCase):
        evidence. CODEX_AGENT stays.
     """
 
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp(prefix="test_inspect_")
+        self.root = Path(self.test_dir)
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
     def test_genuine_zcode_session(self):
         env = {"ZCODE_PROJECT_DIR": "p", "ZCODE_SESSION_ID": "sess_x"}
         self.assertEqual(detect_host_harness(env=env), "zcode")
@@ -591,25 +607,28 @@ class TestDetectHostHarness(unittest.TestCase):
     def test_cli_auto_resolves_zcode_without_warning(self):
         """Integration (design requirement 8): --harness auto on a
         clean-room zcode session env resolves 'zcode' (HEALTHY_REGISTERED)
-        with NO host-mismatch WARNING on stderr."""
+        with NO host-mismatch WARNING on stderr. Self-contained fixture:
+        the audited repo carries its own registry with an active zcode
+        installation, so the contract holds on any branch (dist included)."""
         import json
         import os
         import subprocess
 
+        _write_minimal_metaproject(self.root, active_harness="zcode", active_installation="zc-test")
         env = {
             key: value
             for key, value in os.environ.items()
-            if not key.startswith(("CLAUDE_", "CODEX_"))
+            if not key.startswith(("CLAUDE_", "CODEX_", "ZCODE_"))
         }
-        env["ZCODE_PROJECT_DIR"] = str(REPO_ROOT)
+        env["ZCODE_PROJECT_DIR"] = str(self.root)
         env["ZCODE_SESSION_ID"] = "sess_test_fixture"
         proc = subprocess.run(
             [
                 sys.executable, "-B",
                 str(REPO_ROOT / "scripts" / "inspect_meta_project.py"),
-                "--json", "--harness", "auto",
+                "--json", "--harness", "auto", "--repo-root", str(self.root),
             ],
-            capture_output=True, text=True, cwd=str(REPO_ROOT), env=env,
+            capture_output=True, text=True, cwd=str(self.root), env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         report = json.loads(proc.stdout)
