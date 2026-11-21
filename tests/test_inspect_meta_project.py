@@ -389,7 +389,11 @@ class TestInspectMetaProject(unittest.TestCase):
                 self.assertEqual(detect_host_harness(), "claude-code", f"Failed for {var}")
 
     def test_detect_host_harness_codex(self):
-        for var in ("CODEX_AGENT", "CODEX_HOME"):
+        # Mini-tail 2026-11-22: CODEX_HOME dropped — machine-scoped (user
+        # installation leaks into any harness), attests nothing. The stricter
+        # form lives in TestDetectHostHarness
+        # (test_codex_home_alone_is_machine_noise_not_codex).
+        for var in ("CODEX_AGENT",):
             with mock.patch.dict("os.environ", {var: "val"}, clear=True):
                 self.assertEqual(detect_host_harness(), "codex", f"Failed for {var}")
 
@@ -527,5 +531,93 @@ class TestInspectMetaProject(unittest.TestCase):
             self.assertNotIn("host_mismatch_warning", direct_rep["runtime_context"])
 
 
+class TestDetectHostHarness(unittest.TestCase):
+    """Mini-tail (2026-11-22, weak_spots OPEN entry): host-detect false
+    positive on a REAL ZCode desktop session. Adversarial env-fixture tests
+    per the approved design:
+
+    1. zcode signature refreshed to real session markers (ZCODE_PROJECT_DIR,
+       ZCODE_SESSION_ID); ZCODE_AGENT/ZCODE_WORKSPACE kept as legacy
+       fallback.
+    2. zcode ordered BEFORE claude-code: ZCode desktop bridges
+       CLAUDE_PROJECT_DIR/CLAUDE_SESSION_ID into its own sessions, so a
+       bridge-equipped zcode session must still resolve "zcode"; a genuine
+       claude-code session has claude vars WITHOUT ZCODE_*.
+    3. CODEX_HOME removed from the codex signature: machine-scoped
+       (user-level Codex installation leaks into any harness), not session
+       evidence. CODEX_AGENT stays.
+    """
+
+    def test_genuine_zcode_session(self):
+        env = {"ZCODE_PROJECT_DIR": "p", "ZCODE_SESSION_ID": "sess_x"}
+        self.assertEqual(detect_host_harness(env=env), "zcode")
+
+    def test_zcode_session_with_claude_bridge_stays_zcode(self):
+        env = {
+            "ZCODE_PROJECT_DIR": "p",
+            "ZCODE_SESSION_ID": "sess_x",
+            "CLAUDE_PROJECT_DIR": "p",
+            "CLAUDE_SESSION_ID": "sess_x",
+        }
+        self.assertEqual(
+            detect_host_harness(env=env), "zcode",
+            "bridged claude vars inside a zcode session must not flip the "
+            "detection to claude-code",
+        )
+
+    def test_genuine_claude_code_session(self):
+        env = {"CLAUDE_PROJECT_DIR": "p", "CLAUDE_SESSION_ID": "sess_x"}
+        self.assertEqual(detect_host_harness(env=env), "claude-code")
+
+    def test_codex_home_alone_is_machine_noise_not_codex(self):
+        env = {"CODEX_HOME": "C:/Users/x/.codex"}
+        self.assertIsNone(
+            detect_host_harness(env=env),
+            "CODEX_HOME is machine-scoped (user installation) and must not "
+            "attest a codex session",
+        )
+
+    def test_codex_agent_attests_codex(self):
+        self.assertEqual(detect_host_harness(env={"CODEX_AGENT": "1"}), "codex")
+
+    def test_antigravity_env_still_detected(self):
+        self.assertEqual(
+            detect_host_harness(env={"ANTIGRAVITY_AGENT": "1"}), "antigravity"
+        )
+
+    def test_empty_env_is_none(self):
+        self.assertIsNone(detect_host_harness(env={}))
+
+    def test_cli_auto_resolves_zcode_without_warning(self):
+        """Integration (design requirement 8): --harness auto on a
+        clean-room zcode session env resolves 'zcode' (HEALTHY_REGISTERED)
+        with NO host-mismatch WARNING on stderr."""
+        import json
+        import os
+        import subprocess
+
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(("CLAUDE_", "CODEX_"))
+        }
+        env["ZCODE_PROJECT_DIR"] = str(REPO_ROOT)
+        env["ZCODE_SESSION_ID"] = "sess_test_fixture"
+        proc = subprocess.run(
+            [
+                sys.executable, "-B",
+                str(REPO_ROOT / "scripts" / "inspect_meta_project.py"),
+                "--json", "--harness", "auto",
+            ],
+            capture_output=True, text=True, cwd=str(REPO_ROOT), env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        report = json.loads(proc.stdout)
+        self.assertEqual(report.get("state"), "HEALTHY_REGISTERED", proc.stderr)
+        self.assertNotIn("WARNING", proc.stderr, proc.stderr)
+        self.assertNotIn("contradicts", proc.stderr, proc.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
+
