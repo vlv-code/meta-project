@@ -44,6 +44,10 @@ jobs:
         run: |
           set -eu
           git fetch origin dev --quiet
+          # The mirror step commits on main: configure the workflow identity
+          # (bare runners have none - 'empty ident name' fatal).
+          git config user.name "meta-project-sync-bot"
+          git config user.email "sync-bot@meta-project.invalid"
           python scripts/sync_dist_branch.py \
             --source origin/dev \
             --target main \
