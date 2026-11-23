@@ -3,7 +3,7 @@
 > Snapshot as of v1.0.0-alpha.4 (2026-11-16).
 
 This document is the structured successor of the raw chat capture
-[`docs/archive/НЕ ОБРАБОТАННЫЙ БЭКЛОГ meta-project.md`](archive/НЕ%20ОБРАБОТАННЫЙ%20БЭКЛОГ%20meta-project.md)
+[`docs/archive/НЕ ОБРАБОТАННЫЙ БЭКЛОГ meta-project.md`](archive/НЕ%20ОБРАБОТАННЫЙ%20БЭКЛОГ%20meta-project.md) (файл доступен только в ветке `dev`)
 (moved to `docs/archive/` unchanged). The raw file mixed two backlog themes and a
 free-form consultation answer; it was two release waves stale when triaged
 (written against revision `4274bbd` / 197 tests; triage performed against the
@@ -19,7 +19,7 @@ acceptance (Step 79) and CHANGELOG `[1.0.0-alpha.4]`.
 
 | # | Theme (raw file) | Disposition | Wave / Pointer |
 |---|---|---|---|
-| 1 | Lazy-load resource pilot for `init-meta-project` | ACCEPTED — Wave E lane P | `docs/superpowers/plans/2026-11-16-wave-e-context-economy.md` (§6a/§6b), CHANGELOG `[1.0.0-alpha.4]` |
+| 1 | Lazy-load resource pilot for `init-meta-project` | ACCEPTED — Wave E lane P | `docs/superpowers/plans/2026-11-16-wave-e-context-economy.md` (§6a/§6b), CHANGELOG `[1.0.0-alpha.4]`; план доступен только в ветке `dev` |
 | 2a | Delegation routing matrix (script / cheap subagent / regular executor / strong model; certainty beats size; plan fields) | ACCEPTED — Wave E lane C (manage Phase 2 "Execution Routing") | Wave E plan, CHANGELOG `[1.0.0-alpha.4]` |
 | 2b | Execution modes (short / normal / extended) | ACCEPTED — Wave E lane C | Root `AGENTS.md` §6 "Execution Routes", `templates/AGENTS.md` |
 | 2c | Cost accounting in tune (preparation → execution → verification → rework chain) | ACCEPTED — Wave E lane C (`cost` block in tune effect records) | CHANGELOG `[1.0.0-alpha.4]` |
@@ -27,7 +27,7 @@ acceptance (Step 79) and CHANGELOG `[1.0.0-alpha.4]`.
 | 2e | Cross-session task checkpoint as a NEW artifact | DECLINED — no new artifact; `tasks.md` is the skeleton (lane T added the `- [>]` checkpoint convention instead) | Step 77 triage; Wave E lane T |
 | 2f | Verified-facts cache (key = inputs + checker version + params, read-only first) | DECLINED for Wave E — not selected into scope; partial coverage via lane T (`architecture.md` v2 map with `Depends on` column + "update in the same change" rule); revisit after Wave F | Step 77 triage |
 | 2g | Change-since-last-read summaries (impact feed after edits) | DECLINED for Wave E — depends on a trustworthy dependency map; prerequisite partially built by lane T (see 2f) | Step 77 triage |
-| 3 | "Primitives dictionary" (`_common.py` consolidation: inspection, identity, intake, observation-writing operations) | ACCEPTED — Wave F lane FC (Flight 2) with ADR #22 | `docs/superpowers/plans/2026-11-16-wave-f-security-perimeter.md` §6 |
+| 3 | "Primitives dictionary" (`_common.py` consolidation: inspection, identity, intake, observation-writing operations) | ACCEPTED — Wave F lane FC (Flight 2) with ADR #22 | `docs/superpowers/plans/2026-11-16-wave-f-security-perimeter.md` §6 (план доступен только в ветке `dev`) |
 | 4 | Mass splitting of all other skills (beyond the init pilot) | DECLINED by design — kept out of the pilot scope pending pilot outcome | Raw file line 29; Wave E §6a/§6b |
 | 5 | Offline/bundle resource delivery, engine contracts (partial raw-file overlap) | ALREADY BUILT before triage — waves 0.9.0 + D (manifest/lock, offline cache fallback, runtime-layout mapping) | CHANGELOG `[1.0.0-alpha.2]`, `[1.0.0-alpha.3]` |
 
