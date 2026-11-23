@@ -154,28 +154,35 @@ class TestBranchDisciplineAdr(unittest.TestCase):
         self.assertIn("`dev` — единственный источник истины", body)
         self.assertIn("`main` — производная ветка", body)
 
-    def test_adr_23_records_owner_definition_and_open_scope_items(self):
+    def test_adr_23_records_owner_definition_and_closed_scope_items(self):
         """The owner defined the model in words (2026-11-23): main is the
         repository without the meta-project scaffolding, everything else is
-        mirrored. The ADR must carry that definition and must keep the two
-        unresolved scope questions open instead of silently settling them."""
+        mirrored. The ADR must carry that definition; the owner decision of
+        2026-11-23 closed both scope questions explicitly (scaffolding =
+        .agents/ plus working documents; release tags on the mirrored main
+        commit, published tags are not moved) instead of leaving them open."""
         start, end = self._adr_entry_bounds("23")
         body = "\n".join(self.lines[start:end])
         self.assertIn("*Определение владельца (2026-11-23):*", body)
         self.assertIn("полное зеркалирование за исключением обвязки", body)
-        open_items = [
-            line for line in self.lines[start:end] if "[OPEN 2026-11-23]" in line
+        self.assertNotIn(
+            "[OPEN 2026-11-23]",
+            body,
+            "scope questions must be closed by the owner decision, not left open",
+        )
+        closed = [
+            line for line in self.lines[start:end] if "[ЗАКРЫТО 2026-11-23" in line
         ]
         self.assertTrue(
-            any("docs/superpowers/plans" in line for line in open_items),
-            "the scaffolding-scope question is not recorded as open",
+            any("docs/superpowers/plans" in line for line in closed),
+            "the scaffolding-scope closure is not recorded",
         )
         self.assertTrue(
             any(
-                "v1.0.0-alpha.7" in line and "v1.0.0-alpha.8" in line
-                for line in open_items
+                "v1.0.0-alpha.7" in line
+                for line in closed
             ),
-            "the release-tag placement question is not recorded as open",
+            "the release-tag placement closure is not recorded",
         )
 
     def test_readmes_state_canonical_range_only(self):
