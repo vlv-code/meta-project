@@ -618,7 +618,9 @@ class TestDetectHostHarness(unittest.TestCase):
         env = {
             key: value
             for key, value in os.environ.items()
-            if not key.startswith(("CLAUDE_", "CODEX_", "ZCODE_"))
+            if not key.startswith(
+                ("ANTIGRAVITY_", "AGY_", "CURSOR_", "CLAUDE_", "CODEX_", "ZCODE_")
+            )
         }
         env["ZCODE_PROJECT_DIR"] = str(self.root)
         env["ZCODE_SESSION_ID"] = "sess_test_fixture"
