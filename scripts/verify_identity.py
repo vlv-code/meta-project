@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import re
 import sys
@@ -17,9 +16,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 try:  # shared helpers (ADR #22): package-style import (tests: from
     # scripts.verify_identity import ...)
-    from scripts._common import _error_envelope
+    from scripts._common import _error_envelope, detect_host_harness
 except ImportError:  # direct script execution: python scripts/verify_identity.py
-    from _common import _error_envelope
+    from _common import _error_envelope, detect_host_harness
 
 DEFAULT_REGISTRY_REL = Path(".agents/meta-project.json")
 
@@ -49,31 +48,65 @@ SUPPORTED_REGISTRY_SCHEMA_VERSIONS = ("1.0", "1.1")
 VALID_INSTALLATION_STATUSES = {"planned", "active", "disabled", "archived"}
 VALID_BINDING_STATUSES = {"planned", "active", "disabled", "archived"}
 
-HARNESS_ENV_MAP: Tuple[Tuple[str, str], ...] = (
-    ("ANTIGRAVITY_AGENT", "antigravity"),
-    ("ZCODE_AGENT", "zcode"),
-    ("CURSOR_AGENT", "cursor"),
-    ("CLAUDE_CODE", "claude-code"),
-    ("CODEX_AGENT", "codex"),
-)
+# Wave J: optional per-installation `orchestration` block (agent-intake-
+# dispatcher runtime binding). The declaration is ADDITIVE under registry
+# schema 1.1.0 — the schema version is NOT bumped. An absent block or an
+# explicit null means "not declared" (equivalent to standalone).
+VALID_DISPATCHER_BINDINGS = ("standalone", "orchestrator-hosted")
+ORCHESTRATION_FIELDS = ("native_orchestrator", "dispatcher_binding")
 
 
-def detect_host_harness(env: Optional[Dict[str, str]] = None) -> Optional[str]:
+def validate_orchestration_block(inst_id: str, block: Any) -> List[str]:
     """
-    Detects the current host harness runtime from environment variables:
-    ANTIGRAVITY_AGENT -> 'antigravity'
-    ZCODE_AGENT -> 'zcode'
-    CURSOR_AGENT -> 'cursor'
-    CLAUDE_CODE -> 'claude-code'
-    CODEX_AGENT -> 'codex'
-    Returns canonical harness identifier if recognized, or None.
+    Validates the optional installation `orchestration` block (Wave J):
+
+        "orchestration": {
+            "native_orchestrator": true,            # JSON boolean, optional
+            "dispatcher_binding": "orchestrator-hosted"  # optional
+        }
+
+    - native_orchestrator: the operator's declaration that this
+      installation's harness provides a native orchestrator agent
+      (availability CANNOT be detected from the environment — 2026-11-23
+      live evidence: an orchestrator session and a subagent session expose
+      identical environments, yet only the orchestrator can launch
+      subagents).
+    - dispatcher_binding: how the agent-intake-dispatcher role is bound at
+      runtime; absent means "standalone".
+    - "orchestrator-hosted" requires native_orchestrator = true in the same
+      block (the dispatcher cannot be hosted by a harness without one).
+
+    Returns a list of error messages (empty when the block is valid).
     """
-    target_env = os.environ if env is None else env
-    for env_var, harness_id in HARNESS_ENV_MAP:
-        val = target_env.get(env_var)
-        if val is not None and val.strip():
-            return harness_id
-    return None
+    errors: List[str] = []
+    if not isinstance(block, dict):
+        return [f"Installation '{inst_id}' orchestration must be an object"]
+    unknown = sorted(set(block) - set(ORCHESTRATION_FIELDS))
+    if unknown:
+        errors.append(
+            f"Installation '{inst_id}' orchestration carries unsupported "
+            f"fields: {', '.join(sorted(unknown))} "
+            "(allowed: native_orchestrator, dispatcher_binding)"
+        )
+    native = block.get("native_orchestrator")
+    if "native_orchestrator" in block and type(native) is not bool:
+        errors.append(
+            f"Installation '{inst_id}' orchestration.native_orchestrator "
+            f"must be a boolean (true/false), got {native!r}"
+        )
+    binding = block.get("dispatcher_binding")
+    if "dispatcher_binding" in block and binding not in VALID_DISPATCHER_BINDINGS:
+        errors.append(
+            f"Installation '{inst_id}' orchestration.dispatcher_binding "
+            f"{binding!r} is unsupported (allowed: standalone, "
+            "orchestrator-hosted)"
+        )
+    if binding == "orchestrator-hosted" and block.get("native_orchestrator") is not True:
+        errors.append(
+            f"Installation '{inst_id}' orchestration.dispatcher_binding "
+            "'orchestrator-hosted' requires native_orchestrator = true"
+        )
+    return errors
 
 
 def validate_schema_version(value: Any) -> List[str]:
@@ -262,6 +295,12 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
             errors.append(
                 f"Installation '{inst_id}' has unsupported status '{status}'. "
                 f"Allowed: {sorted(VALID_INSTALLATION_STATUSES)}"
+            )
+        # Wave J: optional orchestration declaration (agent-intake-dispatcher
+        # runtime binding). An absent block or explicit null = not declared.
+        if inst_data.get("orchestration") is not None:
+            errors.extend(
+                validate_orchestration_block(inst_id, inst_data.get("orchestration"))
             )
 
     for role_id, role_data in roles.items():

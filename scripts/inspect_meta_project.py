@@ -24,18 +24,40 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from scripts.verify_identity import validate_identity_registry
+    from scripts.verify_identity import (
+        VALID_DISPATCHER_BINDINGS,
+        validate_identity_registry,
+    )
 except ImportError:  # direct script execution: python scripts/inspect_meta_project.py
     try:
-        from verify_identity import validate_identity_registry
+        from verify_identity import (
+            VALID_DISPATCHER_BINDINGS,
+            validate_identity_registry,
+        )
     except ImportError:
         validate_identity_registry = None
+        VALID_DISPATCHER_BINDINGS = ("standalone", "orchestrator-hosted")
 
 try:  # shared helpers (ADR #22): package-style import (tests: from
     # scripts.inspect_meta_project import ...)
-    from scripts._common import _error_envelope
+    from scripts._common import (
+        _error_envelope, HOST_HARNESS_SIGNATURES as _host_harness_signatures,
+        detect_host_harness as _detect_host_harness,
+    )
 except ImportError:  # direct script execution: python scripts/inspect_meta_project.py
-    from _common import _error_envelope
+    from _common import (
+        _error_envelope, HOST_HARNESS_SIGNATURES as _host_harness_signatures,
+        detect_host_harness as _detect_host_harness,
+    )
+
+# Public names preserved: existing tests and skills import detect_host_harness
+# and the signature table from this module, while the implementation lives in
+# scripts/_common.py (single source of truth, ADR #22 — the stale per-script
+# copies are gone since the Wave J fix). Aliased import + tuple assignment
+# keeps pyflakes clean without a local redefinition.
+detect_host_harness, HOST_HARNESS_SIGNATURES = (
+    _detect_host_harness, _host_harness_signatures,
+)
 
 
 def _registry_validation_errors(repo_root: Path) -> List[str]:
@@ -51,57 +73,64 @@ def _registry_validation_errors(repo_root: Path) -> List[str]:
 
 SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1", "1"}
 
-# Mini-tail 2026-11-22 (host-detect false positive, found live on a REAL
-# ZCode desktop session):
-# 1. The zcode signature now leads with the REAL session markers
-#    (ZCODE_PROJECT_DIR, ZCODE_SESSION_ID — set by every real ZCode session);
-#    ZCODE_AGENT/ZCODE_WORKSPACE stay as legacy fallback (real sessions never
-#    set them, so the old signature never matched).
-# 2. zcode is ordered BEFORE claude-code: the ZCode desktop bridges
-#    Claude-compatible variables (CLAUDE_PROJECT_DIR, CLAUDE_SESSION_ID) INTO
-#    its own sessions, so a bridge-equipped zcode session previously matched
-#    the claude-code signature first. A genuine claude-code session has
-#    claude vars WITHOUT ZCODE_* — zcode-first resolves the overlap correctly
-#    in both worlds.
-# 3. CODEX_HOME is removed from the codex signature: it is machine-scoped
-#    (set by a user-level Codex installation and leaking into ANY harness),
-#    not session evidence. CODEX_AGENT remains the sole codex marker.
-# 4. antigravity/cursor table audited for the same machine-scoped defect:
-#    ANTIGRAVITY_APP_DATA_DIR is machine-scoped by nature but no live
-#    evidence of foreign-session leakage exists; flagged in the lane report,
-#    left unchanged pending evidence. Cursor variables are session/agent
-#    scoped — clean.
-HOST_HARNESS_SIGNATURES: list[tuple[str, tuple[str, ...]]] = [
-    ("antigravity", ("ANTIGRAVITY_AGENT", "ANTIGRAVITY_APP_DATA_DIR", "AGY_BROWSER_WS_URL")),
-    ("zcode", ("ZCODE_PROJECT_DIR", "ZCODE_SESSION_ID", "ZCODE_AGENT", "ZCODE_WORKSPACE")),
-    ("cursor", ("CURSOR_AGENT", "CURSOR_TRACE", "CURSOR_VERSION")),
-    ("claude-code", ("CLAUDE_CODE", "CLAUDE_PROJECT_DIR")),
-    ("codex", ("CODEX_AGENT",)),
-]
 
+def resolve_orchestration(
+    installations: Any, installation_id: Optional[str]
+) -> Optional[Dict[str, Any]]:
+    """Resolve the DECLARED orchestration of a registry installation
+    (Wave J: agent-intake-dispatcher standalone vs orchestrator-hosted
+    binding). The declaration lives in .agents/meta-project.json because
+    native-orchestrator availability CANNOT be detected from the
+    environment (an orchestrator session and a subagent session expose
+    identical environments).
 
-def detect_host_harness(env: Optional[Dict[str, str]] = None) -> Optional[str]:
-    """Deterministically detect host execution harness from environment variables.
-
-    Signatures use SESSION-scoped variables only (machine-scoped variables
-    leak across harnesses and cannot attest a session — see the
-    HOST_HARNESS_SIGNATURES comment for the 2026-11-22 mini-tail).
-
-    Checked signatures:
-    - Antigravity: ANTIGRAVITY_AGENT, ANTIGRAVITY_APP_DATA_DIR, AGY_BROWSER_WS_URL
-    - ZCode: ZCODE_PROJECT_DIR, ZCODE_SESSION_ID (+ legacy ZCODE_AGENT, ZCODE_WORKSPACE)
-    - Cursor: CURSOR_AGENT, CURSOR_TRACE, CURSOR_VERSION
-    - Claude Code: CLAUDE_CODE, CLAUDE_PROJECT_DIR
-    - Codex: CODEX_AGENT (CODEX_HOME removed — machine-scoped)
-
-    Returns canonical harness id (e.g. 'antigravity', 'zcode') or None.
+    Returns None when there is no installation context (no installation id,
+    or the id does not resolve to a dict entry). Otherwise a dict:
+    - installation: the resolved installation id;
+    - native_orchestrator: declared boolean, or None when absent/invalid;
+    - dispatcher_binding: declared value when it is a supported binding,
+      "standalone" when undeclared or malformed, None when the block itself
+      is invalid;
+    - dispatcher_binding_source: "registry" (valid declared binding),
+      "default" (absent block / null / malformed binding -> standalone),
+      "invalid" (the block is not an object).
     """
-    target_env = os.environ if env is None else env
-    for harness, env_vars in HOST_HARNESS_SIGNATURES:
-        if any(target_env.get(var) for var in env_vars):
-            return harness
-    return None
-
+    if not installation_id:
+        return None
+    if not isinstance(installations, dict):
+        return None
+    entry = installations.get(installation_id)
+    if not isinstance(entry, dict):
+        return None
+    block = entry.get("orchestration")
+    if block is None:
+        # Absent block or explicit null: "not declared" -> standalone default.
+        return {
+            "installation": installation_id,
+            "native_orchestrator": None,
+            "dispatcher_binding": "standalone",
+            "dispatcher_binding_source": "default",
+        }
+    if not isinstance(block, dict):
+        return {
+            "installation": installation_id,
+            "native_orchestrator": None,
+            "dispatcher_binding": None,
+            "dispatcher_binding_source": "invalid",
+        }
+    declared_binding = block.get("dispatcher_binding")
+    binding_is_declared = declared_binding in VALID_DISPATCHER_BINDINGS
+    native = block.get("native_orchestrator")
+    return {
+        "installation": installation_id,
+        "native_orchestrator": native if type(native) is bool else None,
+        "dispatcher_binding": (
+            declared_binding if binding_is_declared else "standalone"
+        ),
+        "dispatcher_binding_source": (
+            "registry" if binding_is_declared else "default"
+        ),
+    }
 
 # Wave G Lane I (facts digest): version of the digest payload contract.
 FACTS_DIGEST_VERSION = "1"
@@ -669,6 +698,11 @@ def inspect_repository(
         "schema_version": schema_version,
         "project_id": project_id,
         "scenario": scenario,
+        # Wave J: declared orchestration of the target installation
+        # (None when no installation context is given). `installations` is
+        # {} when the registry is missing or corrupted. The --facts-digest
+        # payload is deliberately NOT extended (its key set is locked).
+        "orchestration": resolve_orchestration(installations, target_installation),
         "latest_init_report": latest_init_report,
         "installations": installations,
         "capabilities": {
@@ -700,6 +734,26 @@ def format_human_report(report: Dict[str, Any]) -> str:
     if report.get("scenario"):
         sc = report["scenario"]
         lines.append(f"Agreed Scenario:    {sc.get('profile', 'Unset')} (model: {sc.get('collaboration_model', 'unspecified')})")
+
+    # Wave J: declared dispatcher binding of the target installation
+    # (agent-intake-dispatcher standalone vs orchestrator-hosted).
+    orch = report.get("orchestration")
+    if orch is None:
+        binding_text = "unresolved (no installation context)"
+    elif orch.get("dispatcher_binding_source") == "invalid":
+        binding_text = "invalid in registry"
+    elif orch.get("dispatcher_binding_source") == "registry":
+        binding_text = (
+            f"{orch.get('dispatcher_binding')} (declared in the registry)"
+        )
+        if orch.get("native_orchestrator") is True:
+            binding_text += "; native orchestrator: declared"
+        elif orch.get("native_orchestrator") is False:
+            binding_text += "; native orchestrator: declared absent"
+    else:
+        binding_text = "standalone (default: not declared in the registry)"
+    lines.append(f"Dispatcher Binding:  {binding_text}")
+
     if report.get("latest_init_report"):
         ir = report["latest_init_report"]
         lines.append(f"Latest Init Report: {ir.get('run_id')} (status: {ir.get('status')})")
