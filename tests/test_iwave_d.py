@@ -35,10 +35,11 @@ CONTRIB_EN = REPO_ROOT / "CONTRIBUTING.md"
 CONTRIB_RU = REPO_ROOT / "CONTRIBUTING.ru.md"
 
 # Canonical ADR range verified in docs/decisions_and_roadmap.md §7.1
-# (heading "Зафиксированные архитектурные решения (ADR #14–#22)"; the
-# numbered entries run 14..22). The pre-fix READMEs claimed "#1–#8",
+# (heading "Зафиксированные архитектурные решения (ADR #14–#23)"; the
+# numbered entries run 14..23). The pre-fix READMEs claimed "#1–#8",
 # which corresponds to no real ADR numbering. En dash (U+2013) as in the doc.
-ADRS_CANONICAL_RANGE = "ADR #14–#22"
+# Wave J (2026-11-23): range extended to #23 — ADR #23, branch discipline.
+ADRS_CANONICAL_RANGE = "ADR #14–#23"
 ADRS_STALE_RANGE = "ADR #1–#8"
 
 # T-D1: generic root-file patterns that must be mapped in the Green zone.

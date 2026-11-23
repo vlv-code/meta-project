@@ -85,6 +85,8 @@ meta-project/
 - `templates/AGENTS.md` and `templates/project_knowledge/*.md` must remain concise and language/framework-agnostic.
 - Placeholders follow the `{{VARIABLE_NAME}}` format.
 
+### Versioning and Release Policy
+**Versioning policy:** `1.0.0-alpha.*` — breaking changes are allowed at any time (pre-contract phase). `1.0.0-beta.*` — backward compatibility within the beta line is a stated goal; breaking changes land only when the minor series is bumped (`1.0.0-beta.N` → `1.1.0-alpha.1`, never as a patch/pre-release bump inside `1.0.0-beta.*`), each with a migration note. `>=1.0.0` — strict SemVer.
 ---
 
 ## 4. Local Verification (Testing)
@@ -101,7 +103,7 @@ All tests must pass with an `OK` status.
 
 ## 5. Pull Request Workflow
 
-1. Create a topic branch from `main`:
+1. Create a topic branch from `dev` (ADR #23: `dev` is the integration branch; `main` is the derived distribution branch kept in sync automatically — do not target it with PRs):
    - `feat/<feature-name>` for new features and skills.
    - `fix/<fix-description>` for bug fixes in templates or skills.
    - `docs/<topic>` for documentation and reports.
@@ -110,7 +112,7 @@ All tests must pass with an `OK` status.
    - `fix: correct glob pattern in boundaries template`
    - `docs: update empirical test report`
 3. Ensure local tests pass.
-4. Open a Pull Request targeting `main`, filling out the standard PR template.
+4. Open a Pull Request targeting `dev`, filling out the standard PR template; maintainers merge it there and the sync workflow mirrors the distribution content into `main`.
 5. Wait for GitHub Actions CI checks to pass.
 
 > **Note for contributors:** the development branch (`dev`) carries the maintainers' live agent installation — `.agents/team/*/notes.md` and `.agents/project_knowledge/observations.md` intentionally contain the maintainers' internal agent-workflow history (dogfooding by design; visible on fork). The `main` branch ships without `.agents/`.

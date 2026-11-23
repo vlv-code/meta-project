@@ -209,7 +209,7 @@ Red: .env*, migrations/**, src/auth/** — только с явным разре
   - `scripts/manage_reports.py` — автономный движок отчётов сценариев init/manage/update/tune: канонические схемы (`templates/reports/`), детерминированные run ID, проверка свежести и допуска (`latest`/`verify` принимают `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — движок управляемого обновления (SHA-пиннинг, атомарность, журнал): чтение `check`/`plan`, атомарный `apply` с журналом отката, целостностью согласованного плана и update-отчётом, офлайн-фоллбэком кеша (мёртвый origin + точный SHA + интегральный кеш), маппингом на runtime-layout, маппингом `resource`-компонентов манифеста, `--adopt-existing` усыновлением по sha-match и `restore` собственных изменений движка.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#22 + Polyglot Monorepo Incident) и перспективный роадмап.
+  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#23 + Polyglot Monorepo Incident) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
   - `docs/temporary_overrides.md` — временные калибровки правил.
 

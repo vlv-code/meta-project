@@ -209,7 +209,7 @@ Anything unmapped is Red (Default Deny).
   - `scripts/manage_reports.py` — Zero-dependency report engine for init/manage/update/tune scenario reports: canonical schemas (`templates/reports/`), deterministic run IDs, staleness and intake admission checks (`latest`/`verify` accept `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — Managed update engine (SHA-pinned, atomic, journaled): read-only `check`/`plan`, atomic `apply` with rollback journal, approved-plan integrity and update report, offline cache fallback (dead origin + exact SHA + integral cache), runtime-layout target mapping, manifest `resource` component mapping, `--adopt-existing` sha-match adoption, and `restore` of the engine's own changes.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#22 + Polyglot Monorepo Incident) and roadmap.
+  - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#23 + Polyglot Monorepo Incident) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.
   - `docs/temporary_overrides.md` — Temporary rule calibrations.
 
