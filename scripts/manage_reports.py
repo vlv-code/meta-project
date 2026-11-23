@@ -74,8 +74,12 @@ ESSENTIAL_INPUT_PATHS = (
 REGISTRY_PATH = ".agents/meta-project.json"
 
 # Declared-delta vocabulary (Wave D T2.1): the only registry mutations a
-# manage operation may declare and have admitted at intake.
-VALID_MANAGE_CHANGE_KINDS = {"add_role", "disable", "archive"}
+# manage operation may declare and have admitted at intake. Wave J adds the
+# installation-level `set_orchestration` kind (an installation `orchestration`
+# block change; declared as {"kind": "set_orchestration", "installation":
+# <id>} with NO role_id and NO path).
+VALID_MANAGE_CHANGE_KINDS = {"add_role", "disable", "archive", "set_orchestration"}
+INSTALLATION_CHANGE_KINDS = {"set_orchestration"}
 MANAGE_CHANGE_FIELDS = {"kind", "role_id", "installation", "path"}
 
 
@@ -1055,7 +1059,9 @@ def _registry_identity_delta(
     the declared-change vocabulary: (kind, role_id, installation) tuples.
     Binding mutations the vocabulary cannot express (actor re-pointing,
     planned -> active promotions, field edits) surface as 'mutate_role'
-    elements, which no declaration may cover (fail-closed).
+    elements, which no declaration may cover (fail-closed). Wave J: an
+    installation `orchestration` block change (add, edit, or removal)
+    surfaces as a ('set_orchestration', '', installation) element.
     """
     old_roles = (
         old_registry.get("roles")
@@ -1099,6 +1105,37 @@ def _registry_identity_delta(
                     delta.add(("disable", role_id, inst_id))
                 else:
                     delta.add(("mutate_role", role_id, inst_id))
+    # Wave J: installation-level `orchestration` blocks surface as
+    # ('set_orchestration', '', installation) delta elements. The block
+    # value is compared as a whole (absent -> None), so adding, editing,
+    # and removing a declaration all produce exactly one element.
+    old_installations = (
+        old_registry.get("installations")
+        if isinstance(old_registry, dict)
+        and isinstance(old_registry.get("installations"), dict)
+        else {}
+    )
+    new_installations = (
+        new_registry.get("installations")
+        if isinstance(new_registry, dict)
+        and isinstance(new_registry.get("installations"), dict)
+        else {}
+    )
+    for inst_id in set(old_installations) | set(new_installations):
+        old_entry = old_installations.get(inst_id)
+        new_entry = new_installations.get(inst_id)
+        old_orchestration = (
+            old_entry.get("orchestration")
+            if isinstance(old_entry, dict)
+            else None
+        )
+        new_orchestration = (
+            new_entry.get("orchestration")
+            if isinstance(new_entry, dict)
+            else None
+        )
+        if old_orchestration != new_orchestration:
+            delta.add(("set_orchestration", "", inst_id))
     return delta
 
 
@@ -1108,7 +1145,11 @@ def _normalize_declared_changes(
     """
     Validate and normalize a declared changes[] list into (kind, role_id,
     installation) tuples (installation None = wildcard for that pair).
-    Returns (declared_set, problems); a non-empty problems list refuses.
+    Wave J: installation-level kinds (INSTALLATION_CHANGE_KINDS, i.e.
+    'set_orchestration') are declared as {"kind": ..., "installation":
+    <id>} with NO role_id and NO path, and normalize to (kind, '',
+    installation). Returns (declared_set, problems); a non-empty problems
+    list refuses.
     """
     problems: List[str] = []
     declared: Set[Tuple[str, str, Optional[str]]] = set()
@@ -1134,13 +1175,30 @@ def _normalize_declared_changes(
                 + ", ".join(sorted(VALID_MANAGE_CHANGE_KINDS))
                 + ")"
             )
-        if not role_id:
-            problems.append(f"{label}.role_id is missing or empty")
-        path = entry.get("path")
-        if path is not None and not isinstance(path, str):
-            problems.append(f"{label}.path must be a string")
-        if kind in VALID_MANAGE_CHANGE_KINDS and role_id:
-            declared.add((kind, role_id, installation or None))
+        if kind in INSTALLATION_CHANGE_KINDS:
+            # Wave J installation-level kinds: identified by the
+            # installation alone — role_id and path are prohibited.
+            if role_id:
+                problems.append(
+                    f"{label}.kind '{kind}' must not carry role_id"
+                )
+            if not installation:
+                problems.append(
+                    f"{label}.installation is required for kind '{kind}'"
+                )
+            path = entry.get("path")
+            if path is not None:
+                problems.append(f"{label}.kind '{kind}' must not carry path")
+            if kind in VALID_MANAGE_CHANGE_KINDS and installation:
+                declared.add((kind, "", installation))
+        else:
+            if not role_id:
+                problems.append(f"{label}.role_id is missing or empty")
+            path = entry.get("path")
+            if path is not None and not isinstance(path, str):
+                problems.append(f"{label}.path must be a string")
+            if kind in VALID_MANAGE_CHANGE_KINDS and role_id:
+                declared.add((kind, role_id, installation or None))
     return declared, problems
 
 
@@ -1187,7 +1245,9 @@ def verify_declared_registry_delta(
     A registry unchanged since the init report is admitted. A changed
     registry is admitted ONLY when the delta is EXACTLY covered by the
     operation's declared changes[] (add_role/disable/archive with role ids
-    and installations): the baseline registry is recovered from git at the
+    and installations; Wave J adds the installation-level set_orchestration
+    kind, declared as {"kind": "set_orchestration", "installation": <id>}
+    with no role_id/path): the baseline registry is recovered from git at the
     report's recorded commit and hash-verified against the report's
     recorded fingerprint, so deltas rooted in uncommitted init-time state
     refuse instead of silently admitting. Every registry element not named
@@ -1326,6 +1386,10 @@ def verify_declared_registry_delta(
         return None
 
     def _describe(kind: str, role_id: str, installation: Optional[str]) -> str:
+        # Wave J: installation-level kinds (set_orchestration) carry no
+        # role — describe them as "<kind> (installation '<id>')".
+        if kind in INSTALLATION_CHANGE_KINDS:
+            return f"{kind} (installation '{installation}')"
         suffix = (
             f" (installation '{installation}')"
             if installation
