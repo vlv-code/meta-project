@@ -31,7 +31,8 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 - [Установка](#установка)
 - [Архитектурные принципы](#архитектурные-принципы)
 - [Структура целевого репозитория](#структура-целевого-репозитория)
-- [Обследование репозитория и 7 канонических состояний](#обследование-репозитория-и-7-канонических-состояний)
+- [Обследование репозитория и 8 канонических состояний](#обследование-репозитория-и-8-канонических-состояний)
+- [Глоссарий](#глоссарий)
 - [Компоненты репозитория Meta-Project](#компоненты-репозитория-meta-project)
 - [Быстрый старт (Quickstart)](#быстрый-старт-quickstart)
 - [Тестирование и валидация](#тестирование-и-валидация)
@@ -144,6 +145,38 @@ python scripts/inspect_meta_project.py --read-only
 python scripts/inspect_meta_project.py --harness zcode --installation zc-main --read-only
 # Или в машинно-читаемом формате JSON:
 python scripts/inspect_meta_project.py --harness zcode --installation zc-main --json
+```
+
+---
+
+## Глоссарий
+
+Термины проекта, используемые в этом README, в навыках и скриптах, — каждый термин снабжен ссылкой на канонический источник.
+
+| Термин | Определение | Канонический источник |
+| :--- | :--- | :--- |
+| North Stars | Неотменяемые инварианты проекта. | [Философия и видение фреймворка (RU)](docs/framework_philosophy_and_vision.md) |
+| Passport | Корневой `AGENTS.md`: инварианты плюс навигация по срезам знаний. | [templates/AGENTS.md](templates/AGENTS.md) |
+| Knowledge slice | Тематический файл знаний в `.agents/project_knowledge/`, читается по мере необходимости. | [templates/project_knowledge/](templates/project_knowledge/) |
+| Zones | Зеленая (автономно) / Желтая (только после обязательной проверки) / Красная (только с явным подтверждением пользователя). | [templates/project_knowledge/boundaries.md](templates/project_knowledge/boundaries.md) |
+| Default Deny | Все, что не сопоставлено с зоной, считается Red. | [templates/project_knowledge/boundaries.md](templates/project_knowledge/boundaries.md) |
+| Canonical state | Одно из 8 канонических состояний репозитория, определяемых при обследовании. | [Обследование репозитория и 8 канонических состояний](#обследование-репозитория-и-8-канонических-состояний) |
+| Capability matrix | 5 измерений готовности: `read_instructions`, `local_checks`, `skills`, `roles`, `hooks`. | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Opportunistic refresh | Читая срез, агент закрывает найденные пробелы без разрушительной перезаписи. | [templates/AGENTS.md](templates/AGENTS.md) |
+| Facts digest | SHA-256-отпечатки срезов, чтобы не перечитывать неизмененные (`inspect --facts-digest`). | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Decision-RTL | Шаблон обоснования архитектурного решения. | [Философия и видение фреймворка (RU)](docs/framework_philosophy_and_vision.md) |
+| Astra primitives | Имена 4 существующих операций: детерминированное обследование, допуск идентичности, прием отчетов, запись наблюдений. | [docs/primitives.md](docs/primitives.md) |
+| Harness | Среда агента (Claude Code, Cursor, Windsurf, ZCode и т.д.), определяемая по сигнатурам окружения. | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Installation | Запись в `.agents/meta-project.json`, регистрирующая харнесс в этом репозитории. | [Журнал архитектурных решений и роадмап (RU)](docs/decisions_and_roadmap.md) |
+| Deployment modes | Общий (коммитится в Git) / невидимый оверлей (только локально). | [Режимы развертывания (Quickstart #6)](#6-режимы-развертывания-открытый-стандарт-vs-невидимый-оверлей) |
+
+Мини-пример зон (пути иллюстративные):
+
+```text
+Green: docs/**, tests/test_*.py — автономно
+Yellow: AGENTS.md, pyproject.toml — только после локальной проверки
+Red: .env*, migrations/**, src/auth/** — только с явным разрешением
+Всё, что не сопоставлено с зоной, — Red (Default Deny).
 ```
 
 ---
