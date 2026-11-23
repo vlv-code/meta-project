@@ -32,6 +32,7 @@ Context organization framework and separation of concerns between permanent rule
 - [Architectural Principles](#architectural-principles)
 - [Target Repository Structure](#target-repository-structure)
 - [Repository Inspection & Canonical States](#repository-inspection--canonical-states)
+- [Glossary](#glossary)
 - [Meta-Project Components](#meta-project-components)
 - [Quickstart](#quickstart)
 - [Testing and Validation](#testing-and-validation)
@@ -148,6 +149,38 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
 
 ---
 
+## Glossary
+
+Project vocabulary used across this README, the skills, and the scripts — every term links to its canonical source.
+
+| Term | Definition | Canonical source |
+| :--- | :--- | :--- |
+| North Stars | The project's non-negotiable invariants. | [Framework Philosophy and Vision (RU)](docs/framework_philosophy_and_vision.md) |
+| Passport | The root `AGENTS.md`: invariants plus navigation to the knowledge slices. | [templates/AGENTS.md](templates/AGENTS.md) |
+| Knowledge slice | A themed knowledge file under `.agents/project_knowledge/`, read just in time. | [templates/project_knowledge/](templates/project_knowledge/) |
+| Zones | Green (autonomous) / Yellow (mandatory verification) / Red (explicit user confirmation only). | [templates/project_knowledge/boundaries.md](templates/project_knowledge/boundaries.md) |
+| Default Deny | Anything not mapped to a zone is treated as Red. | [templates/project_knowledge/boundaries.md](templates/project_knowledge/boundaries.md) |
+| Canonical state | One of the 8 repository states reported by inspection. | [Repository Inspection & Canonical States](#repository-inspection--canonical-states) |
+| Capability matrix | 5 readiness dimensions: `read_instructions`, `local_checks`, `skills`, `roles`, `hooks`. | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Opportunistic refresh | When reading a slice, close gaps without destructive overwriting. | [templates/AGENTS.md](templates/AGENTS.md) |
+| Facts digest | SHA-256 fingerprints of the slices so unchanged ones need not be re-read (`inspect --facts-digest`). | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Decision-RTL | The template for justifying an architectural decision. | [Framework Philosophy and Vision (RU)](docs/framework_philosophy_and_vision.md) |
+| Astra primitives | Names for 4 existing operations: deterministic survey, identity admission, report intake, observation recording. | [docs/primitives.md](docs/primitives.md) |
+| Harness | An agent environment (Claude Code, Cursor, Windsurf, ZCode, ...) detected from environment signatures. | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Installation | An entry in `.agents/meta-project.json` registering a harness in this repository. | [Architecture Decision Records and Roadmap (RU)](docs/decisions_and_roadmap.md) |
+| Deployment modes | Shared (committed to Git) / invisible overlay (local only). | [Deployment Modes (Quickstart #6)](#6-deployment-modes-shared-repo-level-vs-invisible-overlay) |
+
+Zone mini-example (paths are illustrative):
+
+```text
+Green: docs/**, tests/test_*.py — autonomous
+Yellow: AGENTS.md, pyproject.toml — only after local verification
+Red: .env*, migrations/**, src/auth/** — only with explicit permission
+Anything unmapped is Red (Default Deny).
+```
+
+---
+
 ## Meta-Project Components
 
 - **`templates/`**:
@@ -176,7 +209,7 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
   - `scripts/manage_reports.py` — Zero-dependency report engine for init/manage/update/tune scenario reports: canonical schemas (`templates/reports/`), deterministic run IDs, staleness and intake admission checks (`latest`/`verify` accept `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — Managed update engine (SHA-pinned, atomic, journaled): read-only `check`/`plan`, atomic `apply` with rollback journal, approved-plan integrity and update report, offline cache fallback (dead origin + exact SHA + integral cache), runtime-layout target mapping, manifest `resource` component mapping, `--adopt-existing` sha-match adoption, and `restore` of the engine's own changes.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#22 + Polyglot Monorepo Incident) and roadmap.
+  - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#23 + Polyglot Monorepo Incident) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.
   - `docs/temporary_overrides.md` — Temporary rule calibrations.
 

@@ -31,7 +31,8 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 - [Установка](#установка)
 - [Архитектурные принципы](#архитектурные-принципы)
 - [Структура целевого репозитория](#структура-целевого-репозитория)
-- [Обследование репозитория и 7 канонических состояний](#обследование-репозитория-и-7-канонических-состояний)
+- [Обследование репозитория и 8 канонических состояний](#обследование-репозитория-и-8-канонических-состояний)
+- [Глоссарий](#глоссарий)
 - [Компоненты репозитория Meta-Project](#компоненты-репозитория-meta-project)
 - [Быстрый старт (Quickstart)](#быстрый-старт-quickstart)
 - [Тестирование и валидация](#тестирование-и-валидация)
@@ -148,6 +149,38 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
 
 ---
 
+## Глоссарий
+
+Термины проекта, используемые в этом README, в навыках и скриптах, — каждый термин снабжен ссылкой на канонический источник.
+
+| Термин | Определение | Канонический источник |
+| :--- | :--- | :--- |
+| North Stars | Неотменяемые инварианты проекта. | [Философия и видение фреймворка (RU)](docs/framework_philosophy_and_vision.md) |
+| Passport | Корневой `AGENTS.md`: инварианты плюс навигация по срезам знаний. | [templates/AGENTS.md](templates/AGENTS.md) |
+| Knowledge slice | Тематический файл знаний в `.agents/project_knowledge/`, читается по мере необходимости. | [templates/project_knowledge/](templates/project_knowledge/) |
+| Zones | Зеленая (автономно) / Желтая (только после обязательной проверки) / Красная (только с явным подтверждением пользователя). | [templates/project_knowledge/boundaries.md](templates/project_knowledge/boundaries.md) |
+| Default Deny | Все, что не сопоставлено с зоной, считается Red. | [templates/project_knowledge/boundaries.md](templates/project_knowledge/boundaries.md) |
+| Canonical state | Одно из 8 канонических состояний репозитория, определяемых при обследовании. | [Обследование репозитория и 8 канонических состояний](#обследование-репозитория-и-8-канонических-состояний) |
+| Capability matrix | 5 измерений готовности: `read_instructions`, `local_checks`, `skills`, `roles`, `hooks`. | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Opportunistic refresh | Читая срез, агент закрывает найденные пробелы без разрушительной перезаписи. | [templates/AGENTS.md](templates/AGENTS.md) |
+| Facts digest | SHA-256-отпечатки срезов, чтобы не перечитывать неизмененные (`inspect --facts-digest`). | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Decision-RTL | Шаблон обоснования архитектурного решения. | [Философия и видение фреймворка (RU)](docs/framework_philosophy_and_vision.md) |
+| Astra primitives | Имена 4 существующих операций: детерминированное обследование, допуск идентичности, прием отчетов, запись наблюдений. | [docs/primitives.md](docs/primitives.md) |
+| Harness | Среда агента (Claude Code, Cursor, Windsurf, ZCode и т.д.), определяемая по сигнатурам окружения. | [scripts/inspect_meta_project.py](scripts/inspect_meta_project.py) |
+| Installation | Запись в `.agents/meta-project.json`, регистрирующая харнесс в этом репозитории. | [Журнал архитектурных решений и роадмап (RU)](docs/decisions_and_roadmap.md) |
+| Deployment modes | Общий (коммитится в Git) / невидимый оверлей (только локально). | [Режимы развертывания (Quickstart #6)](#6-режимы-развертывания-открытый-стандарт-vs-невидимый-оверлей) |
+
+Мини-пример зон (пути иллюстративные):
+
+```text
+Green: docs/**, tests/test_*.py — автономно
+Yellow: AGENTS.md, pyproject.toml — только после локальной проверки
+Red: .env*, migrations/**, src/auth/** — только с явным разрешением
+Всё, что не сопоставлено с зоной, — Red (Default Deny).
+```
+
+---
+
 ## Компоненты репозитория Meta-Project
 
 - **`templates/`**:
@@ -176,7 +209,7 @@ python scripts/inspect_meta_project.py --harness zcode --installation zc-main --
   - `scripts/manage_reports.py` — автономный движок отчётов сценариев init/manage/update/tune: канонические схемы (`templates/reports/`), детерминированные run ID, проверка свежести и допуска (`latest`/`verify` принимают `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — движок управляемого обновления (SHA-пиннинг, атомарность, журнал): чтение `check`/`plan`, атомарный `apply` с журналом отката, целостностью согласованного плана и update-отчётом, офлайн-фоллбэком кеша (мёртвый origin + точный SHA + интегральный кеш), маппингом на runtime-layout, маппингом `resource`-компонентов манифеста, `--adopt-existing` усыновлением по sha-match и `restore` собственных изменений движка.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#22 + Polyglot Monorepo Incident) и перспективный роадмап.
+  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#23 + Polyglot Monorepo Incident) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
   - `docs/temporary_overrides.md` — временные калибровки правил.
 
