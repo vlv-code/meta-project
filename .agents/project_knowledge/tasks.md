@@ -25,29 +25,6 @@ Before starting work, every agent MUST review the active task list and, if neces
 > [!NOTE]
 > Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.
 
-> [!NOTE]
-> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.
-
-> [!NOTE]
-> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.
-
-
-> [!NOTE]
-> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.
-
-
----
-
-
-
-
-> [!NOTE]
-> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.
-
-
-> [!NOTE]
-> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.
-
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian @ 2026-11-24 11:46] Step 94: INDEPENDENT Wave K acceptance (Epistemic Triage & Evidence Discipline) — battery dev-committed clone 664/664 OK (2 skip; single uncommitted failure in test_dwave_e2 reading new manifest components via git cat-file blob against HEAD is a known pre-commit stand artifact), dist-committed battery 659/659 OK (34 skip), pyflakes 0, 0 drift, 100%/222 coverage, identity 0; Red Zone untouched; boundaries diff 26 files clean without override; RED replay verified (K1 17F/3E->pass, K2 7F/1E->pass) without assertion emasculation; live CLI audit 5/5 subcommands verified; contracts & limits verified (manage <=240 lines, docs §10 anonymized, _common imports, ground Phase 2 check-tasks) [COMPLETED — verdict: PASS, recommended commit split issued to Steward]
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-24 12:25] Step 95: Wave K git hygiene, lane conventional commits (8 atomic commits on dev: dispatcher role, §10, triage skill/CLI, templates/invariants, kwave tests, README/CHANGELOG parity, pwave_r supersession lock, tasks/telemetry), pyflakes 0, 0 drift, 100% boundaries (222 files) [COMPLETED]
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-dev-lead @ 2026-11-24 10:52] Wave K Lane K1 (P1/Var.4): implemented `scripts/triage_incident.py` (`_common.py` import per ADR #22, cross-platform file lock, fail-closed `probe`/`record-evidence`/`promote`/`check-tasks`/`artifact`), `skills/triage-incident/SKILL.md`, manifest registration, and RED-first `tests/test_kwave_t.py` [COMPLETED]
@@ -56,10 +33,14 @@ Before starting work, every agent MUST review the active task list and, if neces
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-dev-lead @ 2026-11-24 12:55] Wave K.1 audit remediation (P0 `cmd_promote` trailing-hypothesis gate in `scripts/triage_incident.py`, P1 `requires` + Phase 2 fallback in `ground-meta-project` & `release_manifest.json`, P2 active `.agents/team/` 7 roles Rules 1–13 & §4.8 parity) with RED-first tests in `tests/test_kwave_t.py` and `tests/test_kwave_p.py` [COMPLETED — awaiting Guardian verification]
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian @ 2026-11-24 15:56] Step 97: INDEPENDENT Wave K.1 acceptance (P0 promote trailing-hypothesis gate, P1 manifest requires & ground fallback, P2 active 7-role prompts & profiles parity) — dev battery 664/664 OK (1 skip), dist battery 664/664 OK (33 skip), pyflakes 0, 0 drift, 100%/222 coverage, identity 0; Red Zone untouched; boundaries diff 23 files clean; RED replay 3/3 verified; live CLI audit 7/7 steps verified; 7 active role prompts & profiles verified (archive/notes 0 diff) [COMPLETED — verdict: PASS, recommended commit split issued to Steward]
 - [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-24 16:15] Step 98: Wave K.1 git hygiene & 3 conventional commits on dev (9a00cb0 promote evidence gate, 3b59eb0 manifest ground dep & tests, 7ebda56 active 7-role prompts & profiles sync); control gates verified (100%/222 boundaries, 0 drift, identity 0, triage check-tasks 0, full battery 667/667 OK [2 skip in 714.6s]); 13 local commits ready for push on dev [COMPLETED]
+- [x] [vlv-code/meta-project::antigravity::ag-main::agent-dev-lead @ 2026-11-25 00:28] Step 99: Wave L Lanes L1–L4 (ADR #25: role duty deconfliction in manage_reports.py, cross-harness asymmetry detection in inspect_meta_project.py, per-harness team scoping in AGENTS.md §7 / registry, manage skill <= 240 lines, 0 drift, 100% boundaries, adversarial TDD suite tests/test_lwave_*.py 14/14 OK, full battery 681/681 OK [2 skip in 706.2s]) [COMPLETED — awaiting Guardian verification]
+- [x] [vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-25 01:10] Step 100: Wave L git hygiene & 6 conventional commits on dev (e0cbb10 observations archive compaction, ac81093 ADR #25 roadmap §11, f3ed7bd duty deconfliction in manage_reports, 34cd031 inspector cross-harness asymmetry, d61d107 AGENTS §7 scoping and manage skill <= 240 lines); 100%/225 boundaries, 0 drift, identity 0, triage check-tasks 0, tests 15/15 OK [COMPLETED]
 
 ---
 
 ## Delegated Subtasks and Blockers
+- `[vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher -> vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian @ 2026-11-25 00:28]`: Independent Wave L acceptance after Dev completes (RED replay, live CLI deconflict/inspect checks, 0 drift, 100% boundary coverage, manage skill budget <= 240 lines, full battery PASS).
+- `[vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher -> vlv-code/meta-project::antigravity::ag-main::agent-dev-lead @ 2026-11-24 23:42]`: Implement Wave L Lanes L1–L4 (ADR #25: duty conflict deconfliction, cross-harness asymmetry detection, per-harness team scoping) with adversarial TDD (RED-first), manifest registration, sync_templates.py --write, and strict <= 240 line limit on manage-meta-project/SKILL.md [COMPLETED].
 - `[vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher -> vlv-code/meta-project::antigravity::ag-main::agent-dev-lead @ 2026-11-24 10:05]`: Implement Wave K Lanes K1–K3 (priority 4→5→3→2→1, ref `docs/decisions_and_roadmap.md §10`) with adversarial TDD (RED-first), manifest registration, and `sync_templates.py --write`.
 - `[vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher -> vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian @ 2026-11-24 10:05]`: Independent Wave K acceptance after Dev completes (RED replay, live CLI checks, distribution-tree replay, 0 drift, 100% boundary coverage).
 - `[vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher -> vlv-code/meta-project::antigravity::ag-main::agent-github-steward @ 2026-11-24 10:05]`: Lane-based conventional commits on `dev`, CHANGELOG/README parity, and release readiness after Guardian PASS.

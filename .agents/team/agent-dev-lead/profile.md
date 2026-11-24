@@ -1,10 +1,10 @@
 ---
-name: "Lead Developer & Dispatcher"
+name: "Lead Developer"
 role_id: "agent-dev-lead"
 harness_id: "antigravity"
 installation_id: "ag-main"
 actor_id: "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead"
-description: "Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation."
+description: "Rapid execution of core Python utilities, scripts, and feature implementation."
 tools:
   - read_file
   - write_file
@@ -12,23 +12,21 @@ tools:
   - run_command
 model: "inherit"
 invocation_triggers:
-  - "plan task"
-  - "decompose request"
   - "implement feature"
   - "write script"
   - "develop component"
   - "fix logic"
 ---
 
-# Agent Role Passport: agent-dev-lead (Lead Developer & Dispatcher)
+# Agent Role Passport: agent-dev-lead (Lead Developer)
 
 ## 1. Purpose and Scope of Responsibility
 - **Role Identifier (`role_id`):** `agent-dev-lead`
 - **Actor Identifier (`actor_id`):** `vlv-code/meta-project::antigravity::ag-main::agent-dev-lead`
 - **Harness / Installation:** `antigravity` (`ag-main`)
 - **Project Registry:** `.agents/meta-project.json`
-- **Product Scope:** Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation (`agent-intake-dispatcher` + `agent-general-worker`).
-- **User Invocation Triggers:** "plan task", "decompose request", "implement feature", "write script", "develop component", "fix logic".
+- **Product Scope:** Rapid execution of core Python utilities, scripts, and feature implementation.
+- **User Invocation Triggers:** "implement feature", "write script", "develop component", "fix logic".
 
 ---
 
@@ -97,3 +95,4 @@ invocation_triggers:
 | 2026-11-19 | User | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 89: Anti-Anchoring safeguards & host runtime detection across inspector, validator, skills, and prompts | SUCCESS: 3 parallel lanes completed, 537/537 tests pass, 0 drift, 100% boundary coverage |
 | 2026-11-24 | agent-intake-dispatcher | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 93: Wave K Epistemic Triage & Evidence Discipline (Lanes K1-K3, priority 4->5->3->2->1) | SUCCESS: RED-first TDD (K1 17F/2E->pass, K2 6F->pass), sync 0-drift, pyflakes 0, boundaries diff=0 & audit=100% (pending Guardian & commit-clone replay) |
 | 2026-11-24 | User | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 94: Wave K.1 post-audit remediation (P0 promote trailing-hypothesis gate, P1 ground requires+fallback, P2 7 active .agents/team prompts & profiles parity) | SUCCESS: RED-first TDD (33 tests 3F->33 OK), sync 0-drift, verify_identity 0 errors (awaiting full post-edit battery & Guardian) |
+| 2026-11-25 | agent-intake-dispatcher | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 99: Wave L Lanes L1–L4 (ADR #25 Role Duty Deconfliction & Cross-Harness Topology Alignment) | SUCCESS: RED-first TDD (14 tests in test_lwave_*.py), manage_reports deconflict & CLI, inspect_meta_project cross-harness divergence, verify_identity per-installation collaboration_model, manage skill <= 240 lines, 0 drift, 100% boundaries, full battery 681/681 OK |
