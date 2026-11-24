@@ -278,6 +278,88 @@ class TestRecordEvidenceAndPromoteGate(TempWorkspaceTestCase):
         ])
         self.assertEqual(prom2.returncode, 1)
 
+    def test_promote_rejects_unverified_trailing_hypothesis_and_passes_after_evidence(self):
+        # probe(H1) -> record-evidence (E1) -> probe(H2) -> promote MUST fail (H2 unverified)
+        self.assertEqual(_run_triage([
+            "probe",
+            "--tasks", str(self.tasks_path),
+            "--actor", ACTOR,
+            "--id", "INC-201",
+            "--symptom", "Setup falls back to defaults",
+            "--hypothesis", "H1: wrong input directory",
+            "--discriminator", "Check input directory contents",
+        ]).returncode, 0)
+
+        self.assertEqual(_run_triage([
+            "record-evidence",
+            "--tasks", str(self.tasks_path),
+            "--actor", ACTOR,
+            "--id", "INC-201",
+            "--command", "ls -la build_in",
+            "--observed", "exit=0 build_in has valid manifest.json",
+        ]).returncode, 0)
+
+        self.assertEqual(_run_triage([
+            "probe",
+            "--tasks", str(self.tasks_path),
+            "--actor", ACTOR,
+            "--id", "INC-201",
+            "--symptom", "Setup falls back to defaults",
+            "--hypothesis", "H2: packager rejected manifest silently",
+            "--discriminator", "Run packager CLI without stderr redirect",
+        ]).returncode, 0)
+
+        before_promote = self.tasks_path.read_text(encoding="utf-8")
+        prom_fail = _run_triage([
+            "promote",
+            "--tasks", str(self.tasks_path),
+            "--actor", ACTOR,
+            "--id", "INC-201",
+            "--root-cause", "packager rejected manifest",
+            "--fix-scope", "scripts/pkg.py",
+            "--target-role", TARGET_ROLE,
+        ])
+        self.assertEqual(
+            prom_fail.returncode,
+            1,
+            f"promote with trailing unverified H2 must fail closed! stdout={prom_fail.stdout!r}",
+        )
+        self.assertIn("[EVIDENCE_REQUIRED]", prom_fail.stderr)
+        self.assertEqual(self.tasks_path.read_text(encoding="utf-8"), before_promote)
+
+        # After recording evidence for H2, promote MUST succeed and pass strict check-tasks
+        self.assertEqual(_run_triage([
+            "record-evidence",
+            "--tasks", str(self.tasks_path),
+            "--actor", ACTOR,
+            "--id", "INC-201",
+            "--command", "packager --check manifest.json",
+            "--observed", "exit=2 error='schema field rejected'",
+        ]).returncode, 0)
+
+        prom_ok = _run_triage([
+            "promote",
+            "--tasks", str(self.tasks_path),
+            "--actor", ACTOR,
+            "--id", "INC-201",
+            "--root-cause", "schema field rejected by packager",
+            "--fix-scope", "scripts/pkg.py",
+            "--target-role", TARGET_ROLE,
+        ])
+        self.assertEqual(prom_ok.returncode, 0, prom_ok.stderr)
+
+        chk = _run_triage([
+            "check-tasks",
+            "--tasks", str(self.tasks_path),
+            "--json",
+            "--strict",
+        ])
+        self.assertEqual(chk.returncode, 0, chk.stderr)
+        data = json.loads(chk.stdout)
+        self.assertEqual(data["summary"]["unverified_count"], 0)
+        self.assertEqual(data["summary"]["verified_count"], 1)
+        self.assertEqual([item["id"] for item in data["verified_facts"]], ["INC-201"])
+
 
 class TestCheckTasksClassifier(TempWorkspaceTestCase):
     """check-tasks classifies verified_facts, unverified_hypotheses, and thrashing_ids."""

@@ -730,14 +730,33 @@ def cmd_promote(args: argparse.Namespace) -> int:
                 "check task status before promoting",
             )
 
-        if matching["evidence_count"] == 0:
+        if not matching["verified"]:
+            if matching["evidence_count"] == 0:
+                msg = f"cannot promote '{entry_id}' to FIX without recorded empirical evidence"
+                expected = "at least one verified '- evidence ...:' block"
+                actual = "0 recorded evidence entries"
+                next_hint = f"run discriminator command and log via 'triage_incident.py record-evidence --id {entry_id} ...' first"
+            else:
+                msg = (
+                    f"cannot promote '{entry_id}' to FIX: trailing unverified hypothesis "
+                    f"was added after the last recorded evidence"
+                )
+                expected = "verified '- evidence ...:' block recorded after the latest hypothesis revision"
+                actual = (
+                    f"{matching['evidence_count']} prior evidence entry(ies), "
+                    f"{matching['trailing_unverified_hypotheses']} unverified trailing hypothesis revision(s)"
+                )
+                next_hint = (
+                    f"verify the latest hypothesis with its discriminator and run "
+                    f"'triage_incident.py record-evidence --id {entry_id} ...' before promoting"
+                )
             raise TriageError(
                 "EVIDENCE_REQUIRED",
                 str(tasks_path),
-                f"cannot promote '{entry_id}' to FIX without recorded empirical evidence",
-                "at least one verified '- evidence ...:' block",
-                "0 recorded evidence entries",
-                f"run discriminator command and log via 'triage_incident.py record-evidence --id {entry_id} ...' first",
+                msg,
+                expected,
+                actual,
+                next_hint,
             )
 
         now_hm = _format_now_hm()
