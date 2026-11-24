@@ -12,6 +12,12 @@ Before starting work, every agent MUST review the active task list and, if neces
 3. **Step Completion:** Upon completing a task, change the status to `- [x]` and optionally append a 1-line summary result.
 4. **Sanctity of Other Agents' Notes:** Agents are prohibited from deleting or modifying entries written by others. Editing is restricted to own entries (status, details). Upon finding an error in another agent's note, present the conflict description with arguments to the user.
 5. **Checkpoint (pause/handoff):** An in-flight or handed-over task is marked `- [>]` and carries a compact checkpoint block (goal / decided / done: verified facts with links / open / next: single next step + executor). Update the checkpoint at milestones. On completion it collapses to `- [x]` (details go to telemetry/observations per DoD, not into this file). Context recovery (`ground-meta-project`) resumes from the last `- [>]` entry.
+6. **Epistemic Triage (Probe vs Fix):** Do NOT commit unverified diagnoses or speculative `FIX` tasks. Record investigative hypotheses as `- [?] PROBE:` items and promote them to `- [ ] FIX:` ONLY after attaching verified `evidence:` via `scripts/triage_incident.py`:
+   ```markdown
+   - [?] PROBE: [{{ACTOR_ID}} @ {{CURRENT_DATE}}] Hypothesis statement + 1-step discriminator
+   - [x] PROBE: [{{ACTOR_ID}} @ {{CURRENT_DATE}}] evidence: <command output/path/artifact>
+   - [ ] FIX: [{{ACTOR_ID}} @ {{CURRENT_DATE}}] Verified fix target (promoted from PROBE)
+   ```
 
 ---
 

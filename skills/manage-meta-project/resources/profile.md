@@ -46,6 +46,7 @@ invocation_triggers:
 5. **Parallel Subagent Delegation (`dispatching-parallel-agents`):** Primary agents handling batch, parallel, or multi-directory workloads invoke `dispatching-parallel-agents` to coordinate transient subagents with clean boundary slices without human-mediated handoffs.
 6. **Telemetry Closeout Invariant:** The telemetry log (Section 5) must contain strictly 1 summary row per completed task upon task closeout (no micro-step logging; detailed tracking belongs in `tasks.md`).
 7. **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests and confirm failure (RED) before writing code to transition to GREEN.
+8. **Toolchain Handoff Tripwire:** When a defect originates from a foreign or unspecialized toolchain outside this role's environment, stop heuristic patching and emit a structured Probe Bundle (`mode: investigate`) via `scripts/triage_incident.py`.
 
 ---
 
