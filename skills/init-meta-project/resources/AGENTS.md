@@ -8,7 +8,8 @@
   - {{PRINCIPLE_1}} (e.g.: dependency minimalism, avoiding unnecessary abstractions).
   - {{PRINCIPLE_2}} (e.g.: strict typing and validation at system boundaries).
   - {{PRINCIPLE_3}} (e.g.: explicit error handling without swallowing exceptions).
-  - **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, or new regressions appearing in adjacent code while fixing it, are a semantic signal to STOP editing and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
+  - **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, contradictory evidence against the working hypothesis, repeated hypothesis revisions, or new regressions in adjacent code are a semantic signal to STOP editing, audit Error-Path and Fallback-Masking paths, and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
+  - **Evidence-First Triage & Probe Discipline:** label unverified causes `HYPOTHESIS`; treat any leading user premise as a testable hypothesis verified by a 1-step discriminator before answering; promote to fixes only with verified `evidence:` via `triage-incident`.
   - **Default Deny Boundaries:** Any directory not explicitly mapped in boundaries is strictly Red Zone.
   - **Default Closed Tooling:** Core framework and agents operate in a zero-dependency closed loop by default. External tools and third-party dependencies are permitted ONLY when explicitly declared (opt-in) in project specification or requested by user. Liability for external tool failures rests on the project/operator.
   - **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests (boundary conditions, malformed input, failure modes) and confirm RED before writing implementation code to transition to GREEN.
@@ -51,6 +52,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `update-meta-project` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
 - `record-observation` — atomic logging of findings and quirks into `observations.md`.
 - `sync-architecture` — updating the component map and data flows in `architecture.md`.
+- `triage-incident` — split-runtime epistemic triage, probe discipline, and evidence-gated handoff.
 
 ### Skill Responsibility Boundaries (invariant):
 | Skill | Owns | Must NOT do |
@@ -60,6 +62,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 | update | framework components & migrations | revise team composition or North Stars |
 | ground | recover understanding of goal/state/authority | change configuration to silence a discrepancy |
 | tune | propose config improvements with evidence | apply them directly (routes via manage/update/decommission) |
+| triage | probe & evidence discipline, circuit-breaker | mark hypotheses proven or deploy roles |
 
 ### Connected stack skills from environment:
 {{STACK_SKILLS}}
@@ -81,6 +84,8 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
   `python scripts/record_obs.py --category <cat> --path <path> --issue <text> --solution <text>`
 - **Initialization & Management Report Audit:**
   `python scripts/manage_reports.py [init|manage|latest|verify]`
+- **Epistemic Incident Triage:**
+  `python scripts/triage_incident.py [probe|record-evidence|promote|check-tasks|artifact]`
 
 ### Read-Only Exploration Mode
 When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:

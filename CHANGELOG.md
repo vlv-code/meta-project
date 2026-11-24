@@ -10,6 +10,18 @@
 
 ## [Unreleased]
 
+### Added / Добавлено
+- **Волна K — Эпистемический триаж и дисциплина доказательств (Split-Runtime Silent-Failure Remediation, §10)**:
+  - Процедурный навык `skills/triage-incident/SKILL.md` и детерминированная CLI-утилита `scripts/triage_incident.py` на Python stdlib (`probe`, `record-evidence`, `promote`, `check-tasks`, `artifact`).
+  - Двухфазная структура `tasks.md` с разделением диагностических проб (`- [?] PROBE`), обязательного поля доказательства (`evidence:`) и задач на исправление (`- [ ] FIX`).
+  - Эпистемические инварианты `Evidence-First Triage`, расширенный `Circuit Breaker` (опровергнутые гипотезы + аудит `Error-Path / Fallback-Masking`), `Toolchain Handoff Tripwire` и переносимая анти-угодливость в `templates/AGENTS.md`, `templates/team/system_prompt.md`, `skills/manage-meta-project` и `skills/ground-meta-project`.
+
+### Fixed / Исправлено
+- **Волна K.1 — Усиление шлюзов эпистемического триажа и зависимостей манифеста**:
+  - Строгая валидация доказательств в шлюзе `triage_incident.py promote` (отклонение trailing-гипотез без верифицированного `evidence:`).
+  - Явное декларирование зависимости `scripts/triage_incident.py` для навыка `ground-meta-project` в `templates/release_manifest.json` и детерминированный fallback-путь.
+  - Синхронизация системных промптов и профилей 7 активных ролей команды (`.agents/team/`) с инвариантами Wave K (Правила 1–13, §4.8).
+
 ### Planned / В планах
 - Интеграция обратной связи сообщества и эмпирические тесты на многоязычных репозиториях.
 - Разработка шаблонов адаптеров для альтернативных агентных сред.

@@ -69,6 +69,13 @@
       ]
     },
     {
+      "path": "scripts/triage_incident.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_common.py"
+      ]
+    },
+    {
       "path": "skills/init-meta-project/SKILL.md",
       "kind": "skill",
       "requires": []
@@ -181,7 +188,8 @@
       "path": "skills/ground-meta-project/SKILL.md",
       "kind": "skill",
       "requires": [
-        "scripts/inspect_meta_project.py"
+        "scripts/inspect_meta_project.py",
+        "scripts/triage_incident.py"
       ]
     },
     {
@@ -209,6 +217,13 @@
       "path": "skills/tune-meta-project/SKILL.md",
       "kind": "skill",
       "requires": []
+    },
+    {
+      "path": "skills/triage-incident/SKILL.md",
+      "kind": "skill",
+      "requires": [
+        "scripts/triage_incident.py"
+      ]
     },
     {
       "path": "templates/AGENTS.md",

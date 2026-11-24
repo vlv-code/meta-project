@@ -70,7 +70,7 @@ npx skills add vlv-code/meta-project
 ```
 
 > [!IMPORTANT]
-> Установщики отдельных навыков копируют только папки навыков. `sync-architecture` — единственный автономный навык; остальные восемь требуют `scripts/` и `templates/` репозитория — устанавливайте полный плагин или пакет вместо выборочной установки отдельных навыков.
+> Установщики отдельных навыков копируют только папки навыков. `sync-architecture` — единственный автономный навык; остальные девять требуют `scripts/` и `templates/` репозитория — устанавливайте полный плагин или пакет вместо выборочной установки отдельных навыков.
 
 ---
 
@@ -198,6 +198,7 @@ Red: .env*, migrations/**, src/auth/** — только с явным разре
   - `skills/update-meta-project/` — навык безопасного обновления фреймворка с GitHub или локального кэша с сохранением всех проектных данных в блоках `local_repo_data`.
   - `skills/record-observation/` — навык категоризированной записи наблюдений в `observations.md` с контролем дубликатов и триггерами компакции памяти.
   - `skills/sync-architecture/` — навык структурного анализа манифестов и актуализации карты компонентов.
+  - `skills/triage-incident/` — навык доказательного эпистемического триажа инцидентов и тихих отказов в сплит-рантайме: машинный контроль артефактов, захват немаскированного stderr, гейт PROBE -> record-evidence -> promote, диагностический Circuit Breaker и аудит Error-Path / Fallback-Masking (см. docs/decisions_and_roadmap.md §10).
 - **`scripts/`**:
   - `scripts/inspect_meta_project.py` — детерминированный движок обследования на Python stdlib, выполняющий классификацию репозитория по 8 каноническим состояниям, проверку матрицы готовности и учёт git worktree (поддерживает `--json`, `--read-only` и контекст выполнения `--harness`/`--installation`).
   - `scripts/check_boundaries.py` — автономный CLI гейта границ (Boundary Gate) на Python stdlib, обеспечивающий принудительный машинный контроль зон (Green/Yellow/Red) и инварианта Default Deny локально и в GitHub Actions CI (поддерживает `--audit-tree` для 100% покрытия дерева и `--install-hook` для настройки pre-commit; установленный хук пропускает санкционированное пользователем Red-Zone изменение только через явную переменную коммита `META_PROJECT_ALLOW_RED_ZONE=1`).
@@ -208,8 +209,9 @@ Red: .env*, migrations/**, src/auth/** — только с явным разре
   - `scripts/verify_identity.py` — валидатор многохарнессной идентичности на Python stdlib, проверяющий реестр `.agents/meta-project.json`, квалифицированные привязки `actor_id` и синхронизацию профилей ролей.
   - `scripts/manage_reports.py` — автономный движок отчётов сценариев init/manage/update/tune: канонические схемы (`templates/reports/`), детерминированные run ID, проверка свежести и допуска (`latest`/`verify` принимают `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — движок управляемого обновления (SHA-пиннинг, атомарность, журнал): чтение `check`/`plan`, атомарный `apply` с журналом отката, целостностью согласованного плана и update-отчётом, офлайн-фоллбэком кеша (мёртвый origin + точный SHA + интегральный кеш), маппингом на runtime-layout, маппингом `resource`-компонентов манифеста, `--adopt-existing` усыновлением по sha-match и `restore` собственных изменений движка.
+  - `scripts/triage_incident.py` — автономная CLI-утилита эпистемического триажа на Python stdlib с детерминированными подкомандами: `probe`, `record-evidence`, `promote` (fail-closed гейт против преждевременных задач на исправление), `check-tasks` и сравнение `artifact`.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#23 + Polyglot Monorepo Incident) и перспективный роадмап.
+  - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#23, Polyglot Monorepo Incident и Split-Runtime Silent-Failure Incident §10) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
   - `docs/temporary_overrides.md` — временные калибровки правил.
 

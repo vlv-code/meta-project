@@ -70,7 +70,7 @@ npx skills add vlv-code/meta-project
 ```
 
 > [!IMPORTANT]
-> Per-skill installers copy the skill folders only. `sync-architecture` is the single standalone skill; the other eight require the repository's `scripts/` and `templates/` to run — install the full plugin or package instead of cherry-picking individual skills.
+> Per-skill installers copy the skill folders only. `sync-architecture` is the single standalone skill; the other nine require the repository's `scripts/` and `templates/` to run — install the full plugin or package instead of cherry-picking individual skills.
 
 ---
 
@@ -198,6 +198,7 @@ Anything unmapped is Red (Default Deny).
   - `skills/update-meta-project/` — Non-destructive upstream updating skill from GitHub or local cache with dual-tier source resolution and seamless `local_repo_data` preservation.
   - `skills/record-observation/` — Skill for categorized logging of observations into `observations.md` with duplicate suppression and compaction triggers.
   - `skills/sync-architecture/` — Skill for structural manifest analysis and component map synchronization.
+  - `skills/triage-incident/` — Evidence-first epistemic triage skill for split-runtime silent failures: enforces empirical artifact checks, unmasked stderr capture, PROBE -> record-evidence -> promote gating, diagnostic Circuit Breaker, and Error-Path / Fallback-Masking audits (see docs/decisions_and_roadmap.md §10).
 - **`scripts/`**:
   - `scripts/inspect_meta_project.py` — Zero-dependency deterministic inspection engine evaluating the 8 canonical repository states, capability matrix, and worktree awareness (supports `--json`, `--read-only`, and `--harness`/`--installation` runtime context).
   - `scripts/check_boundaries.py` — Zero-dependency Boundary Gate CLI enforcing Green/Yellow/Red zones and Default Deny (Black Zone) on Git diffs locally and in GitHub Actions CI (supports `--audit-tree` for 100% path coverage and `--install-hook` for pre-commit installation; the installed hook admits a user-sanctioned Red Zone change only via the explicit `META_PROJECT_ALLOW_RED_ZONE=1` commit environment).
@@ -208,8 +209,9 @@ Anything unmapped is Red (Default Deny).
   - `scripts/verify_identity.py` — Zero-dependency multi-harness identity validator verifying `.agents/meta-project.json` registry, qualified `actor_id` bindings, and role profile synchronization.
   - `scripts/manage_reports.py` — Zero-dependency report engine for init/manage/update/tune scenario reports: canonical schemas (`templates/reports/`), deterministic run IDs, staleness and intake admission checks (`latest`/`verify` accept `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — Managed update engine (SHA-pinned, atomic, journaled): read-only `check`/`plan`, atomic `apply` with rollback journal, approved-plan integrity and update report, offline cache fallback (dead origin + exact SHA + integral cache), runtime-layout target mapping, manifest `resource` component mapping, `--adopt-existing` sha-match adoption, and `restore` of the engine's own changes.
+  - `scripts/triage_incident.py` — Zero-dependency epistemic triage CLI implementing deterministic subcommands: `probe`, `record-evidence`, `promote` (fail-closed gate preventing premature fix tasks), `check-tasks`, and `artifact` comparison.
 - **`docs/`**:
-  - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#23 + Polyglot Monorepo Incident) and roadmap.
+  - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#23, Polyglot Monorepo Incident, and Split-Runtime Silent-Failure Incident §10) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.
   - `docs/temporary_overrides.md` — Temporary rule calibrations.
 

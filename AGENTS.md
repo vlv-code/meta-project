@@ -8,18 +8,19 @@
   - **No Context Bloat:** The root `AGENTS.md` is concise, free of dynamic logs, and contains only fundamental guidelines, meta-map, and protocols.
   - **Structural Canonicity and Validation:** All skills and templates must strictly conform to the format specification (YAML frontmatter, "When to invoke skill" and "Execution steps" sections) and be verified by `test_integrity.py`.
   - **Opportunistic Refresh (Read + Opportunistic Refresh):** When consulting any meta-knowledge slice, the agent closes identified gaps and updates the repository picture without destructive overwriting of accumulated data.
-  - **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, or new regressions appearing in adjacent code while fixing it, are a semantic signal to STOP editing and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
+  - **Circuit Breaker & Flow Tracing:** repeatedly failing edits targeting one defect, contradictory evidence against the working hypothesis, repeated hypothesis revisions, or new regressions in adjacent code are a semantic signal to STOP editing, audit Error-Path and Fallback-Masking paths, and trace the full data path (origin ➔ transport ➔ persistence ➔ consumer) before the next diff. A normal iterative TDD loop is NOT a violation.
+  - **Evidence-First Triage & Probe Discipline:** label unverified causes `HYPOTHESIS`; treat any leading user premise as a testable hypothesis verified by a 1-step discriminator before answering; promote to fixes only with verified `evidence:` via `triage-incident`.
   - **Default Deny Boundaries:** Any directory not explicitly mapped in boundaries is strictly Red Zone.
   - **Default Closed Tooling:** Core framework and agents operate in a zero-dependency closed loop by default. External tools and third-party dependencies are permitted ONLY when explicitly declared (opt-in) in project specification or requested by user. Liability for external tool failures rests on the project/operator.
   - **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests (boundary conditions, malformed input, failure modes) and confirm RED before writing implementation code to transition to GREEN.
   *(Any decisions contradicting these principles are prohibited)*
 
 ## 2. Repository Meta-Map
-- Core Code & Skills: `skills/` (`init-meta-project`, `manage-meta-project`, `decommission-meta-project`, `ground-meta-project`, `scan-meta-project`, `tune-meta-project`, `update-meta-project`, `record-observation`, `sync-architecture`)
+- Core Code & Skills: `skills/` (`init-meta-project`, `manage-meta-project`, `decommission-meta-project`, `ground-meta-project`, `scan-meta-project`, `tune-meta-project`, `update-meta-project`, `record-observation`, `sync-architecture`, `triage-incident`)
 - Canonical Templates: `templates/` (`templates/AGENTS.md`, `templates/project_knowledge/`, `templates/team/`)
 - CI/CD & Ownership: `.github/workflows/ci.yml`, `.github/CODEOWNERS`
 - Integrity Tests: `tests/test_integrity.py`
-- Automation Scripts: `scripts/check_boundaries.py`, `scripts/compact_memory.py`, `scripts/sync_templates.py`, `scripts/record_obs.py`, `scripts/verify_identity.py`, `scripts/inspect_meta_project.py`, `scripts/manage_reports.py`, `scripts/update_meta_project.py`
+- Automation Scripts: `scripts/check_boundaries.py`, `scripts/compact_memory.py`, `scripts/sync_templates.py`, `scripts/record_obs.py`, `scripts/verify_identity.py`, `scripts/inspect_meta_project.py`, `scripts/manage_reports.py`, `scripts/update_meta_project.py`, `scripts/triage_incident.py`
 - Documentation and Decisions: `docs/decisions_and_roadmap.md`, `README.md`, `CHANGELOG.md`
 
 ## 3. Directive Meta-Knowledge Protocol
@@ -53,6 +54,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 - `update-meta-project` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation.
 - `record-observation` — atomic logging of findings and quirks into `observations.md`.
 - `sync-architecture` — updating the component map and data flows in `architecture.md`.
+- `triage-incident` — split-runtime epistemic triage, probe discipline, and evidence-gated handoff.
 
 ### Skill Responsibility Boundaries (invariant):
 | Skill | Owns | Must NOT do |
@@ -62,6 +64,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 | update | framework components & migrations | revise team composition or North Stars |
 | ground | recover understanding of goal/state/authority | change configuration to silence a discrepancy |
 | tune | propose config improvements with evidence | apply them directly (routes via manage/update/decommission) |
+| triage | probe & evidence discipline, circuit-breaker | mark hypotheses proven or deploy roles |
 
 ### Connected stack skills from environment:
 - `python-pro` — Python development and refactoring, adhering to Python 3.10+ standards.
@@ -87,6 +90,8 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
   `python scripts/record_obs.py --category <cat> --path <path> --issue <text> --solution <text>`
 - **Initialization & Management Report Audit:**
   `python scripts/manage_reports.py [init|manage|latest|verify]`
+- **Epistemic Incident Triage:**
+  `python scripts/triage_incident.py [probe|record-evidence|promote|check-tasks|artifact]`
 
 ### Read-Only Exploration Mode
 When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:
@@ -110,6 +115,7 @@ When tasked with code exploration, repository assessment, or architecture review
 Authoritative role bindings and installation identities are defined in `.agents/meta-project.json`.
 - **Identity Determination Protocol:** In runtime execution, every active agent determines its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` and verifies integrity via `scripts/verify_identity.py --check`.
 - **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be validated against `.agents/meta-project.json`, the agent must fail closed and report an unresolved identity.
+- [Intake Dispatcher](.agents/team/agent-intake-dispatcher/profile.md) — Task decomposition, user request intake analysis, prompt preparation, and routing across team roles (invoked by: "plan task", "decompose request", "intake", "route task", "prepare prompt for role")
 - [Lead Developer & Dispatcher](.agents/team/agent-dev-lead/profile.md) — Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation (invoked by: "plan task", "decompose request", "implement feature", "write script", "develop component", "fix logic")
 - [Quality & Meta-Architecture Guardian](.agents/team/agent-quality-guardian/profile.md) — Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing (invoked by: "verify meta-project structure", "run tests", "audit passport", "audit knowledge base", "check links", "check dead code")
 - [GitHub Steward & Release Captain](.agents/team/agent-github-steward/profile.md) — Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity (invoked by: "git hygiene", "audit ci", "prepare release", "check readme parity", "conventional commit")

@@ -44,7 +44,8 @@ Read ONLY what the situation needs, by semantic section reference:
 - the agreed scenario from `.agents/meta-project.json`;
 - the live task: the CURRENT user request first; `tasks.md` second — a fresh
   request wins over a stale entry, but never silently cancels previously
-  agreed restrictions; contradictions are surfaced explicitly;
+  agreed restrictions; contradictions are surfaced explicitly; separate
+  **FACTS vs HYPOTHESES** by running `python scripts/triage_incident.py check-tasks --tasks .agents/project_knowledge/tasks.md --json` when `scripts/triage_incident.py` is installed (or manually inspecting `tasks.md` for missing `evidence:` in minimal init setups where the script is absent) — any `PROBE` or root-cause claim lacking verified `evidence:` MUST be downgraded to `Discrepancies & unknown facts` rather than treated as established truth;
 - the last `- [>]` checkpoint in `tasks.md` when resuming interrupted or
   handed-off work (checkpoint convention per tasks.md rules);
 - relevant fragments of `architecture.md` / `boundaries.md`;

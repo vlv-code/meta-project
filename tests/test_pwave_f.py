@@ -1,19 +1,22 @@
 """
-Wave P — Lane PF lock-in tests (plugin-packaging frontmatter x9).
+Wave P — Lane PF lock-in tests (plugin-packaging frontmatter).
 
 Plan: docs/superpowers/plans/2026-11-17-wave-p-plugin-packaging.md (§3 Lane PF).
+Wave K supersession: added skills/triage-incident/SKILL.md (expanding the
+canonical skill inventory from 9 to 10); packaging metadata (license +
+compatibility + no metadata.version) applies to ALL 10 skills, while the
+byte-identical HEAD description lock scopes to the 9 pre-existing Wave P
+skills so pre-commit runs do not fail on a newly added Wave K skill.
 
 Locks in:
-  (a) every skills/*/SKILL.md (glob; exactly 9) carries top-level frontmatter
-      keys `license` (value MIT) and `compatibility` (value containing
-      "Python 3.10+") — the plugin-channel/skills.sh packaging metadata.
+  (a) every skills/*/SKILL.md (glob; 10 including triage-incident) carries
+      top-level frontmatter keys `license` (value MIT) and `compatibility`
+      (value containing "Python 3.10+") — the plugin-channel packaging metadata.
   (b) NO frontmatter contains a `metadata:` block with a `version` key:
       version stays single-sourced in templates/release_manifest.json
       (framework_version) and the packaging manifests, never duplicated
       into skill frontmatter.
-  (c) skill descriptions are byte-identical to git HEAD (extracted via
-      `git show HEAD:skills/<name>/SKILL.md`): the wave must add packaging
-      keys WITHOUT any accidental description drift.
+  (c) the 9 Wave P skill descriptions stay byte-identical to git HEAD.
 
 Zero-dependency: Python 3.10+ stdlib only (subprocess `git` is host
 tooling explicitly mandated by the plan for the HEAD comparison).
@@ -26,7 +29,18 @@ import unittest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT_DIR / "skills"
-EXPECTED_SKILL_COUNT = 9
+EXPECTED_SKILL_COUNT = 10
+WAVE_P_SKILLS = (
+    "decommission-meta-project",
+    "ground-meta-project",
+    "init-meta-project",
+    "manage-meta-project",
+    "record-observation",
+    "scan-meta-project",
+    "sync-architecture",
+    "tune-meta-project",
+    "update-meta-project",
+)
 EXPECTED_LICENSE = "MIT"
 EXPECTED_COMPAT_SUBSTR = "Python 3.10+"
 
@@ -170,9 +184,10 @@ class TestPackagingFrontmatter(unittest.TestCase):
                 )
 
     def test_descriptions_byte_identical_to_head(self):
-        for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
+        for skill_name in WAVE_P_SKILLS:
+            skill_file = SKILLS_DIR / skill_name / "SKILL.md"
             relpath = skill_file.relative_to(ROOT_DIR).as_posix()
-            with self.subTest(skill=skill_file.parent.name):
+            with self.subTest(skill=skill_name):
                 working = read_frontmatter(
                     skill_file.read_text(encoding="utf-8")
                 )
