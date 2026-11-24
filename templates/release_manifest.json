@@ -188,7 +188,8 @@
       "path": "skills/ground-meta-project/SKILL.md",
       "kind": "skill",
       "requires": [
-        "scripts/inspect_meta_project.py"
+        "scripts/inspect_meta_project.py",
+        "scripts/triage_incident.py"
       ]
     },
     {

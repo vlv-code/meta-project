@@ -78,6 +78,53 @@ class TestSystemPromptAndProfileContracts(unittest.TestCase):
 
         self.assertIn("Toolchain Handoff Tripwire", tpl_bytes.decode("utf-8"))
 
+    def test_active_team_prompts_and_profiles_match_wave_k_invariants(self) -> None:
+        team_dir = REPO_ROOT / ".agents/team"
+        if not team_dir.is_dir():
+            self.skipTest("dogfood-branch contract: requires .agents/team/")
+
+        active_roles = (
+            ("agent-intake-dispatcher", "vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher", False),
+            ("agent-dev-lead", "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead", False),
+            ("agent-quality-guardian", "vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian", False),
+            ("agent-github-steward", "vlv-code/meta-project::antigravity::ag-main::agent-github-steward", False),
+            ("agent-dev-lead-zc", "vlv-code/meta-project::zcode::zc-main::agent-dev-lead", True),
+            ("agent-quality-guardian-zc", "vlv-code/meta-project::zcode::zc-main::agent-quality-guardian", True),
+            ("agent-github-steward-zc", "vlv-code/meta-project::zcode::zc-main::agent-github-steward", True),
+        )
+        required_prompt_tokens = (
+            "Shared File Annotations Sanctity",
+            "Error-Path",
+            "Fallback-Masking",
+            "Probe Bundle",
+            "mode: investigate",
+            "12. **Toolchain Handoff Tripwire:**",
+            "13. **Evidence-First Triage & Anti-Sycophancy:**",
+            "HYPOTHESIS",
+            "discriminator",
+        )
+        for role_dir, expected_actor_id, is_zc in active_roles:
+            sp_path = team_dir / role_dir / "system_prompt.md"
+            prof_path = team_dir / role_dir / "profile.md"
+            self.assertTrue(sp_path.is_file(), f"Missing {sp_path}")
+            self.assertTrue(prof_path.is_file(), f"Missing {prof_path}")
+
+            sp_text = sp_path.read_text(encoding="utf-8")
+            for token in required_prompt_tokens:
+                self.assertIn(token, sp_text, f"Missing {token!r} in {sp_path}")
+            self.assertIn(f".agents/team/{role_dir}/profile.md", sp_text)
+            self.assertIn(expected_actor_id, sp_text)
+            if is_zc:
+                self.assertIn("parallel Antigravity instance", sp_text)
+
+            prof_text = prof_path.read_text(encoding="utf-8")
+            self.assertIn(f'actor_id: "{expected_actor_id}"', prof_text)
+            self.assertIn(
+                "8. **Toolchain Handoff Tripwire:**",
+                prof_text,
+                f"Missing Rule 8 Toolchain Handoff Tripwire in {prof_path}",
+            )
+
     def test_no_mechanical_edit_counters_in_wave_k_prose(self) -> None:
         targets = (
             "AGENTS.md",
@@ -255,6 +302,36 @@ class TestManifestAndInspectorInvariance(unittest.TestCase):
             set(payload.keys()),
             {"capabilities", "facts_digest_version", "harness", "installation", "slices", "state"},
         )
+
+    def test_ground_manifest_requires_triage_script_and_phase2_has_fallback(self) -> None:
+        manifest = json.loads(_read("templates/release_manifest.json"))
+        by_path = {entry.get("path"): entry for entry in manifest.get("components", [])}
+
+        self.assertIn("skills/ground-meta-project/SKILL.md", by_path)
+        self.assertEqual(
+            by_path["skills/ground-meta-project/SKILL.md"].get("requires"),
+            ["scripts/inspect_meta_project.py", "scripts/triage_incident.py"],
+        )
+
+        ground_path = REPO_ROOT / "skills/ground-meta-project/SKILL.md"
+        res_ground_path = REPO_ROOT / "skills/init-meta-project/resources/ground-meta-project-SKILL.md"
+        text = ground_path.read_text(encoding="utf-8")
+        phase2 = text.split("### Phase 2:")[1].split("### Phase 3:")[0]
+        self.assertIn("triage_incident.py check-tasks", phase2)
+        self.assertRegex(
+            phase2.lower(),
+            r"(when|if)[^\n]*(present|available|installed)",
+            msg="ground-meta-project Phase 2 must guard triage_incident.py with a presence check",
+        )
+        self.assertRegex(
+            phase2.lower(),
+            r"(otherwise|else|fallback|if absent|if missing|manually)",
+            msg="ground-meta-project Phase 2 must state manual fallback when triage_incident.py is absent",
+        )
+        self.assertEqual(ground_path.read_bytes(), res_ground_path.read_bytes())
+        if (REPO_ROOT / ".agents").is_dir():
+            ag_ground = REPO_ROOT / ".agents/skills/ground-meta-project/SKILL.md"
+            self.assertEqual(ground_path.read_bytes(), ag_ground.read_bytes())
 
 
 if __name__ == "__main__":
