@@ -10,6 +10,12 @@
 
 ## [Unreleased]
 
+### Added / Добавлено
+- **Волна K — Эпистемический триаж и дисциплина доказательств (Split-Runtime Silent-Failure Remediation, §10)**:
+  - Процедурный навык `skills/triage-incident/SKILL.md` и детерминированная CLI-утилита `scripts/triage_incident.py` на Python stdlib (`probe`, `record-evidence`, `promote`, `check-tasks`, `artifact`).
+  - Двухфазная структура `tasks.md` с разделением диагностических проб (`- [?] PROBE`), обязательного поля доказательства (`evidence:`) и задач на исправление (`- [ ] FIX`).
+  - Эпистемические инварианты `Evidence-First Triage`, расширенный `Circuit Breaker` (опровергнутые гипотезы + аудит `Error-Path / Fallback-Masking`), `Toolchain Handoff Tripwire` и переносимая анти-угодливость в `templates/AGENTS.md`, `templates/team/system_prompt.md`, `skills/manage-meta-project` и `skills/ground-meta-project`.
+
 ### Planned / В планах
 - Интеграция обратной связи сообщества и эмпирические тесты на многоязычных репозиториях.
 - Разработка шаблонов адаптеров для альтернативных агентных сред.
