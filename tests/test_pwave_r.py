@@ -2,6 +2,8 @@
 
 Specification (docs/superpowers/plans/2026-11-17-wave-p-plugin-packaging.md,
 section 3 Lane PR / auditor section 4.3):
+Wave K supersession: added skills/triage-incident/SKILL.md (expanding non-standalone
+skills inventory from eight to nine).
 
 Both READMEs (English README.md, Russian README.ru.md) must gain an
 Installation section (ru: "Установка") containing ALL of:
@@ -11,7 +13,7 @@ Installation section (ru: "Установка") containing ALL of:
 3. `npx skills add vlv-code/meta-project`
 
 plus the named per-skill caveat: per-skill installers copy skill folders
-only; `sync-architecture` is the single standalone skill; the other eight
+only; `sync-architecture` is the single standalone skill; the other nine
 require the repository's `scripts/` and `templates/` — install the full
 plugin or package instead.
 
@@ -125,9 +127,9 @@ class TestPWaveRInstallationSection(unittest.TestCase):
             "README.md must name sync-architecture as the single standalone skill",
         )
         self.assertIn(
-            "the other eight require the repository's scripts/ and templates/",
+            "the other nine require the repository's scripts/ and templates/",
             content,
-            "README.md must state that the other eight skills need scripts/ and templates/",
+            "README.md must state that the other nine skills need scripts/ and templates/",
         )
         self.assertIn(
             "install the full plugin or package",
@@ -148,9 +150,9 @@ class TestPWaveRInstallationSection(unittest.TestCase):
             "README.ru.md должен называть sync-architecture единственным автономным навыком",
         )
         self.assertIn(
-            "остальные восемь",
+            "остальные девять",
             content,
-            "README.ru.md должен упомянуть остальные восемь навыков",
+            "README.ru.md должен упомянуть остальные девять навыков",
         )
         self.assertIn("scripts/", content)
         self.assertIn("templates/", content)
