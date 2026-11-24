@@ -132,6 +132,54 @@ def resolve_orchestration(
         ),
     }
 
+
+def detect_cross_harness_divergence(
+    installations: Dict[str, Any], roles: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Wave L (ADR #25): Detect asymmetric role distribution across active installations.
+    When multiple active installations are present, identifies roles that are bound
+    to a subset of installations rather than symmetrically across all.
+    """
+    if not isinstance(installations, dict) or not isinstance(roles, dict):
+        return {"divergence_detected": False, "asymmetric_roles": []}
+
+    active_insts = sorted([
+        iid
+        for iid, info in installations.items()
+        if isinstance(info, dict) and info.get("status", "active") == "active"
+    ])
+    if len(active_insts) < 2:
+        return {"divergence_detected": False, "asymmetric_roles": []}
+
+    asymmetric_roles: List[Dict[str, Any]] = []
+    for role_id, rdata in sorted(roles.items()):
+        if not isinstance(rdata, dict):
+            continue
+        bindings = rdata.get("bindings", {})
+        if not isinstance(bindings, dict):
+            continue
+        present_in = sorted([
+            iid
+            for iid in active_insts
+            if iid in bindings
+            and isinstance(bindings[iid], dict)
+            and bindings[iid].get("status", "active") == "active"
+        ])
+        if 0 < len(present_in) < len(active_insts):
+            missing_in = sorted([iid for iid in active_insts if iid not in present_in])
+            asymmetric_roles.append({
+                "role_id": role_id,
+                "present_in": present_in,
+                "missing_in": missing_in,
+            })
+
+    return {
+        "divergence_detected": bool(asymmetric_roles),
+        "asymmetric_roles": asymmetric_roles,
+    }
+
+
 # Wave G Lane I (facts digest): version of the digest payload contract.
 FACTS_DIGEST_VERSION = "1"
 
@@ -686,6 +734,8 @@ def inspect_repository(
     if host_mismatch_warning:
         runtime_context["host_mismatch_warning"] = host_mismatch_warning
 
+    divergence_info = detect_cross_harness_divergence(installations, roles)
+
     return {
         "inspection_version": "1.0.0",
         "repo_root": str(repo_root).replace("\\", "/"),
@@ -705,6 +755,8 @@ def inspect_repository(
         "orchestration": resolve_orchestration(installations, target_installation),
         "latest_init_report": latest_init_report,
         "installations": installations,
+        "cross_harness_divergence": divergence_info["divergence_detected"],
+        "asymmetric_roles": divergence_info["asymmetric_roles"],
         "capabilities": {
             "read_instructions": cap_read_instructions,
             "local_checks": cap_local_checks,
@@ -753,6 +805,16 @@ def format_human_report(report: Dict[str, Any]) -> str:
     else:
         binding_text = "standalone (default: not declared in the registry)"
     lines.append(f"Dispatcher Binding:  {binding_text}")
+
+    if len(report.get("installations", {})) >= 2:
+        if report.get("cross_harness_divergence"):
+            asym_str = ", ".join(
+                f"{r['role_id']}: {r['present_in']}"
+                for r in report.get("asymmetric_roles", [])
+            )
+            lines.append(f"Cross-Harness Roles: asymmetric ({asym_str})")
+        else:
+            lines.append("Cross-Harness Roles: symmetric")
 
     if report.get("latest_init_report"):
         ir = report["latest_init_report"]
