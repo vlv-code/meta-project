@@ -49,13 +49,12 @@
   - `tests/test_kwave_p.py` — Wave K Lane K2/K3 parity and contract suite across `system_prompt.md`, `profile.md`, `manage-meta-project`, `ground-meta-project`, `tasks.md`, `AGENTS.md`, `release_manifest.json`, and `--facts-digest` invariance.
 - **CI/CD Layer (`.github/`):**
   - `.github/workflows/ci.yml` — matrix testing across Python 3.10, 3.11, 3.12, and 3.13. Trusted-base enforcement: the boundary gate script and boundaries policy are materialized from a pinned trusted base revision (PR merge-base / `github.event.before`) and evaluate the incoming tree, so policy changes inside a PR cannot self-certify that PR; zero `before` fails explicitly (no `HEAD~1` substitution); Red Zone paths (LICENSE) are never excluded from push checks.
-  - .github/workflows/release.yml — automated release pipeline triggered on * tag push with fail-fast tag/manifest/CHANGELOG parity, git archive source/dist packaging, and automated GitHub Release publishing with prerelease classification.
+  - .github/workflows/release.yml — automated release pipeline triggered on `v*` tag push with fail-fast tag/manifest/CHANGELOG parity, git archive source/dist packaging, and automated GitHub Release publishing with prerelease classification.
   - `.github/CODEOWNERS` — branch protection and code ownership for Red Zone security gates and boundary policy files.
 
 ## 3. Data and State Invariants
 - **Specification Format:** Markdown with YAML frontmatter for skills; Markdown tables for observations; path glob patterns for responsibility zones.
 - **Contract Stability:** File names of knowledge slices and templates are fixed in integrity tests.
-  - .github/workflows/release.yml — automated release pipeline triggered on * tag push with fail-fast tag/manifest/CHANGELOG parity, git archive source/dist packaging, and automated GitHub Release publishing with prerelease classification.
 - **Security Policy Invariant:** Security gate scripts (`scripts/check_boundaries.py`), boundary policy definitions (`*boundaries.md`), and CI/CD configurations are strictly enforced in Red Zone and guarded via `.github/CODEOWNERS`.
 
 ## 4. End-to-End Data Flows (Pre-Flight Flow Tracing)

@@ -17,17 +17,19 @@
     "ag-main": {
       "harness_id": "antigravity",
       "status": "active",
-      "description": "Primary Antigravity environment"
+      "collaboration_model": "quad",
+      "description": "Primary Antigravity environment (4 roles: triad + agent-intake-dispatcher)"
     },
     "zc-main": {
       "harness_id": "zcode",
       "status": "active",
-      "description": "Primary ZCode environment (activated via init-meta-project Scenario 4)"
+      "collaboration_model": "triad",
+      "description": "Primary ZCode environment (3 roles: canonical triad)"
     }
   },
   "roles": {
     "agent-dev-lead": {
-      "description": "Lead Developer & Dispatcher",
+      "description": "Lead Developer",
       "bindings": {
         "ag-main": {
           "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",

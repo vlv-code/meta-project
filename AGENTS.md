@@ -77,7 +77,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 ## 5. Local Verification Tooling & Autonomous Fallback
 If global agent skills (such as `python-pro` or Meta-Project skills) are unavailable in the host harness, the agent operates in **Base Fallback Mode** using zero-dependency Python 3.10+ stdlib utilities:
 - **Repository Inspection & Capability Audit:**
-  `python scripts/inspect_meta_project.py --json`
+  `python scripts/inspect_meta_project.py --harness auto --json`
 - **Role Identity & Binding Verification:**
   `python scripts/verify_identity.py --check`
 - **Boundary Gate & Responsibility Audit:**
@@ -89,7 +89,7 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
 - **Atomic Observation Logging:**
   `python scripts/record_obs.py --category <cat> --path <path> --issue <text> --solution <text>`
 - **Initialization & Management Report Audit:**
-  `python scripts/manage_reports.py [init|manage|latest|verify]`
+  `python scripts/manage_reports.py [init|manage|latest|tune|verify]`
 - **Epistemic Incident Triage:**
   `python scripts/triage_incident.py [probe|record-evidence|promote|check-tasks|artifact]`
 
@@ -97,7 +97,7 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
 When tasked with code exploration, repository assessment, or architecture review without explicit instruction to implement changes:
 - Do NOT generate temporary files, `.lock` files, or intermediate scratchpads.
 - Do NOT add telemetry rows to role profiles or tasks to `tasks.md`.
-- Use `python scripts/inspect_meta_project.py --read-only --json` for safe discovery.
+- Use `python scripts/inspect_meta_project.py --harness auto --read-only --json` for safe discovery.
 
 ## 6. Base Working Protocol
 1. Verify against Section 1: ensure the planned solution does not contradict project principles and invariants.
@@ -115,10 +115,10 @@ When tasked with code exploration, repository assessment, or architecture review
 Authoritative role bindings and installation identities are defined in `.agents/meta-project.json`.
 - **Identity Determination Protocol:** In runtime execution, every active agent determines its qualified `actor_id` (`<project_id>::<harness_id>::<installation_id>::<role_id>`) from `.agents/meta-project.json` and verifies integrity via `scripts/verify_identity.py --check`.
 - **Invariance of Identity:** Reading another role's passport (`profile.md`) or private workspace (`notes.md`) does NOT alter the active actor's identity. If identity cannot be validated against `.agents/meta-project.json`, the agent must fail closed and report an unresolved identity.
-- [Intake Dispatcher](.agents/team/agent-intake-dispatcher/profile.md) — Task decomposition, user request intake analysis, prompt preparation, and routing across team roles (invoked by: "plan task", "decompose request", "intake", "route task", "prepare prompt for role")
-- [Lead Developer & Dispatcher](.agents/team/agent-dev-lead/profile.md) — Task decomposition, user request intake analysis, rapid execution of core Python utilities, scripts, and feature implementation (invoked by: "plan task", "decompose request", "implement feature", "write script", "develop component", "fix logic")
-- [Quality & Meta-Architecture Guardian](.agents/team/agent-quality-guardian/profile.md) — Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing (invoked by: "verify meta-project structure", "run tests", "audit passport", "audit knowledge base", "check links", "check dead code")
-- [GitHub Steward & Release Captain](.agents/team/agent-github-steward/profile.md) — Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity (invoked by: "git hygiene", "audit ci", "prepare release", "check readme parity", "conventional commit")
+- [Intake Dispatcher](.agents/team/agent-intake-dispatcher/profile.md) [ag-main] — Task decomposition, user request intake analysis, prompt preparation, and routing across team roles (invoked by: "plan task", "decompose request", "intake", "route task", "prepare prompt for role")
+- [Lead Developer](.agents/team/agent-dev-lead/profile.md) [ag-main, zc-main] — Rapid execution of core Python utilities, scripts, architectural refactoring, and feature implementation (invoked by: "implement feature", "write script", "develop component", "fix logic")
+- [Quality & Meta-Architecture Guardian](.agents/team/agent-quality-guardian/profile.md) [ag-main, zc-main] — Ecosystem integrity oversight, canonical passport audit, test suite execution, knowledge base consistency, and dead code/broken links auditing (invoked by: "verify meta-project structure", "run tests", "audit passport", "audit knowledge base", "check links", "check dead code")
+- [GitHub Steward & Release Captain](.agents/team/agent-github-steward/profile.md) [ag-main, zc-main] — Git hygiene, conventional commits, GitHub Actions CI/CD workflows, release readiness, and Code-to-README truth parity (invoked by: "git hygiene", "audit ci", "prepare release", "check readme parity", "conventional commit")
 *(Granular legacy roles archived in `.agents/team/archive/`)*
 
 ## 8. Dual-Entry & Canonical Repository Badge
