@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "report_type": "manage",
+  "project_id": "vlv-code/meta-project",
+  "installation_id": "ag-main",
+  "harness_id": "antigravity",
+  "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian",
+  "run_id": "manage-20261123T162930Z-1900621b",
+  "init_run_id": "init-20261123T161742Z-f37f1239",
+  "created_at": "2026-11-23T16:29:30Z",
+  "status": "completed",
+  "git_state": {
+    "commit_sha": "1e99870c93ec6f85ad62e29177996d0681e2d7d0",
+    "branch": "dev",
+    "is_clean": false,
+    "modified_files": [
+      ".agents/meta-project.json",
+      ".agents/reports/ag-main/",
+      ".agents/team/agent-intake-dispatcher/"
+    ],
+    "git_state_error": null
+  },
+  "input_fingerprints": {
+    ".agents/meta-project.json": "7b57b8766a76caad5e63986c55cb9e6e4daaab36ef1695107e3771ca6bfeacf9",
+    ".agents/project_knowledge/boundaries.md": "06574d8842159080278ba40c06a06b8ef16472c072ea0d20cc1409a6b3466555",
+    "AGENTS.md": "786278e433cb7a8d91d0f5f9b094f29098645a89b1a11624e7d42756e7897d45"
+  },
+  "scenario": {
+    "profile": "active_development",
+    "deployment_mode": "shared_repo",
+    "collaboration_model": "triad",
+    "verification_policy": "strict_independent",
+    "delegation_level": "controlled",
+    "constraints": [
+      "zero_dependency_core",
+      "fail_closed_boundaries"
+    ],
+    "unresolved_questions": []
+  },
+  "roles": {
+    "preserved": [
+      "agent-dev-lead",
+      "agent-quality-guardian",
+      "agent-github-steward"
+    ],
+    "created": [
+      "agent-intake-dispatcher"
+    ],
+    "adapted": [],
+    "archived": []
+  },
+  "bindings": {
+    "agent-intake-dispatcher": {
+      "ag-main": {
+        "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher",
+        "status": "active",
+        "profile_path": ".agents/team/agent-intake-dispatcher/profile.md"
+      }
+    }
+  },
+  "changes": [
+    {
+      "kind": "add_role",
+      "role_id": "agent-intake-dispatcher",
+      "installation": "ag-main",
+      "path": ".agents/team/agent-intake-dispatcher/profile.md"
+    }
+  ],
+  "effective_capabilities": {
+    "team_readiness": "ready",
+    "dispatcher_binding": "standalone"
+  },
+  "checks": [],
+  "remaining_manual_actions": []
+}

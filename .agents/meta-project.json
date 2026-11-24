@@ -70,6 +70,16 @@
           "profile_path": ".agents/team/agent-github-steward-zc/profile.md"
         }
       }
+    },
+    "agent-intake-dispatcher": {
+      "description": "Primary intake, task decomposition, prompt preparation, and routing across team roles",
+      "bindings": {
+        "ag-main": {
+          "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-intake-dispatcher",
+          "status": "active",
+          "profile_path": ".agents/team/agent-intake-dispatcher/profile.md"
+        }
+      }
     }
   }
 }
