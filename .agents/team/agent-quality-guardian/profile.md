@@ -56,6 +56,7 @@ invocation_triggers:
 5. **Parallel Subagent Delegation (`dispatching-parallel-agents`):** Primary agents handling batch, parallel, or multi-directory workloads invoke `dispatching-parallel-agents` to coordinate transient subagents with clean boundary slices without human-mediated handoffs.
 6. **Telemetry Closeout Invariant:** The telemetry log (Section 5) must contain strictly 1 summary row per completed task upon task closeout (no micro-step logging; detailed tracking belongs in `tasks.md`).
 7. **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests and confirm failure (RED) before writing code to transition to GREEN.
+8. **Toolchain Handoff Tripwire:** When a defect originates from a foreign or unspecialized toolchain outside this role's environment, stop heuristic patching and emit a structured Probe Bundle (`mode: investigate`) via `scripts/triage_incident.py`.
 
 ---
 
@@ -86,3 +87,4 @@ invocation_triggers:
 | 2026-11-15 02:26 | User | vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian | Step 61: Full harness sync (global skills cache & sync_templates.py CLI) | SUCCESS: 119/119 tests OK, 0 drift, 100% boundary coverage across 111 files |
 | 2026-11-19 13:58 | User | vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian | Step 89: Acceptance audit of Anti-Anchoring Safeguards & Host Runtime Detection | SUCCESS: 537/537 tests OK, 0 drift, 100% boundary coverage across 201 files, live autodetection & mismatch warning verified |
 | 2026-11-24 11:46 | User | vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian | Step 94: Acceptance audit of Wave K (Epistemic Triage & Evidence Discipline) | PASS: 664/664 dev committed clone OK, 659/659 dist tests OK, pyflakes 0, 0 drift, 100% boundary coverage, RED replay & live CLI audit 5/5 verified |
+| 2026-11-24 15:56 | User | vlv-code/meta-project::antigravity::ag-main::agent-quality-guardian | Step 97: Acceptance audit of Wave K.1 (post-audit triage remediation & 7 active roles sync) | PASS: 664/664 dev OK, 664/664 dist OK, pyflakes 0, 0 drift, 100% boundary coverage, RED replay & live CLI audit verified |

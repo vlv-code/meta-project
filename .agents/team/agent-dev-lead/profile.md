@@ -57,6 +57,7 @@ invocation_triggers:
 5. **Parallel Subagent Delegation (`dispatching-parallel-agents`):** Primary agents handling batch, parallel, or multi-directory workloads invoke `dispatching-parallel-agents` to coordinate transient subagents with clean boundary slices without human-mediated handoffs.
 6. **Telemetry Closeout Invariant:** The telemetry log (Section 5) must contain strictly 1 summary row per completed task upon task closeout (no micro-step logging; detailed tracking belongs in `tasks.md`).
 7. **Adversarial Testing Invariant:** When applying TDD, write negative/adversarial tests and confirm failure (RED) before writing code to transition to GREEN.
+8. **Toolchain Handoff Tripwire:** When a defect originates from a foreign or unspecialized toolchain outside this role's environment, stop heuristic patching and emit a structured Probe Bundle (`mode: investigate`) via `scripts/triage_incident.py`.
 
 ---
 
@@ -95,3 +96,4 @@ invocation_triggers:
 | 2026-11-15 | User | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 58: Skills alignment for scenario agreement & reports (init & manage) | SUCCESS: skills refactored, 0 drift in sync_templates, 17/17 integrity tests pass |
 | 2026-11-19 | User | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 89: Anti-Anchoring safeguards & host runtime detection across inspector, validator, skills, and prompts | SUCCESS: 3 parallel lanes completed, 537/537 tests pass, 0 drift, 100% boundary coverage |
 | 2026-11-24 | agent-intake-dispatcher | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 93: Wave K Epistemic Triage & Evidence Discipline (Lanes K1-K3, priority 4->5->3->2->1) | SUCCESS: RED-first TDD (K1 17F/2E->pass, K2 6F->pass), sync 0-drift, pyflakes 0, boundaries diff=0 & audit=100% (pending Guardian & commit-clone replay) |
+| 2026-11-24 | User | vlv-code/meta-project::antigravity::ag-main::agent-dev-lead | Step 94: Wave K.1 post-audit remediation (P0 promote trailing-hypothesis gate, P1 ground requires+fallback, P2 7 active .agents/team prompts & profiles parity) | SUCCESS: RED-first TDD (33 tests 3F->33 OK), sync 0-drift, verify_identity 0 errors (awaiting full post-edit battery & Guardian) |
