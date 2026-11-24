@@ -16,7 +16,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import uuid
 
 try:
@@ -108,7 +108,7 @@ VALID_SCENARIO_PROFILES = {
     "documentation",
 }
 VALID_DEPLOYMENT_MODES = {"shared_repo", "local_overlay", "hybrid"}
-VALID_COLLABORATION_MODELS = {"solo", "duo", "triad", "specialized_swarm"}
+VALID_COLLABORATION_MODELS = {"solo", "duo", "triad", "quad", "specialized_swarm"}
 VALID_VERIFICATION_POLICIES = {
     "self_check",
     "duo_peer_review",
@@ -874,7 +874,10 @@ def create_tune_report(
 
 
 def resolve_team_topology(
-    scenario: Dict[str, Any], loc_estimate: int = 0
+    scenario: Dict[str, Any],
+    loc_estimate: int = 0,
+    target_installation: Optional[str] = None,
+    registry_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Map scenario configuration to recommended agent team topology.
@@ -903,6 +906,18 @@ def resolve_team_topology(
     verification = scenario.get("verification_policy", "")
 
     conflicts: List[str] = []
+
+    if target_installation and isinstance(registry_data, dict):
+        inst_info = registry_data.get("installations", {}).get(target_installation)
+        if isinstance(inst_info, dict) and "collaboration_model" in inst_info:
+            inst_collab = inst_info.get("collaboration_model")
+            if inst_collab in VALID_COLLABORATION_MODELS:
+                collab = inst_collab
+            elif inst_collab:
+                conflicts.append(
+                    f"Installation '{target_installation}' has unsupported collaboration_model '{inst_collab}'. "
+                    f"Allowed: {sorted(VALID_COLLABORATION_MODELS)}"
+                )
 
     def _result(topology: str, roles: List[str], rationale: str,
                 supported: bool = True) -> Dict[str, Any]:
@@ -938,6 +953,17 @@ def resolve_team_topology(
             "Canonical Compact Trio honored as explicit user decision; "
             "LOC estimates do not override agreed collaboration models.",
         )
+    if collab == "quad":
+        return _result(
+            "quad",
+            [
+                "agent-intake-dispatcher",
+                "agent-dev-lead",
+                "agent-quality-guardian",
+                "agent-github-steward",
+            ],
+            "Canonical Quad (Dispatcher + Triad) honored as explicit user decision.",
+        )
     if collab == "specialized_swarm":
         return _result(
             "specialized_swarm", [],
@@ -970,6 +996,231 @@ def resolve_team_topology(
         "duo", ["agent-dev-lead", "agent-quality-guardian"],
         "Standard development team configuration.",
     )
+
+
+def _extract_triggers_from_profile(profile_path: Path) -> List[str]:
+    """Extract invocation triggers from a role profile.md (frontmatter or Section 1)."""
+    if not profile_path.is_file():
+        return []
+    try:
+        content = profile_path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+
+    triggers: List[str] = []
+    fm_match = re.search(r"^---\s*\n(.*?)\n---", content, re.DOTALL | re.MULTILINE)
+    if fm_match:
+        fm_text = fm_match.group(1)
+        in_triggers = False
+        for line in fm_text.splitlines():
+            sline = line.strip()
+            if sline.startswith("invocation_triggers:"):
+                in_triggers = True
+                after = sline[len("invocation_triggers:"):].strip()
+                if after.startswith("[") and after.endswith("]"):
+                    for item in after[1:-1].split(","):
+                        cleaned = item.strip().strip("'\"")
+                        if cleaned:
+                            triggers.append(cleaned)
+                    in_triggers = False
+                continue
+            if in_triggers:
+                if sline.startswith("-"):
+                    val = sline[1:].strip().strip("'\"")
+                    if val:
+                        triggers.append(val)
+                elif ":" in sline:
+                    in_triggers = False
+
+    if not triggers:
+        sec1_match = re.search(r"-\s*\*\*User Invocation Triggers:\*\*\s*(.+)", content)
+        if sec1_match:
+            line_val = sec1_match.group(1).strip()
+            quotes = re.findall(r'["\']([^"\']+)["\']', line_val)
+            if quotes:
+                triggers.extend(quotes)
+            else:
+                for part in line_val.rstrip(".").split(","):
+                    cleaned = part.strip()
+                    if cleaned and not cleaned.startswith("("):
+                        triggers.append(cleaned)
+
+    seen = set()
+    result = []
+    for t in triggers:
+        if t not in seen:
+            seen.add(t)
+            result.append(t)
+    return result
+
+
+def detect_role_duty_conflicts(
+    repo_root: Union[str, Path],
+    target_installation: str,
+    new_role_id: str,
+    new_triggers: Optional[List[str]] = None,
+    registry_data: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Wave L (ADR #25): Detect trigger and responsibility overlaps between a new or target
+    role and existing active roles bound to target_installation.
+    """
+    repo_root = Path(repo_root)
+    if registry_data is None:
+        reg_file = repo_root / ".agents" / "meta-project.json"
+        if reg_file.is_file():
+            try:
+                registry_data = json.loads(reg_file.read_text(encoding="utf-8"))
+            except Exception:
+                registry_data = {}
+        else:
+            registry_data = {}
+
+    installations = registry_data.get("installations", {})
+    if not isinstance(installations, dict) or target_installation not in installations:
+        return {
+            "conflicts_detected": False,
+            "conflicts": [],
+            "duty_reconciliation": {},
+            "warning": f"Installation '{target_installation}' not registered in meta-project.json",
+        }
+
+    if new_triggers is None:
+        new_prof = repo_root / ".agents" / "team" / new_role_id / "profile.md"
+        new_triggers = _extract_triggers_from_profile(new_prof)
+
+    normalized_new = [t.strip() for t in new_triggers if t and t.strip()]
+
+    conflicts: List[Dict[str, Any]] = []
+    duty_reconciliation: Dict[str, Any] = {}
+
+    roles = registry_data.get("roles", {})
+    if isinstance(roles, dict):
+        for role_id, rdata in sorted(roles.items()):
+            if role_id == new_role_id or not isinstance(rdata, dict):
+                continue
+            bindings = rdata.get("bindings", {})
+            if not isinstance(bindings, dict):
+                continue
+            binfo = bindings.get(target_installation)
+            if not isinstance(binfo, dict) or binfo.get("status") != "active":
+                continue
+
+            prof_rel = binfo.get("profile_path", f".agents/team/{role_id}/profile.md")
+            prof_path = repo_root / prof_rel
+            if not prof_path.is_file():
+                continue
+
+            role_triggers = _extract_triggers_from_profile(prof_path)
+            overlap = [t for t in role_triggers if t in normalized_new]
+            if overlap:
+                retained = [t for t in role_triggers if t not in overlap]
+                rel_display = str(prof_path.relative_to(repo_root) if prof_path.is_relative_to(repo_root) else prof_path).replace("\\", "/")
+                conflicts.append({
+                    "role_id": role_id,
+                    "profile_path": rel_display,
+                    "overlapping_triggers": overlap,
+                    "retained_triggers": retained,
+                })
+                duty_reconciliation[role_id] = {
+                    "profile_path": rel_display,
+                    "remove_triggers": overlap,
+                    "retained_triggers": retained,
+                }
+
+    return {
+        "conflicts_detected": bool(conflicts),
+        "conflicts": conflicts,
+        "duty_reconciliation": duty_reconciliation,
+    }
+
+
+def apply_duty_reconciliation(
+    repo_root: Union[str, Path], duty_reconciliation: Dict[str, Any]
+) -> List[str]:
+    """
+    Apply duty reconciliation delta to conflicting role profiles, pruning overlapping triggers
+    while strictly preserving Section 5 Telemetry, notes.md, and all invariants.
+    """
+    repo_root = Path(repo_root)
+    updated_paths: List[str] = []
+
+    for role_id, recon in sorted(duty_reconciliation.items()):
+        if not isinstance(recon, dict):
+            continue
+        rel_path = recon.get("profile_path")
+        if not rel_path:
+            continue
+        prof_path = Path(rel_path)
+        if not prof_path.is_absolute():
+            prof_path = repo_root / prof_path
+        if not prof_path.is_file():
+            continue
+
+        content = prof_path.read_text(encoding="utf-8")
+        retained = recon.get("retained_triggers", [])
+
+        # 1. Update frontmatter invocation_triggers
+        fm_match = re.search(r"^---\s*\n(.*?)\n---", content, re.DOTALL | re.MULTILINE)
+        if not fm_match:
+            continue
+        fm_text = fm_match.group(1)
+
+        fm_lines = fm_text.splitlines()
+        new_fm_lines: List[str] = []
+        skip_triggers = False
+        triggers_inserted = False
+
+        for line in fm_lines:
+            sline = line.strip()
+            if sline.startswith("invocation_triggers:"):
+                skip_triggers = True
+                new_fm_lines.append("invocation_triggers:")
+                for t in retained:
+                    new_fm_lines.append(f'  - "{t}"')
+                if not retained:
+                    new_fm_lines[-1] = "invocation_triggers: []"
+                triggers_inserted = True
+                after = sline[len("invocation_triggers:"):].strip()
+                if after.startswith("[") and after.endswith("]"):
+                    skip_triggers = False
+                continue
+            if skip_triggers:
+                if sline.startswith("-"):
+                    continue
+                else:
+                    skip_triggers = False
+            new_fm_lines.append(line)
+
+        if not triggers_inserted:
+            new_fm_lines.append("invocation_triggers:")
+            for t in retained:
+                new_fm_lines.append(f'  - "{t}"')
+            if not retained:
+                new_fm_lines[-1] = "invocation_triggers: []"
+
+        new_fm = "\n".join(new_fm_lines)
+
+        # 2. Update Section 1 User Invocation Triggers in body
+        body = content[fm_match.end():]
+        if retained:
+            trig_str = ", ".join(f'"{t}"' for t in retained)
+            new_sec1_line = f'- **User Invocation Triggers:** {trig_str}.'
+        else:
+            new_sec1_line = '- **User Invocation Triggers:** (none autonomous; delegated).'
+
+        new_body = re.sub(
+            r"^-\s*\*\*User Invocation Triggers:\*\*.*$",
+            new_sec1_line,
+            body,
+            flags=re.MULTILINE,
+        )
+
+        new_content = f"---\n{new_fm.strip()}\n---{new_body}"
+        prof_path.write_text(new_content, encoding="utf-8")
+        updated_paths.append(str(prof_path).replace("\\", "/"))
+
+    return updated_paths
 
 
 def check_report_staleness(
@@ -1772,6 +2023,35 @@ def build_cli_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Output machine-readable JSON"
     )
 
+    # 5. deconflict subcommand
+    p_deconflict = subparsers.add_parser(
+        "deconflict",
+        help="Scan and deconflict role duties and invocation triggers across roles on an installation",
+    )
+    p_deconflict.add_argument(
+        "--repo-root", default=".", help="Target repository root path"
+    )
+    p_deconflict.add_argument(
+        "--installation", required=True, help="Target installation identifier"
+    )
+    p_deconflict.add_argument(
+        "--new-role", required=True, help="New or target role identifier"
+    )
+    p_deconflict.add_argument(
+        "--new-triggers",
+        nargs="*",
+        default=None,
+        help="Invocation triggers for the new/target role",
+    )
+    p_deconflict.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply duty reconciliation delta to conflicting role profiles",
+    )
+    p_deconflict.add_argument(
+        "--json", action="store_true", help="Output machine-readable JSON"
+    )
+
     return parser
 
 
@@ -2403,6 +2683,35 @@ def main() -> int:
             ) + "\n")
             sys.stderr.write(f"Error reading report: {e}\n")
             return 1
+
+    elif args.subcommand == "deconflict":
+        repo_root = Path(args.repo_root)
+        new_triggers = args.new_triggers
+        result = detect_role_duty_conflicts(
+            repo_root=repo_root,
+            target_installation=args.installation,
+            new_role_id=args.new_role,
+            new_triggers=new_triggers,
+        )
+        if args.apply and result.get("conflicts_detected"):
+            applied = apply_duty_reconciliation(
+                repo_root=repo_root,
+                duty_reconciliation=result.get("duty_reconciliation", {}),
+            )
+            result["applied_updates"] = applied
+
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            if result.get("conflicts_detected"):
+                print(f"[CONFLICT] Duty/trigger conflicts detected for '{args.new_role}':")
+                for c in result.get("conflicts", []):
+                    print(f"  * Role '{c['role_id']}': overlapping triggers {c['overlapping_triggers']}")
+                if args.apply:
+                    print(f"[APPLIED] Pruned overlapping triggers from {len(result.get('applied_updates', []))} profiles.")
+            else:
+                print(f"[OK] No duty/trigger conflicts detected for '{args.new_role}' on installation '{args.installation}'.")
+        return 0
 
     return 0
 
