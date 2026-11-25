@@ -510,11 +510,58 @@
 
 ---
 
-## 11. Дорожная карта волн Z1, Z2 и бэклог экосистемы хуков (2026-11-25)
+## 11. Дорожная карта волн T, Z1, Z2 и бэклог экосистемы хуков (2026-11-25)
 
-План сформирован по итогам перепроверки четырёх независимых аудитов против актуальной ревизии `dev` (`31090f3`, после закрытия Wave J, Wave K и Wave K.1). Порядок исполнения зафиксирован владельцем: **Wave Z1 ➔ Wave Z2 ➔ Волна хуков (Z3)**.
+План сформирован по итогам перепроверки четырёх независимых аудитов против актуальной ревизии `dev` (`31090f3`, после закрытия Wave J, Wave K и Wave K.1) и эмпирического профилирования тестовой батареи (682 теста, 48 файлов). Порядок исполнения зафиксирован владельцем: **Wave T ➔ Wave Z1 ➔ Wave Z2 ➔ Волна хуков (Z3)**.
 
-### 11.1. Волна Z1 (следующая) — Подтверждённые P1-дефекты ядра, плагин-резолв скриптов и гигиена срезов
+### 11.0. Волна T (первая, перед Z1) — Модернизация, доменная консолидация и ускорение тестовой базы
+
+Цель: ликвидировать историческую фрагментацию `tests/` (35 разрозненных файлов `test_*wave_*.py` из 48), сократить время полного прогона на Windows с **~12–13 минут до ~35–55 секунд** без потери поведенческих и security-проверок и заменить одноразовые текстовые «гвозди» в doc-локах на динамические инварианты — чтобы уже Wave Z1 и Wave Z2 разрабатывались в чистых доменных тестах.
+
+- **Предусловие старта:** завершить/закоммитить текущие незакоммиченные изменения Wave L в ветке `dev`, чтобы не смешивать рефакторинг тестов с незавершённым кодом.
+- **Неприкосновенные инварианты:**
+  - `tests/test_integrity.py` (Red Zone) **не модифицируется**.
+  - `tests/test_audit_regressions.py` сохраняет имя файла (на него ссылается §8 и `docs/audit_38deed9_regressions_baseline.md`).
+  - Стандартный `python -m unittest discover -s tests -p "test_*.py"` (используемый в CI) остаётся полностью рабочим наряду с новым параллельным раннером; все новые вспомогательные файлы (`tests/run_parallel.py`, `tests/_git_fixtures.py`) — строго Python 3.10+ stdlib и не попадают в `templates/release_manifest.json`.
+  - **Санкция владельца (2026-11-25):** разрешена ревизия и удаление одноразовых текстовых ассертов прошлых патчей в 8 doc-lock файлах (`ewave_c`, `gwave_d`, `iwave_d`, `iwave_it`, `jwave_d`, `jwave_p`, `jwave_r`, `pwave_r`) с заменой на динамические инварианты в `tests/test_docs_invariants.py`. Поведенческие и security-тесты (SEC-1..SEC-4, fail-closed gates, parser honesty, triage gates) переносятся 1-в-1 без ослабления.
+
+#### Lane T1: Параллельный stdlib-раннер и быстрые `copytree`-фикстуры (`~12 мин ➔ ~35–55 с`)
+- **Эмпирическое основание (проверено на `31090f3`, 8 ядер):** последовательно `~710–773 с`; 8 воркеров по файлам — `132.7 с` (узкое горлышко: 1 файл `test_dwave_e2.py` = `130.7 с`); 4 файла `update_meta_project` (`dwave_e2`, `fwave_x`, `test_update_meta_project`, `dwave_e1`) съедают `355.8 с` = **50% всей батареи** из-за повторного создания одинаковых `origin`/`target` git-репозиториев в каждом `setUp()`.
+- **План:**
+  1. Создать `tests/run_parallel.py` (Python 3.10+ stdlib, `unittest.TestLoader` + `concurrent.futures` с дроблением по `TestCase`-классам и LPT-планированием, флагами `--workers`, `--pattern`, `--failfast`, прозрачным summary и корректным кодом возврата).
+  2. Вынести общие git-строители (`_git`, `_git_ok`, `_make_origin_repo`, `_make_target`, `_make_cache_dir`, манифесты v1–v3) в `tests/_git_fixtures.py` с кэшированием эталонного `origin`/`target` один раз в `setUpClass` (или session temp dir) и изоляцией каждого теста через `shutil.copytree()` в собственный `TemporaryDirectory` (100% реальный git, 100% изоляция, 0 моков).
+- **Критерий приёмки:** `python tests/run_parallel.py` проходит 100% GREEN на `dev` и на чистом дистрибутивном дереве (без `.agents/`), задокументирован реальный замер времени «до vs после».
+
+#### Lane T2: Доменная консолидация всех боевых и security-тестов скриптов (0 `test_*wave_*.py`)
+Слить 35 волновых файлов в ~15 самоочевидных доменных файлов (без потери поведенческих/security-проверок; перенести с матрицей соответствия `old -> new` для сверки Guardian):
+- `tests/test_update_engine.py` + `tests/test_update_engine_security.py` ← `test_update_meta_project`, `dwave_e1`, `dwave_e2`, `dwave_d6b`, `fwave_x`, `gwave_h`
+- `tests/test_manage_reports.py` ← `test_manage_reports`, `dwave_m`, `fwave_r`, `jwave_m`, `lwave_deconfliction`
+- `tests/test_check_boundaries.py` ← `test_check_boundaries`, `test_red_zone_sanction`, `dwave_b`, `iwave_g`
+- `tests/test_inspect_meta_project.py` ← `test_inspect_meta_project`, `gwave_i`, `jwave_q`, `lwave_topology`
+- `tests/test_verify_identity.py` ← `test_verify_identity`, `jwave_v`
+- `tests/test_triage_incident.py` ← `kwave_t`
+- `tests/test_compact_memory.py` ← `test_compact_memory` + `[>]` чекпоинты из `ewave_e`
+- `tests/test_record_obs.py` ← `test_record_obs`, `dwave_r`
+- `tests/test_common_and_envelopes.py` ← `fwave_c` + error envelopes из `ewave_e`
+- `tests/test_sync_and_resources.py` ← `test_sync_templates`, `ewave_p`, `gwave_s`
+- `tests/test_manifests_and_packaging.py` ← `dwave_k`, `pwave_p`, `pwave_f`
+- `tests/test_skills_and_templates_contracts.py` ← `kwave_p`, `ewave_t`, `jwave_o`
+- `tests/test_lifecycle_acceptance.py` ← `test_acceptance_scenarios`, `test_report_and_manage_cycle`
+
+#### Lane T3: Ревизия 8 хрупких doc-локов ➔ `tests/test_docs_invariants.py` (динамические инварианты)
+- Консолидировать `ewave_c`, `gwave_d`, `iwave_d`, `iwave_it`, `jwave_d`, `jwave_p`, `jwave_r`, `pwave_r` в единый чистый `tests/test_docs_invariants.py`.
+- **Сохранить как динамические инварианты:**
+  - целостность внутренних ссылок и якорей в `README.md` / `README.ru.md` / `CONTRIBUTING*.md`;
+  - построчный паритет `README.md == README.ru.md` и `CONTRIBUTING.md == CONTRIBUTING.ru.md`;
+  - политика версионирования и совместимость парсера заголовков релизов `CHANGELOG.md`;
+  - наличие базовых Green-корневых паттернов (`.gitattributes`, `.gitignore`, `LICENSE`) в `templates/project_knowledge/boundaries.md`;
+  - **динамическая** сверка числа скиллов с фактическим `skills/` и максимального номера ADR с `docs/decisions_and_roadmap.md` (без захардкоженных строк `"eight"` / `"ADR #14–#23"`).
+- **Убрать (санкционировано владельцем):** одноразовые дословные проверки исторических формулировок прошлых патчей (например, буквальных фраз в §9, статических счётчиков скиллов и замороженных диапазонов ADR).
+- **Обновить ссылки:** актуализировать список тестов в `.agents/project_knowledge/architecture.md` (и упомянуть `python tests/run_parallel.py` как быстрый локальный прогон).
+
+---
+
+### 11.1. Волна Z1 (после Wave T) — Подтверждённые P1-дефекты ядра, плагин-резолв скриптов и гигиена срезов
 
 Цель: закрыть 4 подтверждённых функциональных дефекта/риска в `scripts/` и `skills/` и устранить мелкий дрейф срезов знаний перед следующей публикацией. Все изменения — в рамках `Zero-Dependency Core` и RED-first TDD (`agent-dev-lead ➔ agent-quality-guardian ➔ agent-github-steward`).
 
@@ -590,10 +637,10 @@
   2. Привязать поле `version` во всех новых манифестах к единому источнику `templates/release_manifest.json` (`framework_version`) и залочить контрактными тестами (аналог `tests/test_pwave_p.py`).
   3. Проработать конфликт пути `.agents/plugins/marketplace.json` с исключением `.agents/**` в `scripts/sync_dist_branch.py` и `boundaries.md`: разрешить перенос `.agents/plugins/**` в дистрибутивную ветку `main` при сохранении полного исключения dogfooding-каталогов (`.agents/project_knowledge/**`, `.agents/team/**`, `.agents/reports/**`, `.agents/skills/**`, `.agents/meta-project.json`).
 
-#### Lane Z2-D: Декомпозиция монолитов и семантическое именование тестов (Beta Prep)
+#### Lane Z2-D: Декомпозиция монолитов (Beta Prep)
 - **План:**
   1. Разбить крупные монолиты (`scripts/update_meta_project.py` ~114 КБ, `scripts/manage_reports.py` ~95 КБ, а также `inspect_repository()` из `weak_spots.md §3` ~333 строки + энумы состояний/capabilities) на читаемые stdlib-модули с прозрачным графом `requires` в `templates/release_manifest.json` и 100% обратной совместимостью CLI и публичных импортов.
-  2. Переименовать волновые тестовые файлы `tests/test_*wave_*.py` в доменные имена (например, `test_update_engine_*.py`, `test_triage_incident.py`, `test_plugin_manifests.py`) для упрощения навигации и security-аудита, сохранив полное регрессионное покрытие.
+  *(Доменная консолидация и переименование `tests/test_*wave_*.py` вынесены вперёд в Wave T, §11.0.)*
 
 ---
 
