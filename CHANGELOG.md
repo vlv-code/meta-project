@@ -10,10 +10,20 @@
 
 ## [Unreleased]
 
+### Added / Добавлено
+- **Волна Z3 — Тонкая экосистема адаптеров хуков харнессов и гигиена артефактов (Harness Hooks Ecosystem, §11.3)**:
+  - Добавлены модули `hooks/dispatch.py` (чистый stdout-диспетчер событий с маршрутизацией без Context Bloat для Claude Code, Cursor, Gemini CLI, Copilot, Codex, ZCode) и `hooks/install.py` (установка, верификация сухими пробами и удаление хуков харнессов и локального git pre-commit).
+  - Добавлен нативный манифест хуков плагина `hooks/hooks.json` для Claude Code / ZCode.
+  - Детекция установленных хуков харнессов в `scripts/_inspect_classifier.py` (`capabilities.hooks` 2B) и интеграция `hooks/**` в `templates/release_manifest.json` и `scripts/sync_dist_branch.py`.
+
+### Fixed / Исправлено
+- **Волна Z3 — Разделение постоянных и транзиторных артефактов обновления (Update Hygiene, §11.3)**:
+  - Изоляция транзиторных файлов `.agents/update.lock`, `.agents/update.journal.json` и временных бэкапов в `.gitignore` при сохранении постоянных аудируемых отчётов `.agents/reports/*/update/*.json`.
+  - Выравнивание процедурных закрытий в `skills/init-meta-project/SKILL.md` и `skills/update-meta-project/SKILL.md`.
+
 ### Planned / В планах
 - Интеграция обратной связи сообщества и эмпирические тесты на многоязычных репозиториях.
 - Разработка шаблонов адаптеров для альтернативных агентных сред.
-- Экосистема хуков (Волна Z3): тонкие адаптеры PreToolUse / SessionStart / compact_memory и установщик `hooks/install.py`.
 
 ---
 

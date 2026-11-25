@@ -210,6 +210,10 @@ Anything unmapped is Red (Default Deny).
   - `scripts/manage_reports.py` — Zero-dependency report engine for init/manage/update/tune scenario reports: canonical schemas (`templates/reports/`), deterministic run IDs, staleness and intake admission checks (`latest`/`verify` accept `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — Managed update engine (SHA-pinned, atomic, journaled): read-only `check`/`plan`, atomic `apply` with rollback journal, approved-plan integrity and update report, offline cache fallback (dead origin + exact SHA + integral cache), runtime-layout target mapping, manifest `resource` component mapping, `--adopt-existing` sha-match adoption, and `restore` of the engine's own changes.
   - `scripts/triage_incident.py` — Zero-dependency epistemic triage CLI implementing deterministic subcommands: `probe`, `record-evidence`, `promote` (fail-closed gate preventing premature fix tasks), `check-tasks`, and `artifact` comparison.
+- **`hooks/`**:
+  - `hooks/install.py` — Zero-dependency multi-harness hook installer (`install`/`verify`/`uninstall` for Claude Code, Cursor, Gemini CLI, Copilot, Codex, ZCode, and local Git `pre-commit`).
+  - `hooks/dispatch.py` — Zero-dependency event dispatcher mapping `pre-tool-use` (Green/Yellow/Red boundary check) and `session-start` (<1500 tokens context injection) to Python core scripts with strict stdout purity.
+  - `hooks/hooks.json` — Native plugin hooks manifest for Claude Code / ZCode registering `PreToolUse` and `SessionStart` events.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#23, Polyglot Monorepo Incident, and Split-Runtime Silent-Failure Incident §10) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.

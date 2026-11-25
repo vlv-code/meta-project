@@ -210,6 +210,10 @@ Red: .env*, migrations/**, src/auth/** — только с явным разре
   - `scripts/manage_reports.py` — автономный движок отчётов сценариев init/manage/update/tune: канонические схемы (`templates/reports/`), детерминированные run ID, проверка свежести и допуска (`latest`/`verify` принимают `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — движок управляемого обновления (SHA-пиннинг, атомарность, журнал): чтение `check`/`plan`, атомарный `apply` с журналом отката, целостностью согласованного плана и update-отчётом, офлайн-фоллбэком кеша (мёртвый origin + точный SHA + интегральный кеш), маппингом на runtime-layout, маппингом `resource`-компонентов манифеста, `--adopt-existing` усыновлением по sha-match и `restore` собственных изменений движка.
   - `scripts/triage_incident.py` — автономная CLI-утилита эпистемического триажа на Python stdlib с детерминированными подкомандами: `probe`, `record-evidence`, `promote` (fail-closed гейт против преждевременных задач на исправление), `check-tasks` и сравнение `artifact`.
+- **`hooks/`**:
+  - `hooks/install.py` — автономный установщик хуков харнессов (`install`/`verify`/`uninstall` для Claude Code, Cursor, Gemini CLI, Copilot, Codex, ZCode и локального Git `pre-commit`).
+  - `hooks/dispatch.py` — диспетчер событий без зависимостей, транслирующий события `pre-tool-use` (проверка Green/Yellow/Red зон) и `session-start` (контекст <1500 токенов) в скрипты ядра с чистым stdout.
+  - `hooks/hooks.json` — нативный манифест хуков плагина для Claude Code / ZCode для регистрации событий `PreToolUse` и `SessionStart`.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#23, Polyglot Monorepo Incident и Split-Runtime Silent-Failure Incident §10) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
