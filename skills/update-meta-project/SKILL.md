@@ -108,7 +108,7 @@ If `references/troubleshooting.md` is absent or unreadable, emit `[MISSING_RESOU
    ```
    Third-party edits made during the apply window are kept and reported, never clobbered. A successful restore also marks the affected update report `status: "restored"` (in place — the audit trail shows the update was rolled back). Restore holds the same engine lock as apply: concurrent operations are refused with `[ENGINE-BUSY]`.
 5. **Status truthfulness (session reload):** an updated runtime file on disk is NOT the version loaded by the harness in the current session. After `apply`, instruct the user to reload/restart the session so the new skills/passport take effect, and do not claim updated behavior is already active.
-6. **Deliver the update summary to the user:** pinned source + commit SHA, affected components, preserved adaptations (merged `local_repo_data` blocks), remaining manual actions (protected/conflicted components), journal and report locations.
+6. **Deliver the update summary to the user:** pinned source + commit SHA, affected components, preserved adaptations (merged `local_repo_data` blocks), remaining manual actions (protected/conflicted components), journal and report locations. Commit persistent audit/lock state (`.agents/framework-lock.json`, `.agents/reports/*/update/*.json`); do NOT commit transient session files (`.agents/update-engine.lock`, `.agents/update-plan.json`, `.agents/update-journal.json`).
 
 ---
 

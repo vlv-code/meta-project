@@ -751,5 +751,33 @@ class TestProgressiveDisclosureSkillContracts(unittest.TestCase):
         self.assertLessEqual(len(lines), 240, f"manage-meta-project/SKILL.md has {len(lines)} lines > 240")
 
 
+class TestUpdateEngineArtifactHygieneContracts(unittest.TestCase):
+    """Contracts for Wave Z3: Update Engine artifact hygiene in skills and gitignore."""
+
+    def test_init_skill_and_scenarios_gitignore_hygiene(self):
+        init_skill = (REPO_ROOT / "skills/init-meta-project/SKILL.md").read_text(encoding="utf-8")
+        scenarios = (REPO_ROOT / "skills/init-meta-project/references/scenarios.md").read_text(encoding="utf-8")
+
+        for artifact in [
+            ".agents/update-engine.lock",
+            ".agents/update-plan.json",
+            ".agents/update-journal.json",
+        ]:
+            self.assertIn(artifact, init_skill, f"Missing {artifact} in init-meta-project/SKILL.md")
+            self.assertIn(artifact, scenarios, f"Missing {artifact} in init-meta-project/references/scenarios.md")
+
+    def test_update_skill_closeout_separates_persistent_and_transient_artifacts(self):
+        update_skill = (REPO_ROOT / "skills/update-meta-project/SKILL.md").read_text(encoding="utf-8")
+
+        # Persistent audit/lock state to commit
+        self.assertIn(".agents/framework-lock.json", update_skill)
+        self.assertIn(".agents/reports/*/update/*.json", update_skill)
+
+        # Transient session files NOT to commit
+        self.assertIn(".agents/update-engine.lock", update_skill)
+        self.assertIn(".agents/update-plan.json", update_skill)
+        self.assertIn(".agents/update-journal.json", update_skill)
+
+
 if __name__ == '__main__':
     unittest.main()

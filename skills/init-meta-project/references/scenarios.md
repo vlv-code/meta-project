@@ -23,6 +23,9 @@ Standard two-pass algorithm for bootstrapping a fresh repository:
    __pycache__/
    *.pyc
    *.lock
+   .agents/update-engine.lock
+   .agents/update-plan.json
+   .agents/update-journal.json
    ```
 
 #### Pass 2: Repository Deep-Dive, Principles & Shell Skills
