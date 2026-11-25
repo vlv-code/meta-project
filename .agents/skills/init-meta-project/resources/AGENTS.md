@@ -71,7 +71,7 @@ Before taking any action, the agent MUST consult the corresponding knowledge sli
 ## 5. Local Verification Tooling & Autonomous Fallback
 If global agent skills (such as `python-pro` or Meta-Project skills) are unavailable in the host harness, the agent operates in **Base Fallback Mode** using zero-dependency Python 3.10+ stdlib utilities:
 - **Repository Inspection & Capability Audit:**
-  `python scripts/inspect_meta_project.py --harness auto --json`
+  `python scripts/inspect_meta_project.py --harness auto --read-only --json`
 - **Role Identity & Binding Verification:**
   `python scripts/verify_identity.py --check`
 - **Boundary Gate & Responsibility Audit:**
@@ -83,7 +83,7 @@ If global agent skills (such as `python-pro` or Meta-Project skills) are unavail
 - **Atomic Observation Logging:**
   `python scripts/record_obs.py --category <cat> --path <path> --issue <text> --solution <text>`
 - **Initialization & Management Report Audit:**
-  `python scripts/manage_reports.py [init|manage|latest|tune|verify]`
+  `python scripts/manage_reports.py verify --report <path>`
 - **Epistemic Incident Triage:**
   `python scripts/triage_incident.py [probe|record-evidence|promote|check-tasks|artifact]`
 

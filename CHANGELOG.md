@@ -21,6 +21,12 @@
   - Эпистемические инварианты `Evidence-First Triage`, расширенный `Circuit Breaker` (опровергнутые гипотезы + аудит `Error-Path / Fallback-Masking`), `Toolchain Handoff Tripwire` и переносимая анти-угодливость в `templates/AGENTS.md`, `templates/team/system_prompt.md`, `skills/manage-meta-project` и `skills/ground-meta-project`.
 
 ### Fixed / Исправлено
+- **Волна Z1 — Устранение дефектов ядра, резолв плагинов и гигиена срезов (Core P1 Defects & Slice Hygiene, §11.1)**:
+  - Нормализация форматов `input_fingerprints` (поддержка `list` и `dict`) в проверке устаревания отчётов `scripts/manage_reports.py` и синхронизация схемы `templates/reports/update_report.json`.
+  - Зеркалирование ресурсов навыков (`resources/`) при глобальной синхронизации `scripts/sync_templates.py --global-skills`.
+  - Динамический резолв корневого каталога скриптов `__root` в навыках (`skills/*/SKILL.md`) для поддержки сред с нативными кэшами плагинов (Claude Code, Cursor, Codex).
+  - Автоопределение единственной активной инсталляции при запуске `scripts/inspect_meta_project.py --harness auto` (устранение ложного отказа при однозначной топологии).
+  - Актуализация срезов знаний `architecture.md` и `weak_spots.md`, выравнивание флагов запуска утилит в `AGENTS.md` (§5).
 - **Волна K.1 — Усиление шлюзов эпистемического триажа и зависимостей манифеста**:
   - Строгая валидация доказательств в шлюзе `triage_incident.py promote` (отклонение trailing-гипотез без верифицированного `evidence:`).
   - Явное декларирование зависимости `scripts/triage_incident.py` для навыка `ground-meta-project` в `templates/release_manifest.json` и детерминированный fallback-путь.
