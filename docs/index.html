@@ -1,158 +1,3293 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Meta-Project — Agent Environment Framework</title>
-<meta name="description" content="Context organization framework for AI coding agents: machine-enforced boundaries, multi-harness hooks, 10 skills, and a one-command plugin install for Claude Code.">
-<style>
-  :root{--bg:#0d1117;--bg2:#161b22;--fg:#e6edf3;--fg-dim:#8b949e;--accent:#7c95ff;--accent2:#3fb950;--border:#30363d;--code:#0d1117;--warn:#d29922}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
-  a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
-  .wrap{max-width:960px;margin:0 auto;padding:0 24px}
-  header{border-bottom:1px solid var(--border);background:var(--bg2)}
-  .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
-  .brand{font-weight:700;font-size:1.1rem}
-  .brand span{color:var(--accent)}
-  .nav-right{display:flex;gap:16px;align-items:center;font-size:.95rem}
-  .lang-btn{background:none;border:1px solid var(--border);color:var(--fg-dim);border-radius:6px;padding:2px 10px;cursor:pointer;font-size:.85rem}
-  .lang-btn:hover{color:var(--fg);border-color:var(--fg-dim)}
-  .hero{padding:72px 0 56px;text-align:center}
-  .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
-  .badge{background:var(--bg2);border:1px solid var(--border);color:var(--fg-dim);border-radius:999px;padding:4px 14px;font-size:.8rem}
-  .badge b{color:var(--accent2)}
-  h1{font-size:2.6rem;line-height:1.15;margin-bottom:16px}
-  h1 .grad{background:linear-gradient(90deg,var(--accent),#a371f7);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .sub{color:var(--fg-dim);max-width:720px;margin:0 auto 36px;font-size:1.15rem}
-  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-  .btn{border-radius:8px;padding:10px 22px;font-weight:600;font-size:.95rem;border:1px solid var(--border);color:var(--fg)}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
-  .btn.ghost:hover{border-color:var(--fg-dim)}
-  h2{font-size:1.6rem;margin:56px 0 8px;padding-top:8px}
-  .lead{color:var(--fg-dim);margin-bottom:24px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
-  .card h3{font-size:1.02rem;margin-bottom:8px}
-  .card p{color:var(--fg-dim);font-size:.92rem}
-  .card code{background:var(--code);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.85rem}
-  pre{background:var(--code);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:.88rem;margin:12px 0 4px}
-  .steps{margin:10px 0}
-  .steps li{margin:10px 0 10px 24px;color:var(--fg-dim)}
-  table{width:100%;border-collapse:collapse;font-size:.9rem}
-  th,td{border:1px solid var(--border);padding:8px 12px;text-align:left}
-  th{background:var(--bg2);color:var(--fg-dim);font-weight:600}
-  td code{background:var(--code);border-radius:4px;padding:1px 6px;font-size:.82rem}
-  .note{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:8px;padding:14px 18px;color:var(--fg-dim);font-size:.92rem;margin-top:20px}
-  footer{border-top:1px solid var(--border);margin-top:72px;padding:28px 0;color:var(--fg-dim);font-size:.88rem;text-align:center}
-  .ru-block{display:none}
-  html[data-lang="ru"] .en{display:none}
-  html[data-lang="ru"] .ru-block{display:block}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meta-Project — Cross-Harness Agent Environment Framework</title>
+  <meta name="description" content="A cross-harness framework that keeps project memory in Git, synthesizes flexible agent teams per repository, and enforces architectural boundaries through CI gates and thin lifecycle hooks.">
+  <meta name="theme-color" content="#090b10">
+
+  <!-- Optional lightweight fonts with graceful system fallbacks (zero external JS dependencies) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* =========================================================================
+       Design Tokens & Base Reset
+       ========================================================================= */
+    :root {
+      --bg-base: #090b10;
+      --bg-surface: #0f131c;
+      --bg-elevated: #141925;
+      --bg-hover: #1a2132;
+      --bg-code: #0b0e16;
+
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      /* Semantic Palette strictly tied to UI & Zone System */
+      --accent-indigo: #6366f1;
+      --accent-indigo-light: #818cf8;
+      --accent-indigo-bg: rgba(99, 102, 241, 0.12);
+      --accent-indigo-border: rgba(129, 140, 248, 0.32);
+
+      --zone-green: #10b981;
+      --zone-green-bg: rgba(16, 185, 129, 0.11);
+      --zone-green-border: rgba(16, 185, 129, 0.34);
+
+      --zone-yellow: #f59e0b;
+      --zone-yellow-bg: rgba(245, 158, 11, 0.11);
+      --zone-yellow-border: rgba(245, 158, 11, 0.34);
+
+      --zone-red: #ef4444;
+      --zone-red-bg: rgba(239, 68, 68, 0.11);
+      --zone-red-border: rgba(239, 68, 68, 0.34);
+
+      --zone-deny: #f43f5e;
+      --zone-deny-slate: #94a3b8;
+      --zone-deny-bg: rgba(244, 63, 94, 0.11);
+      --zone-deny-border: rgba(244, 63, 94, 0.34);
+
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --max-w: 1160px;
+      --nav-h: 64px;
+      --transition: 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: calc(var(--nav-h) + 24px);
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button, input {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    code, pre, .mono {
+      font-family: var(--font-mono);
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* =========================================================================
+       Sticky Frosted Navbar
+       ========================================================================= */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: var(--nav-h);
+      background: rgba(9, 11, 16, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-inner {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .brand-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .brand-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .brand-dot.green { background: var(--zone-green); box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+    .brand-dot.amber { background: var(--zone-yellow); box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
+    .brand-dot.rose  { background: var(--zone-red); box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+
+    .brand-mid {
+      color: var(--accent-indigo-light);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-links a {
+      padding: 6px 11px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Segmented EN | RU toggle */
+    .lang-toggle {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+
+    .lang-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .lang-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .lang-btn.active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px var(--border-subtle);
+    }
+
+    .nav-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      transition: border-color var(--transition), background var(--transition);
+      white-space: nowrap;
+    }
+
+    .nav-github:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .mobile-drawer {
+      display: none;
+      position: fixed;
+      top: var(--nav-h);
+      left: 0;
+      right: 0;
+      z-index: 49;
+      background: rgba(15, 19, 28, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 24px 20px;
+    }
+
+    .mobile-drawer.open {
+      display: block;
+    }
+
+    .mobile-drawer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mobile-drawer-links a {
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+    }
+
+    .mobile-drawer-links a:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+    }
+
+    /* =========================================================================
+       Hero Section & Radial Grid Backdrop
+       ========================================================================= */
+    .hero {
+      position: relative;
+      padding: 72px 0 64px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .hero-backdrop {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(ellipse 68% 54% at 50% -10%, rgba(99, 102, 241, 0.16), transparent 72%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 100% 100%, 44px 44px, 44px 44px;
+      mask-image: radial-gradient(ellipse 85% 75% at 50% 25%, #000 35%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 25%, #000 35%, transparent 100%);
+    }
+
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 44px;
+      align-items: center;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      margin-bottom: 22px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      box-shadow: var(--inner-highlight);
+    }
+
+    .status-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-indigo-light);
+      box-shadow: 0 0 10px var(--accent-indigo);
+      flex-shrink: 0;
+    }
+
+    .hero h1 {
+      margin: 0 0 18px;
+      font-size: clamp(2rem, 3.6vw, 3.05rem);
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.032em;
+      color: #f8fafc;
+    }
+
+    .hero-subtitle {
+      margin: 0 0 28px;
+      font-size: 1.04rem;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      max-width: 560px;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), transform var(--transition), color var(--transition);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: var(--accent-indigo);
+      color: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+
+    .btn-primary:hover {
+      background: #5558e6;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border-color: var(--border-subtle);
+      box-shadow: var(--inner-highlight);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: var(--border-subtle);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border-strong);
+    }
+
+    /* Compact Metrics Bar */
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding-top: 22px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .metric-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* =========================================================================
+       Hero Right Blueprint Terminal Card: repo-anatomy & gate
+       ========================================================================= */
+    .blueprint-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.75), var(--inner-highlight);
+      overflow: hidden;
+    }
+
+    .blueprint-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 16px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .blueprint-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .window-dots {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .window-dots span {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .blueprint-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent-indigo-light);
+      background: var(--accent-indigo-bg);
+      border: 1px solid var(--accent-indigo-border);
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .blueprint-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .layer-box {
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      position: relative;
+    }
+
+    .layer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .layer-num {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .layer-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      background: var(--accent-indigo-bg);
+      color: var(--accent-indigo-light);
+      border: 1px solid var(--accent-indigo-border);
+    }
+
+    .layer-caption {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+    }
+
+    .file-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .file-pill {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .file-pill.highlight {
+      color: #e0e7ff;
+      border-color: rgba(129, 140, 248, 0.28);
+      background: rgba(99, 102, 241, 0.09);
+    }
+
+    .gate-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+    }
+
+    .gate-line {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .gate-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.66rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .gate-pill.green  { color: var(--zone-green);  background: var(--zone-green-bg);  border: 1px solid var(--zone-green-border); }
+    .gate-pill.yellow { color: var(--zone-yellow); background: var(--zone-yellow-bg); border: 1px solid var(--zone-yellow-border); }
+    .gate-pill.red    { color: var(--zone-red);    background: var(--zone-red-bg);    border: 1px solid var(--zone-red-border); }
+    .gate-pill.deny   { color: var(--zone-deny);   background: var(--zone-deny-bg);   border: 1px solid var(--zone-deny-border); }
+
+    .gate-path {
+      color: #cbd5e1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gate-result {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .gate-result.ok { color: var(--zone-green); }
+    .gate-result.warn { color: var(--zone-yellow); }
+    .gate-result.stop { color: var(--zone-red); }
+    .gate-result.deny { color: var(--zone-deny); }
+
+    /* =========================================================================
+       Shared Section Headers
+       ========================================================================= */
+    .section {
+      padding: 76px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-head {
+      max-width: 680px;
+      margin-bottom: 40px;
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-indigo-light);
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: clamp(1.55rem, 2.6vw, 2.15rem);
+      font-weight: 700;
+      letter-spacing: -0.028em;
+      line-height: 1.2;
+      color: #f8fafc;
+    }
+
+    .section-desc {
+      margin: 0;
+      font-size: 0.98rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    /* =========================================================================
+       Section 3: Core Pillars (3x2 Grid)
+       ========================================================================= */
+    .pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .pillar-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--inner-highlight);
+      transition: border-color var(--transition), background var(--transition), transform var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pillar-card:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-elevated);
+      transform: translateY(-2px);
+    }
+
+    .icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-indigo-light);
+    }
+
+    .pillar-card:hover .icon-box {
+      border-color: var(--accent-indigo-border);
+      background: var(--accent-indigo-bg);
+    }
+
+    .pillar-title {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--text-primary);
+    }
+
+    .pillar-desc {
+      margin: 0;
+      font-size: 0.89rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .inline-code {
+      font-family: var(--font-mono);
+      font-size: 0.82em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+    }
+
+    /* =========================================================================
+       Section 4: Interactive Zone Policy Explorer
+       ========================================================================= */
+    .zones-selector {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .zone-card {
+      text-align: left;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--inner-highlight);
+    }
+
+    .zone-card:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
+    }
+
+    .zone-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .zone-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .zone-badge.green  { color: var(--zone-green);  background: var(--zone-green-bg);  border: 1px solid var(--zone-green-border); }
+    .zone-badge.yellow { color: var(--zone-yellow); background: var(--zone-yellow-bg); border: 1px solid var(--zone-yellow-border); }
+    .zone-badge.red    { color: var(--zone-red);    background: var(--zone-red-bg);    border: 1px solid var(--zone-red-border); }
+    .zone-badge.deny   { color: var(--zone-deny);   background: var(--zone-deny-bg);   border: 1px solid var(--zone-deny-border); }
+
+    .zone-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .zone-rc {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .zone-card-summary {
+      margin: 0;
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .zone-card.active[data-zone="green"]  { background: var(--bg-elevated); border-color: var(--zone-green);  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.25); }
+    .zone-card.active[data-zone="yellow"] { background: var(--bg-elevated); border-color: var(--zone-yellow); box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25); }
+    .zone-card.active[data-zone="red"]    { background: var(--bg-elevated); border-color: var(--zone-red);    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25); }
+    .zone-card.active[data-zone="deny"]   { background: var(--bg-elevated); border-color: var(--zone-deny);   box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.25); }
+
+    /* Interactive Gate Detail & Path Tester Panel */
+    .zone-inspector {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--inner-highlight);
+    }
+
+    .zone-inspector-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    }
+
+    .zone-detail-pane {
+      padding: 24px;
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .zone-detail-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .zone-detail-title h3 {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .zone-detail-text {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .zone-meta-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding-top: 8px;
+    }
+
+    .zone-meta-item {
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .zone-meta-label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .zone-meta-val {
+      font-size: 0.83rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .zone-tester-pane {
+      padding: 24px;
+      background: var(--bg-code);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tester-label {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tester-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      transition: border-color var(--transition);
+    }
+
+    .tester-input-wrap:focus-within {
+      border-color: var(--accent-indigo-light);
+    }
+
+    .tester-prompt {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .tester-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      color: var(--text-primary);
+    }
+
+    .sample-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .sample-chip {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    .sample-chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .gate-json-output {
+      margin: 0;
+      padding: 12px 14px;
+      background: #07090e;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      line-height: 1.55;
+      color: #cbd5e1;
+      overflow-x: auto;
+    }
+
+    .json-key { color: #818cf8; }
+    .json-str { color: #a5f3fc; }
+    .json-green { color: var(--zone-green); }
+    .json-yellow { color: var(--zone-yellow); }
+    .json-red { color: var(--zone-red); }
+    .json-deny { color: var(--zone-deny); }
+
+    /* =========================================================================
+       Section 5: 10 Lifecycle Skills Explorer
+       ========================================================================= */
+    .skills-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .filter-tabs {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 4px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .filter-tab {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.83rem;
+      font-weight: 500;
+      padding: 6px 13px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    .filter-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .filter-tab.active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      box-shadow: inset 0 0 0 1px var(--border-subtle);
+    }
+
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .skill-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--inner-highlight);
+      transition: border-color var(--transition), background var(--transition);
+    }
+
+    .skill-card:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-elevated);
+    }
+
+    .skill-card.hidden {
+      display: none;
+    }
+
+    .skill-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .skill-name {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .skill-badges {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cat-pill {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .cat-pill.lifecycle {
+      color: var(--accent-indigo-light);
+      border-color: var(--accent-indigo-border);
+      background: var(--accent-indigo-bg);
+    }
+
+    .cat-pill.daily {
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .cat-pill.governance {
+      color: var(--zone-yellow);
+      border-color: var(--zone-yellow-border);
+      background: var(--zone-yellow-bg);
+    }
+
+    .cat-pill.standalone {
+      color: var(--zone-green);
+      border-color: var(--zone-green-border);
+      background: var(--zone-green-bg);
+    }
+
+    .skill-desc {
+      margin: 0;
+      font-size: 0.87rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* =========================================================================
+       Section 6: Six-Harness Hook Matrix
+       ========================================================================= */
+    .table-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--inner-highlight);
+    }
+
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table.hook-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      min-width: 680px;
+    }
+
+    .hook-table th {
+      padding: 13px 18px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .hook-table td {
+      padding: 14px 18px;
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+
+    .hook-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .hook-table tbody tr {
+      transition: background var(--transition);
+    }
+
+    .hook-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .harness-name {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .config-path {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .event-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .event-chip {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .decision-badge {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: var(--accent-indigo-light);
+      white-space: nowrap;
+    }
+
+    .hook-footnote {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 13px 18px;
+      background: var(--bg-code);
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* =========================================================================
+       Section 7: Interactive Install Section
+       ========================================================================= */
+    .install-shell {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--inner-highlight);
+      margin-bottom: 16px;
+    }
+
+    .install-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 10px 14px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .install-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 13px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+
+    .install-tab:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .install-tab.active {
+      color: var(--text-primary);
+      background: var(--bg-code);
+      border-color: var(--border-subtle);
+    }
+
+    .install-tab-sub {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .install-body {
+      padding: 20px;
+      background: var(--bg-code);
+    }
+
+    .install-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .install-caption {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+    }
+
+    .code-box {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      background: #06080d;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .code-box pre {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.86rem;
+      line-height: 1.7;
+      color: #e2e8f0;
+      overflow-x: auto;
+      flex: 1;
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 11px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    .copy-btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .copy-btn.copied {
+      color: var(--zone-green);
+      border-color: var(--zone-green-border);
+      background: var(--zone-green-bg);
+    }
+
+    /* Optional Multi-Harness Hook Follow-Up Card */
+    .hooks-followup {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 18px 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+      box-shadow: var(--inner-highlight);
+    }
+
+    .hooks-followup-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 620px;
+    }
+
+    .hooks-followup-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .hooks-followup-desc {
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+
+    .hooks-cmd-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 8px 14px;
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+
+    .hooks-cmd-wrap code {
+      font-size: 0.82rem;
+      color: #e2e8f0;
+    }
+
+    /* Amber Warning Callout */
+    .callout-amber {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 18px;
+      background: var(--zone-yellow-bg);
+      border: 1px solid var(--zone-yellow-border);
+      border-radius: var(--radius-md);
+      color: #fde68a;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+
+    .callout-amber svg {
+      color: var(--zone-yellow);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .callout-amber code {
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(245, 158, 11, 0.28);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #fef3c7;
+      font-size: 0.82em;
+    }
+
+    /* =========================================================================
+       Section 8: Docs Grid & Minimal Footer
+       ========================================================================= */
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .doc-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: var(--inner-highlight);
+      transition: border-color var(--transition), background var(--transition), transform var(--transition);
+    }
+
+    .doc-card:hover {
+      background: var(--bg-elevated);
+      border-color: var(--accent-indigo-border);
+      transform: translateY(-2px);
+    }
+
+    .doc-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .doc-icon {
+      color: var(--text-muted);
+      transition: color var(--transition);
+    }
+
+    .doc-card:hover .doc-icon {
+      color: var(--accent-indigo-light);
+    }
+
+    .doc-arrow {
+      color: var(--text-muted);
+      transition: transform var(--transition), color var(--transition);
+    }
+
+    .doc-card:hover .doc-arrow {
+      color: var(--text-primary);
+      transform: translate(2px, -2px);
+    }
+
+    .doc-path {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-word;
+      margin-bottom: 4px;
+    }
+
+    .doc-desc {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .footer {
+      padding: 36px 0 48px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .footer-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    .footer-sep {
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .footer a {
+      color: var(--text-secondary);
+      transition: color var(--transition);
+    }
+
+    .footer a:hover {
+      color: var(--text-primary);
+    }
+
+    /* =========================================================================
+       Responsive Breakpoints
+       ========================================================================= */
+    @media (max-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 36px;
+      }
+
+      .pillars-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .zones-selector {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .zone-inspector-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .zone-detail-pane {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .docs-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .nav-links {
+        display: none;
+      }
+
+      .mobile-menu-btn {
+        display: inline-flex;
+      }
+
+      .hero {
+        padding: 48px 0 48px;
+      }
+
+      .section {
+        padding: 56px 0;
+      }
+
+      .metrics-bar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .skills-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .container {
+        padding: 0 16px;
+      }
+
+      .pillars-grid,
+      .zones-selector,
+      .docs-grid,
+      .zone-meta-list {
+        grid-template-columns: 1fr;
+      }
+
+      .gate-line {
+        grid-template-columns: 70px minmax(0, 1fr);
+      }
+
+      .gate-result {
+        grid-column: 2;
+      }
+
+      .nav-github span {
+        display: none;
+      }
+
+      .code-box {
+        flex-direction: column;
+      }
+
+      .copy-btn {
+        align-self: flex-end;
+      }
+    }
+  </style>
 </head>
 <body>
-<header>
-  <div class="wrap nav">
-    <div class="brand">meta<span>·</span>project</div>
-    <div class="nav-right">
-      <button class="lang-btn" id="lang">RU</button>
-      <a href="https://github.com/vlv-code/meta-project">GitHub &#8599;</a>
+
+  <!-- =========================================================================
+       1. Sticky Frosted Navbar
+       ========================================================================= -->
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="#" class="brand" aria-label="Meta-Project Home">
+        <span class="brand-dots" aria-hidden="true">
+          <span class="brand-dot green"></span>
+          <span class="brand-dot amber"></span>
+          <span class="brand-dot rose"></span>
+        </span>
+        <span>meta<span class="brand-mid">&middot;</span>project</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="#pillars" data-i18n="nav.architecture">Architecture</a>
+        <a href="#zones" data-i18n="nav.zones">Zones</a>
+        <a href="#skills" data-i18n="nav.skills">Skills</a>
+        <a href="#hooks" data-i18n="nav.hooks">Hooks</a>
+        <a href="#install" data-i18n="nav.install">Install</a>
+        <a href="#docs" data-i18n="nav.docs">Docs</a>
+      </nav>
+
+      <div class="nav-actions">
+        <div class="lang-toggle" role="group" aria-label="Language switcher">
+          <button type="button" class="lang-btn active" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" class="lang-btn" data-lang="ru" aria-pressed="false">RU</button>
+        </div>
+
+        <a class="nav-github" href="https://github.com/vlv-code/meta-project" target="_blank" rel="noopener noreferrer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+          </svg>
+          <span>GitHub &nearr;</span>
+        </a>
+
+        <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Menu" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="4" y1="7" x2="20" y2="7"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <line x1="4" y1="17" x2="20" y2="17"/>
+          </svg>
+        </button>
+      </div>
     </div>
+  </header>
+
+  <!-- Mobile Navigation Drawer -->
+  <div class="mobile-drawer" id="mobileDrawer">
+    <nav class="mobile-drawer-links" aria-label="Mobile Navigation">
+      <a href="#pillars" data-i18n="nav.architecture">Architecture</a>
+      <a href="#zones" data-i18n="nav.zones">Zones</a>
+      <a href="#skills" data-i18n="nav.skills">Skills</a>
+      <a href="#hooks" data-i18n="nav.hooks">Hooks</a>
+      <a href="#install" data-i18n="nav.install">Install</a>
+      <a href="#docs" data-i18n="nav.docs">Docs</a>
+    </nav>
   </div>
-</header>
-<div class="wrap hero">
-  <div class="badges">
-    <span class="badge">release <b>v1.0.0-beta.1</b></span>
-    <span class="badge">10 skills</span>
-    <span class="badge">6 harnesses via hooks</span>
-    <span class="badge">zero dependencies</span>
-  </div>
-  <div class="en">
-    <h1>Machine-enforced guardrails<br>for <span class="grad">AI coding agents</span></h1>
-    <p class="sub">Context organization framework for AI coding agents: machine-enforced boundaries, multi-harness hooks, 10 skills, and one-command installation as a Claude&nbsp;Code plugin.</p>
-  </div>
-  <div class="ru-block" lang="ru">
-    <h1>Машинные ограничители<br>для <span class="grad">ИИ-агентов</span></h1>
-    <p class="sub">Фреймворк организации контекста для ИИ-агентов: машинный контроль границ, хуки для шести харнессов, 10 навыков и установка в одну команду как плагин Claude&nbsp;Code.</p>
-  </div>
-  <div class="cta">
-    <a class="btn primary" href="#install">Install</a>
-    <a class="btn ghost" href="https://github.com/vlv-code/meta-project/blob/main/README.md">Read the docs</a>
-    <a class="btn ghost" href="https://github.com/vlv-code/meta-project/releases">Releases</a>
-  </div>
-</div>
-<div class="wrap">
-  <h2>Why</h2>
-  <div class="en"><p class="lead">Prompt files tell the agent what to do. Meta-Project <b>enforces</b> it: a boundary gate in CI, thin hooks in six harnesses, and evidence-first triage.</p></div>
-  <div class="ru-block" lang="ru"><p class="lead">Промпт-файлы говорят агенту, что делать. Meta-Project это <b>принуждает</b>: гейт границ в CI, тонкие хуки в шести харнессах и triage по уликам.</p></div>
-  <div class="grid">
-    <div class="card"><h3>&#129763; Boundary Gate</h3><p>Green / Yellow / Red zones with Default Deny: unmapped paths halt the agent. Enforced in CI against a trusted-base revision and locally via thin hooks.</p></div>
-    <div class="card"><h3>&#129685; Thin harness hooks</h3><p>Zero-dependency adapters for Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot and Codex: session context, PreToolUse decisions, failure capture.</p></div>
-    <div class="card"><h3>&#129517; 10 skills</h3><p>Init, manage, decommission, ground, scan, tune, update, record-observation, sync-architecture, triage-incident — each with explicit ownership boundaries.</p></div>
-    <div class="card"><h3>&#128269; Deterministic inspection</h3><p>Zero-write inspector classifies a repo into canonical states and prints a facts digest so unchanged slices need no re-read.</p></div>
-    <div class="card"><h3>&#128230; Managed updates</h3><p>SHA-pinned updates with an atomic journal, offline cache fallback and a lock file — local edits preserved via local_repo_data markers.</p></div>
-    <div class="card"><h3>&#128300; Evidence-first triage</h3><p>Probe, record evidence, promote: hypotheses stay hypotheses until an artifact proves them.</p></div>
-  </div>
-  <h2 id="install">Install</h2>
-  <div class="en"><p class="lead">Three channels, one framework. Works with Claude Code, ZCode, Cursor, Windsurf, Gemini CLI, GitHub Copilot and Codex.</p></div>
-  <div class="ru-block" lang="ru"><p class="lead">Три канала, один фреймворк. Работает с Claude Code, ZCode, Cursor, Windsurf, Gemini CLI, GitHub Copilot и Codex.</p></div>
-  <div class="grid">
-    <div class="card"><h3>Claude Code plugin</h3><p>Full framework as a single plugin.</p><pre><code>/plugin marketplace add vlv-code/meta-project
-/plugin install meta-project</code></pre></div>
-    <div class="card"><h3>Agent Plugins 1.0.0</h3><p>For VS Code, Cursor, Copilot, Codex.</p><pre><code>npx plugins add vlv-code/meta-project</code></pre></div>
-    <div class="card"><h3>skills.sh (per-skill)</h3><p>Pick individual skills.</p><pre><code>npx skills add vlv-code/meta-project</code></pre></div>
-  </div>
-  <div class="en"><p class="note">&#9888; Per-skill installers copy the skill folders only. sync-architecture is the only fully standalone skill; the other nine need the repository's scripts/ and templates/ — prefer the full plugin or package.</p></div>
-  <div class="ru-block" lang="ru"><p class="note">&#9888; Установщики отдельных навыков копируют только папки навыков. sync-architecture — единственный полностью автономный навык; остальные девять требуют scripts/ и templates/ репозитория — предпочтите полный плагин или пакет.</p></div>
-  <h2>Hook matrix</h2>
-  <div class="en"><p class="lead">Thin adapters (no duplicated policy engines) for six harnesses — one JSON object per event, silent no-op outside a Meta-Project repository, fail-closed where supported.</p></div>
-  <div class="ru-block" lang="ru"><p class="lead">Тонкие адаптеры (без дублирования движков политик) для шести харнессов — один JSON-объект на событие, молчаливый no-op вне репозитория Meta-Project, fail-closed там, где поддерживается.</p></div>
-  <table>
-    <tr><th>Harness</th><th>Config</th><th>Events</th><th>PreToolUse</th></tr>
-    <tr><td>claude-code / zcode</td><td><code>.claude/settings.json</code></td><td>SessionStart, PreToolUse, PostToolUseFailure, PreCompact</td><td>allow / deny (rc=2)</td></tr>
-    <tr><td>cursor</td><td><code>.cursor/hooks.json</code></td><td>sessionStart, preToolUse</td><td>fail-closed deny</td></tr>
-    <tr><td>gemini</td><td><code>.gemini/settings.json</code></td><td>SessionStart, BeforeTool, AfterTool</td><td>allow / deny (rc=0)</td></tr>
-    <tr><td>copilot</td><td><code>.github/hooks/meta-project.json</code></td><td>sessionStart, preToolUse</td><td>fail-closed deny</td></tr>
-    <tr><td>codex</td><td><code>.codex/hooks.json</code></td><td>SessionStart, PreToolUse</td><td>allow / block (rc=2)</td></tr>
-  </table>
-  <h2>Zones</h2>
-  <div class="en"><p class="lead">Every path in the repo maps to a zone. The agent reads the map; the gate enforces it.</p></div>
-  <div class="ru-block" lang="ru"><p class="lead">Каждый путь в репо отображён в зону. Агент читает карту; гейт принуждает.</p></div>
-  <div class="grid">
-    <div class="card"><h3><span style="color:#3fb950">GREEN</span></h3><p>Docs, tests, standalone utilities — the agent modifies autonomously.</p></div>
-    <div class="card"><h3><span style="color:#d29922">YELLOW</span></h3><p>Skills, templates, core logic — modifications with mandatory verification.</p></div>
-    <div class="card"><h3><span style="color:#f85149">RED</span></h3><p>Passport, secrets, migrations, CI policy — explicit user confirmation required.</p></div>
-    <div class="card"><h3><span style="color:#f85149">DEFAULT DENY</span></h3><p>Anything unmapped halts the agent. No silent improvisation.</p></div>
-  </div>
-  <h2>Docs</h2>
-  <ul class="steps">
-    <li><b>README (EN)</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/README.md">full framework guide</a></li>
-    <li><b>README (RU)</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/README.ru.md">полное руководство</a></li>
-    <li><b>Agent passport</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/AGENTS.md">AGENTS.md</a></li>
-    <li><b>Hooks ecosystem</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/hooks/README.md">six-harness matrix and design</a></li>
-    <li><b>Primitives vocabulary</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/docs/primitives.md">docs/primitives.md</a></li>
-    <li><b>ADR log + roadmap</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/docs/decisions_and_roadmap.md">docs/decisions_and_roadmap.md</a></li>
-    <li><b>Changelog</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/CHANGELOG.md">CHANGELOG.md</a></li>
-  </ul>
-</div>
-<footer>
-  <div class="wrap">Distributed under the MIT license &middot; <a href="https://github.com/vlv-code/meta-project">vlv-code/meta-project</a> &middot; Built with Meta-Project</div>
-</footer>
-<script>
-  var html = document.documentElement;
-  var btn = document.getElementById("lang");
-  var lang = null;
-  try { lang = localStorage.getItem("mp-lang"); } catch (e) {}
-  if (!lang) { lang = navigator.language && navigator.language.slice(0, 2) === "ru" ? "ru" : "en"; }
-  html.setAttribute("data-lang", lang);
-  btn.textContent = lang === "en" ? "RU" : "EN";
-  btn.addEventListener("click", function () {
-    lang = lang === "en" ? "ru" : "en";
-    html.setAttribute("data-lang", lang);
-    try { localStorage.setItem("mp-lang", lang); } catch (e) {}
-    btn.textContent = lang === "en" ? "RU" : "EN";
-  });
-</script>
+
+  <main>
+    <!-- =======================================================================
+         2. Hero Section
+         ======================================================================= -->
+    <section class="hero">
+      <div class="hero-backdrop" aria-hidden="true"></div>
+      <div class="container hero-grid">
+        <!-- Left Column -->
+        <div>
+          <div class="status-badge">
+            <span class="status-pulse" aria-hidden="true"></span>
+            <span data-i18n="hero.badge">v1.0.0-beta.1 &middot; MIT &middot; Zero dependencies (Python stdlib)</span>
+          </div>
+
+          <h1 data-i18n="hero.title">Machine-enforced context &amp; guardrails for AI coding agents</h1>
+          <p class="hero-subtitle" data-i18n="hero.subtitle">
+            A cross-harness framework that keeps project memory in Git, synthesizes flexible agent teams per repository, and enforces architectural boundaries through CI gates and thin lifecycle hooks.
+          </p>
+
+          <div class="cta-row">
+            <a href="#install" class="btn btn-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4 17 10 11 4 5"/>
+                <line x1="12" y1="19" x2="20" y2="19"/>
+              </svg>
+              <span data-i18n="hero.ctaInstall">Install</span>
+            </a>
+            <a href="https://github.com/vlv-code/meta-project#readme" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              <span data-i18n="hero.ctaDocs">Read Docs</span>
+            </a>
+            <a href="https://github.com/vlv-code/meta-project/releases" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">
+              <span data-i18n="hero.ctaReleases">Releases</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </a>
+          </div>
+
+          <div class="metrics-bar">
+            <div class="metric-item">
+              <span class="metric-value">10</span>
+              <span class="metric-label" data-i18n="hero.metricSkills">Lifecycle Skills</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-value">6</span>
+              <span class="metric-label" data-i18n="hero.metricHarnesses">Harnesses via Hooks</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-value">5</span>
+              <span class="metric-label" data-i18n="hero.metricManifests">Native Manifests</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-value">0</span>
+              <span class="metric-label" data-i18n="hero.metricDeps">External Deps</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Blueprint Terminal Card -->
+        <div class="blueprint-card" aria-label="Repository anatomy and boundary gate preview">
+          <div class="blueprint-header">
+            <div class="blueprint-title-wrap">
+              <span class="window-dots" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span>repo-anatomy &amp; gate</span>
+            </div>
+            <span class="blueprint-tag">python3 stdlib</span>
+          </div>
+
+          <div class="blueprint-body">
+            <!-- Layer 1: Git Memory -->
+            <div class="layer-box">
+              <div class="layer-head">
+                <span class="layer-num">
+                  <span class="layer-index">01</span>
+                  <span>AGENTS.md &amp; project_knowledge/</span>
+                </span>
+                <span class="layer-caption" data-i18n="blueprint.layer1">Git-tracked memory</span>
+              </div>
+              <div class="file-pills">
+                <span class="file-pill highlight">AGENTS.md</span>
+                <span class="file-pill">architecture.md</span>
+                <span class="file-pill">boundaries.md</span>
+                <span class="file-pill">observations.md</span>
+                <span class="file-pill">tasks.md</span>
+                <span class="file-pill">weak_spots.md</span>
+              </div>
+            </div>
+
+            <!-- Layer 2: Dynamic Team Roles -->
+            <div class="layer-box">
+              <div class="layer-head">
+                <span class="layer-num">
+                  <span class="layer-index">02</span>
+                  <span>team/</span>
+                </span>
+                <span class="layer-caption" data-i18n="blueprint.layer2">Dynamic roles shared live across harnesses</span>
+              </div>
+              <div class="file-pills">
+                <span class="file-pill highlight">profile.md</span>
+                <span class="file-pill highlight">system_prompt.md</span>
+                <span class="file-pill">notes.md</span>
+              </div>
+            </div>
+
+            <!-- Layer 3: Live Gate Preview -->
+            <div class="layer-box">
+              <div class="layer-head">
+                <span class="layer-num">
+                  <span class="layer-index">03</span>
+                  <span>hooks/dispatch.py &rarr; check_boundaries.py</span>
+                </span>
+                <span class="layer-caption" data-i18n="blueprint.layer3">Live gate preview</span>
+              </div>
+              <div class="gate-lines">
+                <div class="gate-line">
+                  <span class="gate-pill green">GREEN</span>
+                  <span class="gate-path">tests/test_hooks.py</span>
+                  <span class="gate-result ok" data-i18n="blueprint.greenRes">allow &middot; rc=0</span>
+                </div>
+                <div class="gate-line">
+                  <span class="gate-pill yellow">YELLOW</span>
+                  <span class="gate-path">scripts/check_boundaries.py</span>
+                  <span class="gate-result warn" data-i18n="blueprint.yellowRes">verify required</span>
+                </div>
+                <div class="gate-line">
+                  <span class="gate-pill red">RED</span>
+                  <span class="gate-path">.github/workflows/ci.yml</span>
+                  <span class="gate-result stop" data-i18n="blueprint.redRes">confirm required</span>
+                </div>
+                <div class="gate-line">
+                  <span class="gate-pill deny">UNMAPPED</span>
+                  <span class="gate-path">scratch/untracked_fix.py</span>
+                  <span class="gate-result deny" data-i18n="blueprint.denyRes">deny &middot; rc=2</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         3. Core Pillars (#pillars)
+         ======================================================================= -->
+    <section class="section" id="pillars">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-kicker" data-i18n="pillars.kicker">Architecture</div>
+          <h2 class="section-title" data-i18n="pillars.title">Built for real repositories, enforced in code</h2>
+          <p class="section-desc" data-i18n="pillars.desc">
+            Prompt files only ask an agent to follow instructions. Meta-Project backs every convention with deterministic Python validators, CI boundary gates, and thin multi-harness hooks.
+          </p>
+        </div>
+
+        <div class="pillars-grid">
+          <!-- Pillar 1 -->
+          <article class="pillar-card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <h3 class="pillar-title" data-i18n="pillars.p1Title">Boundary Gate (Default Deny)</h3>
+            <p class="pillar-desc" data-i18n-html="pillars.p1Desc">
+              Green / Yellow / Red zones enforced in CI against a trusted-base revision and locally via thin hooks. Unmapped paths halt the agent immediately.
+            </p>
+          </article>
+
+          <!-- Pillar 2 -->
+          <article class="pillar-card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="18" r="3"/>
+                <circle cx="6" cy="6" r="3"/>
+                <path d="M13 6h3a2 2 0 0 1 2 2v7"/>
+                <line x1="6" y1="9" x2="6" y2="21"/>
+              </svg>
+            </div>
+            <h3 class="pillar-title" data-i18n="pillars.p2Title">Git-Native Project Memory</h3>
+            <p class="pillar-desc" data-i18n-html="pillars.p2Desc">
+              Transparent Markdown knowledge base (<code class="inline-code">architecture.md</code>, <code class="inline-code">boundaries.md</code>, <code class="inline-code">observations.md</code>, <code class="inline-code">tasks.md</code>, <code class="inline-code">weak_spots.md</code>) with automated compaction (<code class="inline-code">compact_memory.py</code>). Fully auditable via <code class="inline-code">git diff</code>, no hidden local DB.
+            </p>
+          </article>
+
+          <!-- Pillar 3 -->
+          <article class="pillar-card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <h3 class="pillar-title" data-i18n="pillars.p3Title">Dynamic Role Synthesis</h3>
+            <p class="pillar-desc" data-i18n-html="pillars.p3Desc">
+              <code class="inline-code">manage-meta-project</code> inspects the repo and builds vendor-neutral agent roles (<code class="inline-code">profile.md</code>, <code class="inline-code">system_prompt.md</code>, <code class="inline-code">notes.md</code>)—merging or extending competencies to fit actual team count and sharing state live across parallel harnesses.
+            </p>
+          </article>
+
+          <!-- Pillar 4 -->
+          <article class="pillar-card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+                <line x1="14" y1="4" x2="10" y2="20"/>
+              </svg>
+            </div>
+            <h3 class="pillar-title" data-i18n="pillars.p4Title">Thin Cross-Harness Hooks</h3>
+            <p class="pillar-desc" data-i18n-html="pillars.p4Desc">
+              Single <code class="inline-code">hooks/dispatch.py</code> router for 6 harnesses (Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot, Codex). One JSON object per event, silent no-op outside a Meta-Project repo, fail-closed where supported.
+            </p>
+          </article>
+
+          <!-- Pillar 5 -->
+          <article class="pillar-card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+            </div>
+            <h3 class="pillar-title" data-i18n="pillars.p5Title">Deterministic Inspection &amp; Managed Updates</h3>
+            <p class="pillar-desc" data-i18n-html="pillars.p5Desc">
+              Zero-write classifier (<code class="inline-code">inspect_meta_project.py</code>) outputting canonical state digests so unchanged slices need no re-read, plus SHA-pinned atomic updates (<code class="inline-code">update_meta_project.py</code>) with journal, lock file, offline cache fallback, and <code class="inline-code">local_repo_data</code> markers.
+            </p>
+          </article>
+
+          <!-- Pillar 6 -->
+          <article class="pillar-card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <path d="M11 8v6"/>
+                <path d="M8 11h6"/>
+              </svg>
+            </div>
+            <h3 class="pillar-title" data-i18n="pillars.p6Title">Evidence-First Triage</h3>
+            <p class="pillar-desc" data-i18n-html="pillars.p6Desc">
+              Structured investigation via <code class="inline-code">triage_incident.py</code>: probe, record verifiable artifacts, promote confirmed findings. Hypotheses stay hypotheses until proven.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         4. Interactive Zone Policy Explorer (#zones)
+         ======================================================================= -->
+    <section class="section" id="zones">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-kicker" data-i18n="zones.kicker">Boundary Model</div>
+          <h2 class="section-title" data-i18n="zones.title">Zone Policy Explorer</h2>
+          <p class="section-desc" data-i18n="zones.desc">
+            Every path in the repository is mapped to an explicit zone in boundaries.md. Select a zone or test any file path below to inspect how the gate responds before a write lands.
+          </p>
+        </div>
+
+        <!-- 4 Interactive Selectable Zone Cards -->
+        <div class="zones-selector" role="tablist" aria-label="Boundary Zones">
+          <button type="button" class="zone-card active" data-zone="green" role="tab" aria-selected="true">
+            <div class="zone-card-top">
+              <span class="zone-badge green"><span class="zone-dot"></span>GREEN</span>
+              <span class="zone-rc">rc=0</span>
+            </div>
+            <p class="zone-card-summary" data-i18n="zones.greenShort">Docs, tests, standalone utilities. Agent modifies autonomously.</p>
+          </button>
+
+          <button type="button" class="zone-card" data-zone="yellow" role="tab" aria-selected="false">
+            <div class="zone-card-top">
+              <span class="zone-badge yellow"><span class="zone-dot"></span>YELLOW</span>
+              <span class="zone-rc">verify</span>
+            </div>
+            <p class="zone-card-summary" data-i18n="zones.yellowShort">Skills, templates, core logic. Modifications require mandatory verification.</p>
+          </button>
+
+          <button type="button" class="zone-card" data-zone="red" role="tab" aria-selected="false">
+            <div class="zone-card-top">
+              <span class="zone-badge red"><span class="zone-dot"></span>RED</span>
+              <span class="zone-rc">confirm</span>
+            </div>
+            <p class="zone-card-summary" data-i18n="zones.redShort">Agent passport, secrets, migrations, CI policy. Explicit confirmation required.</p>
+          </button>
+
+          <button type="button" class="zone-card" data-zone="deny" role="tab" aria-selected="false">
+            <div class="zone-card-top">
+              <span class="zone-badge deny"><span class="zone-dot"></span>DEFAULT DENY</span>
+              <span class="zone-rc">rc=2</span>
+            </div>
+            <p class="zone-card-summary" data-i18n="zones.denyShort">Any path unmapped in boundaries.md. Halts the agent immediately.</p>
+          </button>
+        </div>
+
+        <!-- Detail & Interactive Path Simulator -->
+        <div class="zone-inspector">
+          <div class="zone-inspector-grid">
+            <div class="zone-detail-pane">
+              <div class="zone-detail-title">
+                <span class="zone-badge green" id="zoneDetailBadge"><span class="zone-dot"></span>GREEN</span>
+                <h3 id="zoneDetailHeading">Autonomous Modification Zone</h3>
+              </div>
+              <p class="zone-detail-text" id="zoneDetailText">
+                Low-blast-radius paths such as documentation, test suites, and standalone utilities. The agent may edit freely without stopping for extra approval.
+              </p>
+
+              <div class="zone-meta-list">
+                <div class="zone-meta-item">
+                  <span class="zone-meta-label" data-i18n="zones.metaPatterns">Mapped patterns</span>
+                  <span class="zone-meta-val mono" id="zoneMetaPatterns">docs/**, tests/**</span>
+                </div>
+                <div class="zone-meta-item">
+                  <span class="zone-meta-label" data-i18n="zones.metaAction">Required action</span>
+                  <span class="zone-meta-val" id="zoneMetaAction">Proceed autonomously</span>
+                </div>
+                <div class="zone-meta-item">
+                  <span class="zone-meta-label" data-i18n="zones.metaHook">PreToolUse verdict</span>
+                  <span class="zone-meta-val mono" id="zoneMetaHook">allow (rc=0)</span>
+                </div>
+                <div class="zone-meta-item">
+                  <span class="zone-meta-label" data-i18n="zones.metaCi">CI gate behavior</span>
+                  <span class="zone-meta-val" id="zoneMetaCi">Passes automatically</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="zone-tester-pane">
+              <div class="tester-label">
+                <span data-i18n="zones.testerLabel">Test a repository path against boundaries.md</span>
+                <span class="mono">check_boundaries.py</span>
+              </div>
+
+              <div class="tester-input-wrap">
+                <span class="tester-prompt">$ edit</span>
+                <input
+                  type="text"
+                  id="pathTesterInput"
+                  class="tester-input"
+                  value="tests/test_hooks.py"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Repository file path to test"
+                >
+              </div>
+
+              <div class="sample-chips" aria-label="Sample repository paths">
+                <button type="button" class="sample-chip" data-sample="docs/primitives.md">docs/primitives.md</button>
+                <button type="button" class="sample-chip" data-sample="tests/test_hooks.py">tests/test_hooks.py</button>
+                <button type="button" class="sample-chip" data-sample="skills/init-meta-project/SKILL.md">skills/init-meta-project/SKILL.md</button>
+                <button type="button" class="sample-chip" data-sample="scripts/check_boundaries.py">scripts/check_boundaries.py</button>
+                <button type="button" class="sample-chip" data-sample="AGENTS.md">AGENTS.md</button>
+                <button type="button" class="sample-chip" data-sample=".github/workflows/ci.yml">.github/workflows/ci.yml</button>
+                <button type="button" class="sample-chip" data-sample="scratch/unmapped_hack.py">scratch/unmapped_hack.py</button>
+              </div>
+
+              <pre class="gate-json-output" id="gateJsonOutput" aria-live="polite"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         5. 10 Lifecycle Skills Explorer (#skills)
+         ======================================================================= -->
+    <section class="section" id="skills">
+      <div class="container">
+        <div class="skills-toolbar">
+          <div class="section-head" style="margin-bottom: 0;">
+            <div class="section-kicker" data-i18n="skills.kicker">Full Lifecycle</div>
+            <h2 class="section-title" data-i18n="skills.title">10 Lifecycle Skills</h2>
+            <p class="section-desc" data-i18n="skills.desc">
+              Every operational stage—from initial scaffolding and dynamic role synthesis to daily grounding, tuning, incident triage, and clean decommissioning—has an explicit skill boundary.
+            </p>
+          </div>
+
+          <div class="filter-tabs" role="tablist" aria-label="Skill Categories">
+            <button type="button" class="filter-tab active" data-filter="all" role="tab" aria-selected="true" data-i18n="skills.filterAll">All (10)</button>
+            <button type="button" class="filter-tab" data-filter="lifecycle" role="tab" aria-selected="false" data-i18n="skills.filterLifecycle">Lifecycle</button>
+            <button type="button" class="filter-tab" data-filter="daily" role="tab" aria-selected="false" data-i18n="skills.filterDaily">Daily Work</button>
+            <button type="button" class="filter-tab" data-filter="governance" role="tab" aria-selected="false" data-i18n="skills.filterGovernance">Governance</button>
+          </div>
+        </div>
+
+        <div class="skills-grid" id="skillsGrid">
+          <!-- Lifecycle (4) -->
+          <article class="skill-card" data-category="lifecycle">
+            <div class="skill-card-head">
+              <span class="skill-name">init-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill lifecycle" data-i18n="skills.catLifecycle">Lifecycle</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.init">
+              Scaffold Git knowledge base, <code class="inline-code">AGENTS.md</code>, and initial zone boundaries.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="lifecycle">
+            <div class="skill-card-head">
+              <span class="skill-name">manage-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill lifecycle" data-i18n="skills.catLifecycle">Lifecycle</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.manage">
+              Synthesize and adapt repository-specific agent roles and competencies.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="lifecycle">
+            <div class="skill-card-head">
+              <span class="skill-name">update-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill lifecycle" data-i18n="skills.catLifecycle">Lifecycle</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.update">
+              SHA-pinned atomic updates with rollback journal and <code class="inline-code">local_repo_data</code> preservation.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="lifecycle">
+            <div class="skill-card-head">
+              <span class="skill-name">decommission-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill lifecycle" data-i18n="skills.catLifecycle">Lifecycle</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.decommission">
+              Clean, auditable removal of framework artifacts from a repository.
+            </p>
+          </article>
+
+          <!-- Daily Work (3) -->
+          <article class="skill-card" data-category="daily">
+            <div class="skill-card-head">
+              <span class="skill-name">ground-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill daily" data-i18n="skills.catDaily">Daily Work</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.ground">
+              Ground the session in verified project state without re-reading unchanged slices.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="daily">
+            <div class="skill-card-head">
+              <span class="skill-name">record-observation</span>
+              <span class="skill-badges">
+                <span class="cat-pill daily" data-i18n="skills.catDaily">Daily Work</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.record">
+              Capture structured observations and keep memory compact.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="daily">
+            <div class="skill-card-head">
+              <span class="skill-name">sync-architecture</span>
+              <span class="skill-badges">
+                <span class="cat-pill standalone" data-i18n="skills.tagStandalone">standalone</span>
+                <span class="cat-pill daily" data-i18n="skills.catDaily">Daily Work</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.sync">
+              Reconcile <code class="inline-code">architecture.md</code> with current repository structure.
+            </p>
+          </article>
+
+          <!-- Governance (3) -->
+          <article class="skill-card" data-category="governance">
+            <div class="skill-card-head">
+              <span class="skill-name">scan-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill governance" data-i18n="skills.catGovernance">Governance</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.scan">
+              Zero-write inspection returning canonical repo state and facts digest.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="governance">
+            <div class="skill-card-head">
+              <span class="skill-name">tune-meta-project</span>
+              <span class="skill-badges">
+                <span class="cat-pill governance" data-i18n="skills.catGovernance">Governance</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.tune">
+              Calibrate zone boundaries, policies, and knowledge layout as the codebase grows.
+            </p>
+          </article>
+
+          <article class="skill-card" data-category="governance">
+            <div class="skill-card-head">
+              <span class="skill-name">triage-incident</span>
+              <span class="skill-badges">
+                <span class="cat-pill governance" data-i18n="skills.catGovernance">Governance</span>
+              </span>
+            </div>
+            <p class="skill-desc" data-i18n-html="skills.triage">
+              Evidence-first incident triage—probe, attach artifacts, promote verified root causes.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         6. Six-Harness Hook Matrix (#hooks)
+         ======================================================================= -->
+    <section class="section" id="hooks">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-kicker" data-i18n="hooks.kicker">Runtime Enforcement</div>
+          <h2 class="section-title" data-i18n="hooks.title">Six-Harness Hook Matrix</h2>
+          <p class="section-desc" data-i18n-html="hooks.desc">
+            Thin adapters (no duplicated policy engines) via <code class="inline-code">hooks/dispatch.py</code> and <code class="inline-code">hooks/install.py</code> — one JSON object per event, silent no-op outside a Meta-Project repository, fail-closed where supported.
+          </p>
+        </div>
+
+        <div class="table-card">
+          <div class="table-scroll">
+            <table class="hook-table">
+              <thead>
+                <tr>
+                  <th data-i18n="hooks.colHarness">Harness</th>
+                  <th data-i18n="hooks.colConfig">Config Path</th>
+                  <th data-i18n="hooks.colEvents">Hook Events</th>
+                  <th data-i18n="hooks.colDecision">PreToolUse Decision</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="harness-name">claude-code / zcode</span></td>
+                  <td><code class="config-path">.claude/settings.json</code></td>
+                  <td>
+                    <div class="event-list">
+                      <span class="event-chip">SessionStart</span>
+                      <span class="event-chip">PreToolUse</span>
+                      <span class="event-chip">PostToolUseFailure</span>
+                      <span class="event-chip">PreCompact</span>
+                    </div>
+                  </td>
+                  <td><span class="decision-badge">allow / deny (rc=2)</span></td>
+                </tr>
+                <tr>
+                  <td><span class="harness-name">cursor</span></td>
+                  <td><code class="config-path">.cursor/hooks.json</code></td>
+                  <td>
+                    <div class="event-list">
+                      <span class="event-chip">sessionStart</span>
+                      <span class="event-chip">preToolUse</span>
+                    </div>
+                  </td>
+                  <td><span class="decision-badge">fail-closed deny</span></td>
+                </tr>
+                <tr>
+                  <td><span class="harness-name">gemini</span></td>
+                  <td><code class="config-path">.gemini/settings.json</code></td>
+                  <td>
+                    <div class="event-list">
+                      <span class="event-chip">SessionStart</span>
+                      <span class="event-chip">BeforeTool</span>
+                      <span class="event-chip">AfterTool</span>
+                    </div>
+                  </td>
+                  <td><span class="decision-badge">allow / deny (rc=0)</span></td>
+                </tr>
+                <tr>
+                  <td><span class="harness-name">copilot</span></td>
+                  <td><code class="config-path">.github/hooks/meta-project.json</code></td>
+                  <td>
+                    <div class="event-list">
+                      <span class="event-chip">sessionStart</span>
+                      <span class="event-chip">preToolUse</span>
+                    </div>
+                  </td>
+                  <td><span class="decision-badge">fail-closed deny</span></td>
+                </tr>
+                <tr>
+                  <td><span class="harness-name">codex</span></td>
+                  <td><code class="config-path">.codex/hooks.json</code></td>
+                  <td>
+                    <div class="event-list">
+                      <span class="event-chip">SessionStart</span>
+                      <span class="event-chip">PreToolUse</span>
+                    </div>
+                  </td>
+                  <td><span class="decision-badge">allow / block (rc=2)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="hook-footnote">
+            <span data-i18n="hooks.noteLeft">All 6 harnesses route through one deterministic Python dispatcher — zero external packages required.</span>
+            <a href="https://github.com/vlv-code/meta-project/blob/main/hooks/README.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-indigo-light);" data-i18n="hooks.noteLink">hooks/README.md &nearr;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         7. Interactive Install Section (#install)
+         ======================================================================= -->
+    <section class="section" id="install">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-kicker" data-i18n="install.kicker">Distribution</div>
+          <h2 class="section-title" data-i18n="install.title">Install Meta-Project</h2>
+          <p class="section-desc" data-i18n="install.desc">
+            Four native installation channels backed by five plugin manifests in one repository. Works across Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot, VS Code, and Codex.
+          </p>
+        </div>
+
+        <div class="install-shell">
+          <div class="install-tabs" role="tablist" aria-label="Installation Channels">
+            <button type="button" class="install-tab active" data-install="claude" role="tab" aria-selected="true">
+              <span>Claude Code</span>
+              <span class="install-tab-sub">.claude-plugin/</span>
+            </button>
+            <button type="button" class="install-tab" data-install="agent-plugins" role="tab" aria-selected="false">
+              <span>Agent Plugins 1.0</span>
+              <span class="install-tab-sub">VS Code, Cursor, Copilot, Codex</span>
+            </button>
+            <button type="button" class="install-tab" data-install="gemini" role="tab" aria-selected="false">
+              <span>Gemini CLI</span>
+              <span class="install-tab-sub">gemini-extension.json</span>
+            </button>
+            <button type="button" class="install-tab" data-install="skills" role="tab" aria-selected="false">
+              <span>skills.sh</span>
+              <span class="install-tab-sub" data-i18n="install.perSkillSub">per-skill</span>
+            </button>
+          </div>
+
+          <div class="install-body">
+            <div class="install-meta-row">
+              <span class="install-caption" id="installCaption">Full framework with skills, Python validators, templates, and native hook definitions.</span>
+            </div>
+
+            <div class="code-box">
+              <pre id="installCommand">/plugin marketplace add vlv-code/meta-project
+/plugin install meta-project</pre>
+              <button type="button" class="copy-btn" id="copyInstallBtn" data-copy-target="installCommand">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span class="copy-label" data-i18n="install.copy">Copy</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional Hook Wiring Follow-up -->
+        <div class="hooks-followup">
+          <div class="hooks-followup-text">
+            <span class="hooks-followup-title" data-i18n="install.hooksTitle">Optional: Wire lifecycle hooks across harnesses</span>
+            <span class="hooks-followup-desc" data-i18n="install.hooksDesc">
+              For multi-harness setups (Cursor, Gemini CLI, Copilot, Codex, Claude Code), run the stdlib hook installer to register thin adapters pointing to hooks/dispatch.py.
+            </span>
+          </div>
+          <div class="hooks-cmd-wrap">
+            <code id="hooksInstallCmd">python3 hooks/install.py</code>
+            <button type="button" class="copy-btn" id="copyHooksBtn" data-copy-target="hooksInstallCmd">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <span class="copy-label" data-i18n="install.copy">Copy</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Amber Warning Callout -->
+        <div class="callout-amber" role="note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span data-i18n-html="install.warning">
+            Per-skill installers copy skill folders only. <code>sync-architecture</code> is the only fully standalone skill; the other nine require <code>scripts/</code> and <code>templates/</code> — prefer installing the full plugin or extension.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         8. Docs & Resources Grid (#docs)
+         ======================================================================= -->
+    <section class="section" id="docs">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-kicker" data-i18n="docs.kicker">Documentation</div>
+          <h2 class="section-title" data-i18n="docs.title">Docs &amp; Specifications</h2>
+          <p class="section-desc" data-i18n="docs.desc">
+            Every design decision, contract, and primitive is versioned directly inside the repository.
+          </p>
+        </div>
+
+        <div class="docs-grid">
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/README.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">README.md</div>
+              <p class="doc-desc" data-i18n="docs.readmeEn">Full framework guide (EN)</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/README.ru.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">README.ru.md</div>
+              <p class="doc-desc" data-i18n="docs.readmeRu">Full framework guide (RU)</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/AGENTS.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">AGENTS.md</div>
+              <p class="doc-desc" data-i18n="docs.agents">Agent passport &amp; rules</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/hooks/README.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">hooks/README.md</div>
+              <p class="doc-desc" data-i18n="docs.hooks">Six-harness hook matrix &amp; architecture</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/docs/primitives.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">docs/primitives.md</div>
+              <p class="doc-desc" data-i18n="docs.primitives">Primitives vocabulary</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/docs/decisions_and_roadmap.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">docs/decisions_and_roadmap.md</div>
+              <p class="doc-desc" data-i18n="docs.roadmap">ADR log &amp; roadmap</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/docs/framework_philosophy_and_vision.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">docs/framework_philosophy_and_vision.md</div>
+              <p class="doc-desc" data-i18n="docs.philosophy">Philosophy &amp; vision</p>
+            </div>
+          </a>
+
+          <a class="doc-card" href="https://github.com/vlv-code/meta-project/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">
+            <div class="doc-card-top">
+              <svg class="doc-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <svg class="doc-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"/>
+                <polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="doc-path">CHANGELOG.md</div>
+              <p class="doc-desc" data-i18n="docs.changelog">Release history</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Minimal Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-meta">
+        <span data-i18n="footer.license">MIT License</span>
+        <span class="footer-sep">&middot;</span>
+        <a href="https://github.com/vlv-code/meta-project" target="_blank" rel="noopener noreferrer">vlv-code/meta-project</a>
+        <span class="footer-sep">&middot;</span>
+        <span>v1.0.0-beta.1</span>
+        <span class="footer-sep">&middot;</span>
+        <span data-i18n="footer.builtWith">Built with Meta-Project</span>
+      </div>
+      <div class="footer-meta">
+        <a href="https://github.com/vlv-code/meta-project/issues" target="_blank" rel="noopener noreferrer" data-i18n="footer.issues">Issues</a>
+        <span class="footer-sep">&middot;</span>
+        <a href="https://github.com/vlv-code/meta-project/releases" target="_blank" rel="noopener noreferrer" data-i18n="footer.releases">Releases</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+       Zero-Dependency Interactive Logic (EN/RU, Zone Simulator, Skills, Install)
+       ========================================================================= -->
+  <script>
+    (function () {
+      "use strict";
+
+      /* -----------------------------------------------------------------------
+         1. Complete Bilingual Dictionary (EN / RU)
+         ----------------------------------------------------------------------- */
+      const I18N = {
+        en: {
+          pageTitle: "Meta-Project — Cross-Harness Agent Environment Framework",
+          nav: {
+            architecture: "Architecture",
+            zones: "Zones",
+            skills: "Skills",
+            hooks: "Hooks",
+            install: "Install",
+            docs: "Docs"
+          },
+          hero: {
+            badge: "v1.0.0-beta.1 · MIT · Zero dependencies (Python stdlib)",
+            title: "Machine-enforced context & guardrails for AI coding agents",
+            subtitle: "A cross-harness framework that keeps project memory in Git, synthesizes flexible agent teams per repository, and enforces architectural boundaries through CI gates and thin lifecycle hooks.",
+            ctaInstall: "Install",
+            ctaDocs: "Read Docs",
+            ctaReleases: "Releases",
+            metricSkills: "Lifecycle Skills",
+            metricHarnesses: "Harnesses via Hooks",
+            metricManifests: "Native Manifests",
+            metricDeps: "External Deps"
+          },
+          blueprint: {
+            layer1: "Git-tracked memory",
+            layer2: "Dynamic roles shared live across harnesses",
+            layer3: "Live gate preview",
+            greenRes: "allow · rc=0",
+            yellowRes: "verify required",
+            redRes: "confirm required",
+            denyRes: "deny · rc=2"
+          },
+          pillars: {
+            kicker: "Architecture",
+            title: "Built for real repositories, enforced in code",
+            desc: "Prompt files only ask an agent to follow instructions. Meta-Project backs every convention with deterministic Python validators, CI boundary gates, and thin multi-harness hooks.",
+            p1Title: "Boundary Gate (Default Deny)",
+            p1Desc: "Green / Yellow / Red zones enforced in CI against a trusted-base revision and locally via thin hooks. Unmapped paths halt the agent immediately.",
+            p2Title: "Git-Native Project Memory",
+            p2Desc: 'Transparent Markdown knowledge base (<code class="inline-code">architecture.md</code>, <code class="inline-code">boundaries.md</code>, <code class="inline-code">observations.md</code>, <code class="inline-code">tasks.md</code>, <code class="inline-code">weak_spots.md</code>) with automated compaction (<code class="inline-code">compact_memory.py</code>). Fully auditable via <code class="inline-code">git diff</code>, no hidden local DB.',
+            p3Title: "Dynamic Role Synthesis",
+            p3Desc: '<code class="inline-code">manage-meta-project</code> inspects the repo and builds vendor-neutral agent roles (<code class="inline-code">profile.md</code>, <code class="inline-code">system_prompt.md</code>, <code class="inline-code">notes.md</code>)—merging or extending competencies to fit actual team count and sharing state live across parallel harnesses.',
+            p4Title: "Thin Cross-Harness Hooks",
+            p4Desc: 'Single <code class="inline-code">hooks/dispatch.py</code> router for 6 harnesses (Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot, Codex). One JSON object per event, silent no-op outside a Meta-Project repo, fail-closed where supported.',
+            p5Title: "Deterministic Inspection & Managed Updates",
+            p5Desc: 'Zero-write classifier (<code class="inline-code">inspect_meta_project.py</code>) outputting canonical state digests so unchanged slices need no re-read, plus SHA-pinned atomic updates (<code class="inline-code">update_meta_project.py</code>) with journal, lock file, offline cache fallback, and <code class="inline-code">local_repo_data</code> markers.',
+            p6Title: "Evidence-First Triage",
+            p6Desc: 'Structured investigation via <code class="inline-code">triage_incident.py</code>: probe, record verifiable artifacts, promote confirmed findings. Hypotheses stay hypotheses until proven.'
+          },
+          zones: {
+            kicker: "Boundary Model",
+            title: "Zone Policy Explorer",
+            desc: "Every path in the repository is mapped to an explicit zone in boundaries.md. Select a zone or test any file path below to inspect how the gate responds before a write lands.",
+            greenShort: "Docs, tests, standalone utilities. Agent modifies autonomously.",
+            yellowShort: "Skills, templates, core logic. Modifications require mandatory verification.",
+            redShort: "Agent passport, secrets, migrations, CI policy. Explicit confirmation required.",
+            denyShort: "Any path unmapped in boundaries.md. Halts the agent immediately.",
+            metaPatterns: "Mapped patterns",
+            metaAction: "Required action",
+            metaHook: "PreToolUse verdict",
+            metaCi: "CI gate behavior",
+            testerLabel: "Test a repository path against boundaries.md",
+            details: {
+              green: {
+                badge: "GREEN",
+                heading: "Autonomous Modification Zone",
+                text: "Low-blast-radius paths such as documentation, test suites, and standalone utilities. The agent may edit freely without stopping for extra approval.",
+                patterns: "docs/**, tests/**, *.md (non-passport)",
+                action: "Proceed autonomously",
+                hook: "allow (rc=0)",
+                ci: "Passes automatically",
+                sample: "tests/test_hooks.py",
+                reason: "Path matched GREEN zone rule in boundaries.md"
+              },
+              yellow: {
+                badge: "YELLOW",
+                heading: "Verified Modification Zone",
+                text: "Skills, templates, and core runtime logic. The agent can implement changes, but must run targeted verification checks and report evidence before closing the task.",
+                patterns: "skills/**, templates/**, scripts/**",
+                action: "Run mandatory verification checks",
+                hook: "allow with verify_required (rc=0)",
+                ci: "Checks test & contract compliance",
+                sample: "scripts/check_boundaries.py",
+                reason: "Path matched YELLOW zone; mandatory verification required"
+              },
+              red: {
+                badge: "RED",
+                heading: "Protected Governance Zone",
+                text: "High-impact control plane files: agent passport (AGENTS.md), secrets, migrations, and CI workflow policy. Explicit user confirmation and sanction are required prior to modification.",
+                patterns: "AGENTS.md, .github/workflows/**, migrations/**",
+                action: "Stop and request explicit confirmation",
+                hook: "deny / ask confirmation (rc=2)",
+                ci: "Blocks unless red-zone sanction is present",
+                sample: ".github/workflows/ci.yml",
+                reason: "Path matched RED zone; explicit user confirmation required"
+              },
+              deny: {
+                badge: "DEFAULT DENY",
+                heading: "Unmapped Path — Fail-Closed Halt",
+                text: "Any path absent from boundaries.md is rejected by default. The gate halts the agent immediately so new or unrecognized surfaces never slip past review through silent improvisation.",
+                patterns: "<unmapped in boundaries.md>",
+                action: "Halt immediately; map path first",
+                hook: "deny (rc=2 · fail-closed)",
+                ci: "Fails boundary gate on unmapped diff",
+                sample: "scratch/unmapped_hack.py",
+                reason: "Default Deny: path is not mapped in boundaries.md"
+              }
+            }
+          },
+          skills: {
+            kicker: "Full Lifecycle",
+            title: "10 Lifecycle Skills",
+            desc: "Every operational stage—from initial scaffolding and dynamic role synthesis to daily grounding, tuning, incident triage, and clean decommissioning—has an explicit skill boundary.",
+            filterAll: "All (10)",
+            filterLifecycle: "Lifecycle",
+            filterDaily: "Daily Work",
+            filterGovernance: "Governance",
+            catLifecycle: "Lifecycle",
+            catDaily: "Daily Work",
+            catGovernance: "Governance",
+            tagStandalone: "standalone",
+            init: 'Scaffold Git knowledge base, <code class="inline-code">AGENTS.md</code>, and initial zone boundaries.',
+            manage: "Synthesize and adapt repository-specific agent roles and competencies.",
+            update: 'SHA-pinned atomic updates with rollback journal and <code class="inline-code">local_repo_data</code> preservation.',
+            decommission: "Clean, auditable removal of framework artifacts from a repository.",
+            ground: "Ground the session in verified project state without re-reading unchanged slices.",
+            record: "Capture structured observations and keep memory compact.",
+            sync: 'Reconcile <code class="inline-code">architecture.md</code> with current repository structure.',
+            scan: "Zero-write inspection returning canonical repo state and facts digest.",
+            tune: "Calibrate zone boundaries, policies, and knowledge layout as the codebase grows.",
+            triage: "Evidence-first incident triage—probe, attach artifacts, promote verified root causes."
+          },
+          hooks: {
+            kicker: "Runtime Enforcement",
+            title: "Six-Harness Hook Matrix",
+            desc: 'Thin adapters (no duplicated policy engines) via <code class="inline-code">hooks/dispatch.py</code> and <code class="inline-code">hooks/install.py</code> — one JSON object per event, silent no-op outside a Meta-Project repository, fail-closed where supported.',
+            colHarness: "Harness",
+            colConfig: "Config Path",
+            colEvents: "Hook Events",
+            colDecision: "PreToolUse Decision",
+            noteLeft: "All 6 harnesses route through one deterministic Python dispatcher — zero external packages required.",
+            noteLink: "hooks/README.md ↗"
+          },
+          install: {
+            kicker: "Distribution",
+            title: "Install Meta-Project",
+            desc: "Four native installation channels backed by five plugin manifests in one repository. Works across Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot, VS Code, and Codex.",
+            perSkillSub: "per-skill",
+            copy: "Copy",
+            copied: "Copied!",
+            captions: {
+              claude: "Install the full framework natively via Claude Code marketplace (.claude-plugin/).",
+              "agent-plugins": "Install via the open Agent Plugins 1.0 standard for VS Code, Cursor, GitHub Copilot, and Codex.",
+              gemini: "Install directly as a native Gemini CLI extension backed by gemini-extension.json.",
+              skills: "Pull individual skills via skills.sh (see note below on scripts/ and templates/)."
+            },
+            hooksTitle: "Optional: Wire lifecycle hooks across harnesses",
+            hooksDesc: "For multi-harness setups (Cursor, Gemini CLI, Copilot, Codex, Claude Code), run the stdlib hook installer to register thin adapters pointing to hooks/dispatch.py.",
+            warning: "Per-skill installers copy skill folders only. <code>sync-architecture</code> is the only fully standalone skill; the other nine require <code>scripts/</code> and <code>templates/</code> — prefer installing the full plugin or extension."
+          },
+          docs: {
+            kicker: "Documentation",
+            title: "Docs & Specifications",
+            desc: "Every design decision, contract, and primitive is versioned directly inside the repository.",
+            readmeEn: "Full framework guide (EN)",
+            readmeRu: "Full framework guide (RU)",
+            agents: "Agent passport & rules",
+            hooks: "Six-harness hook matrix & architecture",
+            primitives: "Primitives vocabulary",
+            roadmap: "ADR log & roadmap",
+            philosophy: "Philosophy & vision",
+            changelog: "Release history"
+          },
+          footer: {
+            license: "MIT License",
+            builtWith: "Built with Meta-Project",
+            issues: "Issues",
+            releases: "Releases"
+          }
+        },
+
+        ru: {
+          pageTitle: "Meta-Project — Кросс-харнесный фреймворк среды ИИ-агентов",
+          nav: {
+            architecture: "Архитектура",
+            zones: "Зоны",
+            skills: "Скиллы",
+            hooks: "Хуки",
+            install: "Установка",
+            docs: "Документация"
+          },
+          hero: {
+            badge: "v1.0.0-beta.1 · MIT · Ноль зависимостей (Python stdlib)",
+            title: "Контекст, границы и роли для ИИ-агентов под машинным контролем",
+            subtitle: "Кросс-харнесный фреймворк, который хранит память проекта в Git, собирает гибкую команду ролей под конкретный репозиторий и контролирует архитектурные границы через гейт в CI и тонкие lifecycle-хуки.",
+            ctaInstall: "Установить",
+            ctaDocs: "Документация",
+            ctaReleases: "Релизы",
+            metricSkills: "Скиллов цикла",
+            metricHarnesses: "Харнесов с хуками",
+            metricManifests: "Нативных манифестов",
+            metricDeps: "Внешних зависимостей"
+          },
+          blueprint: {
+            layer1: "Память проекта в Git",
+            layer2: "Динамические роли, общие для всех харнесов",
+            layer3: "Проверка гейта в реальном времени",
+            greenRes: "разрешено · rc=0",
+            yellowRes: "нужна проверка",
+            redRes: "нужно подтверждение",
+            denyRes: "блок · rc=2"
+          },
+          pillars: {
+            kicker: "Архитектура",
+            title: "Создан для живых репозиториев и закреплён в коде",
+            desc: "Промпт-файлы лишь просят агента соблюдать правила. Meta-Project контролирует их выполнение детерминированными Python-скриптами, гейтом границ в CI и тонкими хуками.",
+            p1Title: "Гейт границ (Default Deny)",
+            p1Desc: "Зоны Green / Yellow / Red контролируются в CI относительно доверенной базовой ревизии и локально через тонкие хуки. Любой путь вне карты немедленно останавливает агента.",
+            p2Title: "Память проекта в Git",
+            p2Desc: 'Прозрачная база знаний в Markdown (<code class="inline-code">architecture.md</code>, <code class="inline-code">boundaries.md</code>, <code class="inline-code">observations.md</code>, <code class="inline-code">tasks.md</code>, <code class="inline-code">weak_spots.md</code>) с автоматической компакцией (<code class="inline-code">compact_memory.py</code>). Полный аудит через <code class="inline-code">git diff</code>, без скрытых локальных БД.',
+            p3Title: "Динамический синтез ролей",
+            p3Desc: '<code class="inline-code">manage-meta-project</code> анализирует репозиторий и собирает вендор-нейтральные роли (<code class="inline-code">profile.md</code>, <code class="inline-code">system_prompt.md</code>, <code class="inline-code">notes.md</code>): совмещает или расширяет компетенции под реальное число агентов и держит общий контекст при работе в нескольких харнесах.',
+            p4Title: "Тонкие кросс-харнесные хуки",
+            p4Desc: 'Единый роутер <code class="inline-code">hooks/dispatch.py</code> для 6 харнесов (Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot, Codex). Один JSON-объект на событие, тихий no-op вне репозитория Meta-Project и режим fail-closed везде, где он поддерживается.',
+            p5Title: "Детерминированная инспекция и обновления",
+            p5Desc: 'Классификатор без записи (<code class="inline-code">inspect_meta_project.py</code>) выдаёт каноническую сводку состояния, чтобы не перечитывать неизменённые срезы, а <code class="inline-code">update_meta_project.py</code> выполняет атомарные обновления по SHA с журналом отката, lock-файлом, офлайн-кешем и маркерами <code class="inline-code">local_repo_data</code>.',
+            p6Title: "Разбор инцидентов на фактах",
+            p6Desc: 'Структурированное расследование через <code class="inline-code">triage_incident.py</code>: проверка гипотез, фиксация проверяемых артефактов и закрепление подтверждённой первопричины. Догадки остаются догадками, пока не доказаны.'
+          },
+          zones: {
+            kicker: "Модель границ",
+            title: "Интерактивный обзор зон",
+            desc: "Каждый путь в репозитории закреплён за определённой зоной в boundaries.md. Выберите зону или введите любой путь ниже, чтобы увидеть решение гейта до записи файла.",
+            greenShort: "Документация, тесты, изолированные утилиты. Агент правит автономно.",
+            yellowShort: "Скиллы, шаблоны, основная логика. Правки требуют обязательной верификации.",
+            redShort: "Паспорт агента, секреты, миграции, CI-политики. Нужно явное подтверждение.",
+            denyShort: "Любой путь вне карты boundaries.md. Немедленная остановка агента.",
+            metaPatterns: "Шаблоны путей",
+            metaAction: "Требуемое действие",
+            metaHook: "Вердикт PreToolUse",
+            metaCi: "Поведение гейта в CI",
+            testerLabel: "Проверить путь репозитория по карте boundaries.md",
+            details: {
+              green: {
+                badge: "GREEN",
+                heading: "Зона автономных правок",
+                text: "Файлы с низким радиусом поражения: документация, тесты и вспомогательные утилиты. Агент может вносить изменения самостоятельно без лишних остановок.",
+                patterns: "docs/**, tests/**, *.md (кроме паспорта)",
+                action: "Править автономно",
+                hook: "allow (rc=0)",
+                ci: "Проходит автоматически",
+                sample: "tests/test_hooks.py",
+                reason: "Путь закреплён за зоной GREEN в boundaries.md"
+              },
+              yellow: {
+                badge: "YELLOW",
+                heading: "Зона обязательной верификации",
+                text: "Скиллы, шаблоны и ключевая логика. Агент может внести правки, но обязан прогнать целевые проверки и приложить подтверждение перед завершением задачи.",
+                patterns: "skills/**, templates/**, scripts/**",
+                action: "Запустить обязательные проверки",
+                hook: "allow + verify_required (rc=0)",
+                ci: "Проверяет тесты и контракты",
+                sample: "scripts/check_boundaries.py",
+                reason: "Путь закреплён за зоной YELLOW; требуется обязательная верификация"
+              },
+              red: {
+                badge: "RED",
+                heading: "Защищённая критическая зона",
+                text: "Критичный контур управления: паспорт агента (AGENTS.md), секреты, миграции и CI-политики. Перед изменением необходимо явное подтверждение пользователя и санкция.",
+                patterns: "AGENTS.md, .github/workflows/**, migrations/**",
+                action: "Остановиться и запросить подтверждение",
+                hook: "deny / запрос подтверждения (rc=2)",
+                ci: "Блокирует PR без red-zone санкции",
+                sample: ".github/workflows/ci.yml",
+                reason: "Путь закреплён за зоной RED; требуется явное подтверждение пользователя"
+              },
+              deny: {
+                badge: "DEFAULT DENY",
+                heading: "Неразмеченный путь — остановка (fail-closed)",
+                text: "Любой путь, не описанный в boundaries.md, отклоняется по умолчанию. Гейт сразу останавливает агента, исключая тихую импровизацию в новых каталогах.",
+                patterns: "<не размечено в boundaries.md>",
+                action: "Остановиться и сначала добавить путь в карту",
+                hook: "deny (rc=2 · fail-closed)",
+                ci: "Валит гейт границ при неразмеченном диффе",
+                sample: "scratch/unmapped_hack.py",
+                reason: "Default Deny: путь не закреплён ни за одной зоной в boundaries.md"
+              }
+            }
+          },
+          skills: {
+            kicker: "Полный жизненный цикл",
+            title: "10 скиллов жизненного цикла",
+            desc: "У каждого этапа — от первичного скаффолдинга и сборки ролей до ежедневного заземления контекста, калибровки, триажа инцидентов и чистого удаления — своя зона ответственности.",
+            filterAll: "Все (10)",
+            filterLifecycle: "Жизненный цикл",
+            filterDaily: "Ежедневная работа",
+            filterGovernance: "Контроль и аудит",
+            catLifecycle: "Жизненный цикл",
+            catDaily: "Ежедневная работа",
+            catGovernance: "Контроль",
+            tagStandalone: "автономный",
+            init: 'Разворачивает базу знаний в Git, <code class="inline-code">AGENTS.md</code> и стартовую карту границ.',
+            manage: "Подбирает и адаптирует роли и компетенции агентов под конкретный репозиторий.",
+            update: 'Атомарные обновления с пином по SHA, журналом отката и сохранением блоков <code class="inline-code">local_repo_data</code>.',
+            decommission: "Чистое и проверяемое удаление артефактов фреймворка из репозитория.",
+            ground: "Заземляет сессию на актуальном состоянии проекта без повторного чтения неизменённых срезов.",
+            record: "Фиксирует структурированные наблюдения и поддерживает память компактной.",
+            sync: 'Синхронизирует <code class="inline-code">architecture.md</code> с текущей структурой репозитория.',
+            scan: "Инспекция без записи: возвращает каноническое состояние репо и сводку фактов.",
+            tune: "Калибрует зоны границ, политики и структуру базы знаний по мере роста кодовой базы.",
+            triage: "Разбор инцидентов на фактах: проверки, фиксация артефактов и подтверждение первопричин."
+          },
+          hooks: {
+            kicker: "Контроль в рантайме",
+            title: "Матрица хуков для шести харнесов",
+            desc: 'Тонкие адаптеры (без дублирования движка политик) через <code class="inline-code">hooks/dispatch.py</code> и <code class="inline-code">hooks/install.py</code> — один JSON-объект на событие, тихий no-op вне репозитория Meta-Project и fail-closed везде, где это поддерживается.',
+            colHarness: "Харнес",
+            colConfig: "Файл конфигурации",
+            colEvents: "События хуков",
+            colDecision: "Решение PreToolUse",
+            noteLeft: "Все 6 харнесов работают через один детерминированный Python-диспетчер без внешних пакетов.",
+            noteLink: "hooks/README.md ↗"
+          },
+          install: {
+            kicker: "Дистрибуция",
+            title: "Установка Meta-Project",
+            desc: "Четыре нативных канала установки поверх пяти плагинных манифестов в одном репозитории. Поддерживаются Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot, VS Code и Codex.",
+            perSkillSub: "отдельные скиллы",
+            copy: "Копировать",
+            copied: "Скопировано!",
+            captions: {
+              claude: "Полная нативная установка через маркетплейс Claude Code (.claude-plugin/).",
+              "agent-plugins": "Установка по открытому стандарту Agent Plugins 1.0 для VS Code, Cursor, GitHub Copilot и Codex.",
+              gemini: "Нативная установка расширением Gemini CLI через gemini-extension.json.",
+              skills: "Установка отдельных скиллов через skills.sh (см. предупреждение ниже про scripts/ и templates/)."
+            },
+            hooksTitle: "Опционально: подключить lifecycle-хуки для харнесов",
+            hooksDesc: "Если работаете сразу в нескольких харнесах (Cursor, Gemini CLI, Copilot, Codex, Claude Code), запустите stdlib-установщик хуков — он пропишет тонкие адаптеры на hooks/dispatch.py.",
+            warning: "Установщики отдельных скиллов копируют только папки скиллов. Полностью автономный скилл всего один — <code>sync-architecture</code>; остальным девяти требуются <code>scripts/</code> и <code>templates/</code> из репозитория — лучше использовать полную установку плагина или расширения."
+          },
+          docs: {
+            kicker: "Документация",
+            title: "Документация и спецификации",
+            desc: "Все архитектурные решения, контракты и примитивы версионируются прямо в репозитории.",
+            readmeEn: "Полное руководство (EN)",
+            readmeRu: "Полное руководство (RU)",
+            agents: "Паспорт агента и правила",
+            hooks: "Матрица хуков и архитектура",
+            primitives: "Словарь примитивов",
+            roadmap: "Журнал ADR и дорожная карта",
+            philosophy: "Философия и видение",
+            changelog: "История релизов"
+          },
+          footer: {
+            license: "Лицензия MIT",
+            builtWith: "Сделано с Meta-Project",
+            issues: "Задачи",
+            releases: "Релизы"
+          }
+        }
+      };
+
+      /* -----------------------------------------------------------------------
+         2. Install Commands Map
+         ----------------------------------------------------------------------- */
+      const INSTALL_COMMANDS = {
+        claude: "/plugin marketplace add vlv-code/meta-project\n/plugin install meta-project",
+        "agent-plugins": "npx plugins add vlv-code/meta-project",
+        gemini: "gemini extensions install https://github.com/vlv-code/meta-project",
+        skills: "npx skills add vlv-code/meta-project"
+      };
+
+      /* -----------------------------------------------------------------------
+         3. State
+         ----------------------------------------------------------------------- */
+      let currentLang = "en";
+      let activeZone = "green";
+      let activeInstallTab = "claude";
+
+      // Load saved language safely
+      try {
+        const saved = localStorage.getItem("meta_project_lang");
+        if (saved === "ru" || saved === "en") {
+          currentLang = saved;
+        }
+      } catch (err) {
+        // Ignore storage errors in restricted environments
+      }
+
+      /* -----------------------------------------------------------------------
+         4. Helper: Nested Key Lookup
+         ----------------------------------------------------------------------- */
+      function getNested(obj, path) {
+        return path.split(".").reduce(function (acc, key) {
+          return acc && acc[key] !== undefined ? acc[key] : null;
+        }, obj);
+      }
+
+      /* -----------------------------------------------------------------------
+         5. Boundary Classifier for Interactive Path Tester
+         ----------------------------------------------------------------------- */
+      function classifyPath(rawPath) {
+        const clean = (rawPath || "").trim().replace(/^\.\/+/, "");
+        if (!clean) {
+          return "deny";
+        }
+
+        // RED zone rules: passport, workflows, secrets, migrations, red-zone sanction
+        if (
+          clean === "AGENTS.md" ||
+          clean.endsWith("/AGENTS.md") ||
+          clean.startsWith(".github/workflows/") ||
+          clean === ".github/red-zone-sanction.json" ||
+          clean.startsWith("migrations/") ||
+          clean.startsWith(".env") ||
+          clean.includes("secrets")
+        ) {
+          return "red";
+        }
+
+        // YELLOW zone rules: skills, templates, scripts, hooks, manifests
+        if (
+          clean.startsWith("skills/") ||
+          clean.startsWith("templates/") ||
+          clean.startsWith("scripts/") ||
+          clean.startsWith("hooks/") ||
+          clean.endsWith("plugin.json") ||
+          clean.endsWith("marketplace.json") ||
+          clean === "gemini-extension.json"
+        ) {
+          return "yellow";
+        }
+
+        // GREEN zone rules: docs, tests, README, CHANGELOG, CONTRIBUTING
+        if (
+          clean.startsWith("docs/") ||
+          clean.startsWith("tests/") ||
+          clean === "README.md" ||
+          clean === "README.ru.md" ||
+          clean === "CHANGELOG.md" ||
+          clean.startsWith("CONTRIBUTING")
+        ) {
+          return "green";
+        }
+
+        // Everything else falls under DEFAULT DENY
+        return "deny";
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      /* -----------------------------------------------------------------------
+         6. Render Interactive Zone Policy Panel & Gate JSON Preview
+         ----------------------------------------------------------------------- */
+      function renderZoneInspector(zoneKey, pathText) {
+        const dict = I18N[currentLang].zones.details[zoneKey];
+        if (!dict) return;
+
+        // Highlight matching zone tab button
+        document.querySelectorAll(".zone-card").forEach(function (card) {
+          const isMatch = card.getAttribute("data-zone") === zoneKey;
+          card.classList.toggle("active", isMatch);
+          card.setAttribute("aria-selected", isMatch ? "true" : "false");
+        });
+
+        // Update detail pane
+        const badgeEl = document.getElementById("zoneDetailBadge");
+        badgeEl.className = "zone-badge " + zoneKey;
+        badgeEl.innerHTML = '<span class="zone-dot"></span>' + escapeHtml(dict.badge);
+
+        document.getElementById("zoneDetailHeading").textContent = dict.heading;
+        document.getElementById("zoneDetailText").textContent = dict.text;
+        document.getElementById("zoneMetaPatterns").textContent = dict.patterns;
+        document.getElementById("zoneMetaAction").textContent = dict.action;
+        document.getElementById("zoneMetaHook").textContent = dict.hook;
+        document.getElementById("zoneMetaCi").textContent = dict.ci;
+
+        // Render simulated hooks/dispatch.py JSON response
+        const displayPath = (pathText || dict.sample).trim() || dict.sample;
+        const decision = zoneKey === "green" || zoneKey === "yellow" ? "allow" : "deny";
+        const exitCode = zoneKey === "green" || zoneKey === "yellow" ? 0 : 2;
+        const colorClass = "json-" + zoneKey;
+
+        const lines = [
+          "{",
+          '  <span class="json-key">"hook"</span>: <span class="json-str">"PreToolUse"</span>,',
+          '  <span class="json-key">"path"</span>: <span class="json-str">"' + escapeHtml(displayPath) + '"</span>,',
+          '  <span class="json-key">"zone"</span>: <span class="' + colorClass + '">"' + escapeHtml(dict.badge) + '"</span>,',
+          '  <span class="json-key">"decision"</span>: <span class="' + colorClass + '">"' + decision + '"</span>,',
+          '  <span class="json-key">"exit_code"</span>: <span class="' + colorClass + '">' + exitCode + "</span>,",
+          '  <span class="json-key">"reason"</span>: <span class="json-str">"' + escapeHtml(dict.reason) + '"</span>',
+          "}"
+        ];
+
+        document.getElementById("gateJsonOutput").innerHTML = lines.join("\n");
+      }
+
+      /* -----------------------------------------------------------------------
+         7. Render Install Tab Content
+         ----------------------------------------------------------------------- */
+      function renderInstallTab(tabKey) {
+        activeInstallTab = tabKey;
+
+        document.querySelectorAll(".install-tab").forEach(function (tab) {
+          const isMatch = tab.getAttribute("data-install") === tabKey;
+          tab.classList.toggle("active", isMatch);
+          tab.setAttribute("aria-selected", isMatch ? "true" : "false");
+        });
+
+        document.getElementById("installCommand").textContent = INSTALL_COMMANDS[tabKey] || "";
+        document.getElementById("installCaption").textContent = I18N[currentLang].install.captions[tabKey] || "";
+      }
+
+      /* -----------------------------------------------------------------------
+         8. Apply Language Across Entire Document
+         ----------------------------------------------------------------------- */
+      function applyLanguage(lang) {
+        currentLang = lang === "ru" ? "ru" : "en";
+        document.documentElement.lang = currentLang;
+        document.title = I18N[currentLang].pageTitle;
+
+        try {
+          localStorage.setItem("meta_project_lang", currentLang);
+        } catch (err) {
+          // Ignore storage errors
+        }
+
+        // Toggle active state on EN | RU buttons
+        document.querySelectorAll(".lang-btn").forEach(function (btn) {
+          const isActive = btn.getAttribute("data-lang") === currentLang;
+          btn.classList.toggle("active", isActive);
+          btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+
+        // Plain-text translations
+        document.querySelectorAll("[data-i18n]").forEach(function (el) {
+          const key = el.getAttribute("data-i18n");
+          const value = getNested(I18N[currentLang], key);
+          if (value !== null) {
+            el.textContent = value;
+          }
+        });
+
+        // Trusted inline-HTML translations (for <code> spans)
+        document.querySelectorAll("[data-i18n-html]").forEach(function (el) {
+          const key = el.getAttribute("data-i18n-html");
+          const value = getNested(I18N[currentLang], key);
+          if (value !== null) {
+            el.innerHTML = value;
+          }
+        });
+
+        // Refresh dynamic views
+        const inputEl = document.getElementById("pathTesterInput");
+        renderZoneInspector(activeZone, inputEl.value);
+        renderInstallTab(activeInstallTab);
+      }
+
+      /* -----------------------------------------------------------------------
+         9. Copy-to-Clipboard with Safe Fallback (Zero alert())
+         ----------------------------------------------------------------------- */
+      function copyTextToClipboard(text) {
+        return new Promise(function (resolve, reject) {
+          // Try modern Clipboard API first when available
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            navigator.clipboard.writeText(text).then(resolve).catch(function () {
+              fallbackExecCopy(text, resolve, reject);
+            });
+          } else {
+            fallbackExecCopy(text, resolve, reject);
+          }
+        });
+      }
+
+      function fallbackExecCopy(text, resolve, reject) {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          if (ok) resolve();
+          else reject(new Error("Copy failed"));
+        } catch (err) {
+          reject(err);
+        }
+      }
+
+      function bindCopyButton(btn) {
+        let timerId = null;
+        btn.addEventListener("click", function () {
+          const targetId = btn.getAttribute("data-copy-target");
+          const targetEl = document.getElementById(targetId);
+          if (!targetEl) return;
+
+          const text = targetEl.textContent.trim();
+          const labelEl = btn.querySelector(".copy-label");
+
+          copyTextToClipboard(text).then(function () {
+            btn.classList.add("copied");
+            if (labelEl) labelEl.textContent = I18N[currentLang].install.copied;
+            if (timerId) clearTimeout(timerId);
+            timerId = setTimeout(function () {
+              btn.classList.remove("copied");
+              if (labelEl) labelEl.textContent = I18N[currentLang].install.copy;
+            }, 1800);
+          }).catch(function () {
+            // Silently ignore if clipboard is blocked
+          });
+        });
+      }
+
+      /* -----------------------------------------------------------------------
+         10. Wire All Event Listeners
+         ----------------------------------------------------------------------- */
+      // Language buttons
+      document.querySelectorAll(".lang-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          applyLanguage(btn.getAttribute("data-lang"));
+        });
+      });
+
+      // Mobile drawer
+      const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+      const mobileDrawer = document.getElementById("mobileDrawer");
+
+      mobileMenuBtn.addEventListener("click", function () {
+        const isOpen = mobileDrawer.classList.toggle("open");
+        mobileMenuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      });
+
+      mobileDrawer.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () {
+          mobileDrawer.classList.remove("open");
+          mobileMenuBtn.setAttribute("aria-expanded", "false");
+        });
+      });
+
+      // Zone cards
+      const pathTesterInput = document.getElementById("pathTesterInput");
+      document.querySelectorAll(".zone-card").forEach(function (card) {
+        card.addEventListener("click", function () {
+          const zoneKey = card.getAttribute("data-zone");
+          activeZone = zoneKey;
+          const samplePath = I18N[currentLang].zones.details[zoneKey].sample;
+          pathTesterInput.value = samplePath;
+          renderZoneInspector(activeZone, samplePath);
+        });
+      });
+
+      // Live path tester input
+      pathTesterInput.addEventListener("input", function () {
+        const val = pathTesterInput.value;
+        activeZone = classifyPath(val);
+        renderZoneInspector(activeZone, val);
+      });
+
+      // Quick sample path chips
+      document.querySelectorAll(".sample-chip").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          const sample = chip.getAttribute("data-sample");
+          pathTesterInput.value = sample;
+          activeZone = classifyPath(sample);
+          renderZoneInspector(activeZone, sample);
+        });
+      });
+
+      // Skill category filter tabs
+      document.querySelectorAll(".filter-tab").forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          const filter = tab.getAttribute("data-filter");
+          document.querySelectorAll(".filter-tab").forEach(function (t) {
+            const match = t === tab;
+            t.classList.toggle("active", match);
+            t.setAttribute("aria-selected", match ? "true" : "false");
+          });
+
+          document.querySelectorAll("#skillsGrid .skill-card").forEach(function (card) {
+            const cat = card.getAttribute("data-category");
+            const show = filter === "all" || cat === filter;
+            card.classList.toggle("hidden", !show);
+          });
+        });
+      });
+
+      // Install channel tabs
+      document.querySelectorAll(".install-tab").forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          renderInstallTab(tab.getAttribute("data-install"));
+        });
+      });
+
+      // Copy buttons
+      document.querySelectorAll(".copy-btn").forEach(bindCopyButton);
+
+      // Initial render
+      applyLanguage(currentLang);
+    })();
+  </script>
 </body>
 </html>
