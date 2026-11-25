@@ -7,7 +7,8 @@
     {
       "name": "meta-project",
       "source": "./",
-      "description": "Agentic environment and context organization framework: project passport, dynamic knowledge slices, and procedural skills for any repository."
+      "description": "Agentic environment and context organization framework: project passport, dynamic knowledge slices, and procedural skills for any repository.",
+      "homepage": "https://github.com/vlv-code/meta-project"
     }
   ]
 }

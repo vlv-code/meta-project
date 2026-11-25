@@ -451,6 +451,15 @@ class TestVendorMarketplaceManifests(unittest.TestCase):
             self.assertIn(field, data, f"Missing field '{field}' in Cursor plugin manifest")
         self.assertEqual(data.get("license"), "MIT")
 
+    def test_claude_marketplace_manifest_has_homepage(self):
+        claude_mkt = REPO_ROOT / ".claude-plugin" / "marketplace.json"
+        self.assertTrue(claude_mkt.is_file(), f"Missing {claude_mkt}")
+        data = _load_json(claude_mkt)
+        self.assertIn("plugins", data)
+        self.assertTrue(len(data["plugins"]) >= 1)
+        plugin = data["plugins"][0]
+        self.assertEqual(plugin.get("homepage"), "https://github.com/vlv-code/meta-project")
+
     def test_cursor_marketplace_manifest_contract(self):
         self.assertTrue(
             CURSOR_MARKETPLACE_MANIFEST.is_file(),
