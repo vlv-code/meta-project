@@ -381,6 +381,77 @@ class TestSyncTemplatesCLI(unittest.TestCase):
             self.assertTrue(in_sync_after)
             self.assertEqual(len(drifts_after), 0)
 
+    def test_sync_global_skills_resources(self):
+        """Verify that sync_global_skills detects and synchronizes resources/* for skills."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            # Canonical skills with resources
+            init_skill = tmppath / "skills" / "init-meta-project"
+            init_res = init_skill / "resources"
+            init_res.mkdir(parents=True)
+            (init_skill / "SKILL.md").write_bytes(b"# Init Skill\n")
+            (init_res / "AGENTS.md").write_bytes(b"# Canonical AGENTS\n")
+            (init_res / "observations.md").write_bytes(b"# Canonical OBS\n")
+
+            manage_skill = tmppath / "skills" / "manage-meta-project"
+            manage_res = manage_skill / "resources"
+            manage_res.mkdir(parents=True)
+            (manage_skill / "SKILL.md").write_bytes(b"# Manage Skill\n")
+            (manage_res / "profile.md").write_bytes(b"# Canonical PROFILE\n")
+
+            # Global directory
+            global_dir = tmppath / "global_skills"
+            g_init = global_dir / "init-meta-project"
+            g_init.mkdir(parents=True)
+            (g_init / "SKILL.md").write_bytes(b"# Init Skill\n")
+            # Missing resources in g_init
+
+            g_manage = global_dir / "manage-meta-project"
+            g_manage_res = g_manage / "resources"
+            g_manage_res.mkdir(parents=True)
+            (g_manage / "SKILL.md").write_bytes(b"# Manage Skill\n")
+            # Diverged resource in g_manage
+            (g_manage_res / "profile.md").write_bytes(b"# Diverged PROFILE\n")
+
+            # 1. Check without write -> detects drift
+            in_sync, drifts = sync_templates.sync_global_skills(tmppath, global_dir, write=False)
+            self.assertFalse(in_sync)
+            self.assertTrue(
+                any("init-meta-project" in d and "AGENTS.md" in d for d in drifts),
+                f"Missing global resource AGENTS.md must be detected: {drifts}",
+            )
+            self.assertTrue(
+                any("init-meta-project" in d and "observations.md" in d for d in drifts),
+                f"Missing global resource observations.md must be detected: {drifts}",
+            )
+            self.assertTrue(
+                any("manage-meta-project" in d and "profile.md" in d for d in drifts),
+                f"Diverging global resource profile.md must be detected: {drifts}",
+            )
+
+            # 2. Write -> byte-copies missing and diverged resources
+            in_sync_w, drifts_w = sync_templates.sync_global_skills(tmppath, global_dir, write=True)
+            self.assertFalse(in_sync_w)
+
+            self.assertEqual(
+                (g_init / "resources" / "AGENTS.md").read_bytes(),
+                b"# Canonical AGENTS\n",
+            )
+            self.assertEqual(
+                (g_init / "resources" / "observations.md").read_bytes(),
+                b"# Canonical OBS\n",
+            )
+            self.assertEqual(
+                (g_manage / "resources" / "profile.md").read_bytes(),
+                b"# Canonical PROFILE\n",
+            )
+
+            # 3. Check again -> in_sync=True, drifts=[]
+            in_sync_after, drifts_after = sync_templates.sync_global_skills(tmppath, global_dir, write=False)
+            self.assertTrue(in_sync_after)
+            self.assertEqual(drifts_after, [])
+
 
 class TestAbsentMirrorContract(unittest.TestCase):
     """Wave G follow-up (distribution contract): mirror parity applies only

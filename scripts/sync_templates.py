@@ -186,7 +186,8 @@ def sync_global_skills(
     repo_root: Path, global_dir: Path, write: bool = False
 ) -> Tuple[bool, List[str]]:
     """
-    Ensures that every canonical skill in skills/*/SKILL.md has an identical copy in global_dir/*/SKILL.md.
+    Ensures that every canonical skill in skills/*/SKILL.md and its resources/
+    has an identical copy in global_dir/*/.
     Returns (in_sync, list_of_drift_messages).
     """
     drift_messages: List[str] = []
@@ -199,6 +200,24 @@ def sync_global_skills(
         skill_name = skill_file.parent.name
         target_skill_dir = global_dir / skill_name
         target_file = target_skill_dir / "SKILL.md"
+
+        # Byte-exact resources synchronization
+        skill_resources_dir = skill_file.parent / "resources"
+        if skill_resources_dir.is_dir():
+            target_res_dir = target_skill_dir / "resources"
+            for res_file in sorted(skill_resources_dir.iterdir()):
+                if not res_file.is_file():
+                    continue
+                target_res = target_res_dir / res_file.name
+                res_bytes = res_file.read_bytes()
+                if not target_res.is_file() or target_res.read_bytes() != res_bytes:
+                    drift_messages.append(
+                        f"Global Drift: Global skill '{skill_name}' resource '{res_file.name}' "
+                        f"diverges from repo canonical"
+                    )
+                    if write:
+                        target_res_dir.mkdir(parents=True, exist_ok=True)
+                        target_res.write_bytes(res_bytes)
 
         if not target_file.is_file():
             drift_messages.append(
