@@ -3,7 +3,9 @@ Unit tests for scripts/compact_memory.py (Context Rot Shield & Memory Compactor)
 Verifies observation table rotation, task completion archiving, dry-run mode, and archive file creation.
 """
 
+import contextlib
 from datetime import datetime
+import io
 from pathlib import Path
 import sys
 import tempfile
@@ -284,6 +286,95 @@ class TestCompactMemoryCLI(unittest.TestCase):
             # Lock released; file can be reopened/locked again
             with compact_memory.file_lock(lock_path):
                 self.assertTrue(lock_path.exists())
+
+
+class TestCheckpointNeverCompacted(unittest.TestCase):
+    """`- [>]` checkpoint rows are active work: the row AND its indented
+    checkpoint block are NEVER re-homed/archived/compacted. Only `- [x]`
+    compaction semantics apply (plain completed tasks still rotate)."""
+
+    CHECKPOINT_BLOCK = [
+        "- [>] [agent-a @ 2026-11-02 10:00] Step 4: In-flight refactor",
+        "  - goal: land the Wave E envelope work",
+        "  - decided: envelope format approved by dispatcher",
+        "  - done:",
+        "    - [x] RED test confirmed (tests/test_ewave_e.py)",
+        "    - [x] envelope spec captured",
+        "  - open: second acceptance case",
+        "  - next: implement remaining case — executor: agent-a",
+    ]
+
+    def setUp(self):
+        if compact_memory is None:
+            self.skipTest("compact_memory module not implemented yet")
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _fixture(self) -> str:
+        lines = ["# Current and Active Project Tasks", ""]
+        lines += [
+            f"- [x] [agent-a @ 2026-11-01 10:00] Old completed step {i} done"
+            for i in (1, 2, 3)
+        ]
+        lines += self.CHECKPOINT_BLOCK
+        lines.append("- [ ] [agent-a @ 2026-11-03 10:00] Pending step")
+        return "\n".join(lines) + "\n"
+
+    def test_checkpoint_block_survives_compaction_untouched(self):
+        content = self._fixture()
+
+        compacted, primary, archive = compact_memory.compact_tasks(
+            content, max_completed=2, keep_completed=1
+        )
+
+        # Plain `- [x]` rotation semantics unchanged: compaction still runs
+        # and still archives genuinely completed (non-checkpoint) tasks.
+        self.assertTrue(compacted, "`- [x]` compaction must keep working")
+        self.assertIn("Old completed step 1", archive)
+        self.assertNotIn("Old completed step 1", primary)
+
+        # The checkpoint row and EVERY line of its block stay in the primary
+        # file byte-identical and never leak into the archive.
+        for block_line in self.CHECKPOINT_BLOCK:
+            self.assertIn(
+                block_line,
+                primary,
+                f"checkpoint block line must never be compacted away: {block_line!r}",
+            )
+            self.assertNotIn(
+                block_line,
+                archive,
+                f"checkpoint block line must never be archived: {block_line!r}",
+            )
+
+    def test_checkpoint_survives_dry_run_byte_identical(self):
+        tasks_file = self.root / "tasks.md"
+        original = self._fixture()
+        tasks_file.write_text(original, encoding="utf-8")
+        absent_obs = self.root / "absent_observations.md"
+        archive_dir = self.root / "archive"
+
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = compact_memory.main(
+                [
+                    "--tasks", str(tasks_file),
+                    "--observations", str(absent_obs),
+                    "--archive-dir", str(archive_dir),
+                    "--dry-run",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            tasks_file.read_text(encoding="utf-8"),
+            original,
+            "a `- [>]` checkpoint must survive --dry-run untouched",
+        )
+        self.assertFalse(archive_dir.exists())
 
 
 if __name__ == "__main__":

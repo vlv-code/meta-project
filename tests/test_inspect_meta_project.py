@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""
-Unit and Adversarial Test Suite for scripts/inspect_meta_project.py.
+"""Canonical domain test suite for inspect_meta_project (scripts/inspect_meta_project.py).
 
-Verifies:
-1. 7 Canonical Repository States (NONE, FOREIGN_RULES, HEALTHY_REGISTERED,
-   HEALTHY_NEW_HARNESS, LEGACY_UNREGISTERED, PARTIAL_CORRUPTED, INCOMPATIBLE_SCHEMA).
-2. Git worktree detection via .git pointer file.
-3. Capability Matrix calculation (read_instructions, local_checks, skills, roles, hooks).
-4. Zero-write side-effect invariant (no files, locks, or telemetry created).
-5. CLI JSON and human-readable output contracts.
+Consolidated in Wave T (Lane T2) from:
+- tests/test_inspect_meta_project.py
+- tests/test_gwave_i.py
+- tests/test_jwave_q.py
+- tests/test_lwave_topology.py
+
+Zero-dependency: Python 3.10+ stdlib only.
 """
 
+from __future__ import annotations
+
+import hashlib
 import json
 import os
 import shutil
@@ -18,26 +20,49 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
 from unittest import mock
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts import inspect_meta_project
 from scripts.inspect_meta_project import (
+    FACTS_DIGEST_VERSION,
+    compute_facts_digest,
+    detect_cross_harness_divergence,
     detect_host_harness,
     format_human_report,
     inspect_repository,
 )
+from scripts.verify_identity import (
+    validate_identity_registry,
+)
+
+SCRIPT_PATH = REPO_ROOT / "scripts" / "inspect_meta_project.py"
+SLICE_PATHS = (
+    ".agents/project_knowledge/architecture.md",
+    ".agents/project_knowledge/boundaries.md",
+    ".agents/project_knowledge/weak_spots.md",
+    ".agents/project_knowledge/observations.md",
+    ".agents/project_knowledge/tasks.md",
+    ".agents/meta-project.json",
+)
+
+PROJECT_ID = "acme/app"
+HARNESS = "zcode"
+INSTALLATION = "t9"
+ACTOR_ID = f"{PROJECT_ID}::{HARNESS}::{INSTALLATION}::agent-dev-lead"
+_ABSENT = object()
 
 
 def _write_minimal_metaproject(
     root: Path, active_harness: str = "antigravity", active_installation: str = "ag-main"
 ) -> None:
-    """Shared clean-room fixture: a minimal healthy meta-project tree with
-    its own registry. Module-level so multiple test classes reuse it
-    without inheriting each other's test collections."""
     agents_md = root / "AGENTS.md"
     agents_md.write_text(
         "# Project Passport: Test\n## 1. Concept, Principles, and North Stars\n"
@@ -105,7 +130,104 @@ def _write_minimal_metaproject(
     (root / ".agents" / "meta-project.json").write_text(json.dumps(registry, indent=2), encoding="utf-8")
 
 
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
+
+def _tree_snapshot(root: Path) -> dict:
+    snap = {}
+    for p in sorted(root.rglob("*")):
+        if p.is_file():
+            snap[str(p.relative_to(root))] = _sha256_file(p)
+    return snap
+
+
+def _make_fixture(root: Path, orchestration) -> None:
+    agents_md = root / "AGENTS.md"
+    agents_md.write_text(
+        "# Project Passport: Test\n## 1. Concept, Principles, and North Stars\n"
+        "## 3. Directive Meta-Knowledge Protocol\n## 6. Project Agent Team & Multi-Harness Identity\n",
+        encoding="utf-8",
+    )
+    pk = root / ".agents" / "project_knowledge"
+    pk.mkdir(parents=True)
+    (pk / "boundaries.md").write_text(
+        "# Responsibility Zones\n## Green Zone\n- src/**\n", encoding="utf-8"
+    )
+    (pk / "tasks.md").write_text("# Tasks\n- [x] Step 1\n", encoding="utf-8")
+    (pk / "observations.md").write_text(
+        "# Obs\n| Date | Cat | Comp | Obs | Sol |\n", encoding="utf-8"
+    )
+    (pk / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
+    (pk / "weak_spots.md").write_text("# Weak spots\n", encoding="utf-8")
+
+    scripts_dir = root / "scripts"
+    scripts_dir.mkdir(parents=True)
+    (scripts_dir / "check_boundaries.py").write_text(
+        "#!/usr/bin/env python3\n", encoding="utf-8"
+    )
+    (scripts_dir / "verify_identity.py").write_text(
+        "#!/usr/bin/env python3\n", encoding="utf-8"
+    )
+
+    skills_dir = root / ".agents" / "skills" / "record-observation"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text(
+        "---\nname: record-observation\n---\n# Skill\n", encoding="utf-8"
+    )
+
+    team_dir = root / ".agents" / "team" / "agent-dev-lead"
+    team_dir.mkdir(parents=True)
+    (team_dir / "profile.md").write_text(
+        f"---\nrole_id: agent-dev-lead\nharness_id: {HARNESS}\n"
+        f"installation_id: {INSTALLATION}\nactor_id: {ACTOR_ID}\n---\n",
+        encoding="utf-8",
+    )
+
+    installation = {
+        "harness_id": HARNESS,
+        "status": "active",
+        "description": "Active installation",
+    }
+    if orchestration is not _ABSENT:
+        installation["orchestration"] = orchestration
+    registry = {
+        "schema_version": "1.1.0",
+        "project_id": PROJECT_ID,
+        "installations": {
+            INSTALLATION: installation,
+            "zc-main": {
+                "harness_id": "zcode",
+                "status": "planned",
+                "description": "Planned target",
+            },
+        },
+        "roles": {
+            "agent-dev-lead": {
+                "description": "Dev Lead",
+                "bindings": {
+                    INSTALLATION: {
+                        "actor_id": ACTOR_ID,
+                        "status": "active",
+                        "profile_path": ".agents/team/agent-dev-lead/profile.md",
+                    },
+                    "zc-main": {
+                        "actor_id": f"{PROJECT_ID}::zcode::zc-main::agent-dev-lead",
+                        "status": "planned",
+                        "profile_path": None,
+                    },
+                },
+            }
+        },
+    }
+    (root / ".agents" / "meta-project.json").write_text(
+        json.dumps(registry, indent=2), encoding="utf-8"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TestInspectMetaProject (from tests/test_inspect_meta_project.py)
+# ---------------------------------------------------------------------------
 class TestInspectMetaProject(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp(prefix="test_inspect_")
@@ -540,6 +662,9 @@ class TestInspectMetaProject(unittest.TestCase):
             self.assertNotIn("host_mismatch_warning", direct_rep["runtime_context"])
 
 
+# ---------------------------------------------------------------------------
+# TestDetectHostHarness (from tests/test_inspect_meta_project.py)
+# ---------------------------------------------------------------------------
 class TestDetectHostHarness(unittest.TestCase):
     """Mini-tail (2026-11-22, weak_spots OPEN entry): host-detect false
     positive on a REAL ZCode desktop session. Adversarial env-fixture tests
@@ -639,6 +764,773 @@ class TestDetectHostHarness(unittest.TestCase):
         self.assertNotIn("contradicts", proc.stderr, proc.stderr)
 
 
+# ---------------------------------------------------------------------------
+# TestFactsDigest (from tests/test_gwave_i.py)
+# ---------------------------------------------------------------------------
+class TestFactsDigest(unittest.TestCase):
+    """--facts-digest: deterministic, sensitive, zero-write, composable."""
+
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp(prefix="test_gwave_i_")
+        self.root = Path(self.test_dir)
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def _create_minimal_metaproject(
+        self, active_harness: str = "antigravity", active_installation: str = "ag-main"
+    ) -> None:
+        """Fixture reused from tests/test_inspect_meta_project.py (same
+        structure; its registry passes the canonical identity validator)."""
+        agents_md = self.root / "AGENTS.md"
+        agents_md.write_text(
+            "# Project Passport: Test\n## 1. Concept, Principles, and North Stars\n"
+            "## 3. Directive Meta-Knowledge Protocol\n## 6. Project Agent Team & Multi-Harness Identity\n",
+            encoding="utf-8",
+        )
+        pk = self.root / ".agents" / "project_knowledge"
+        pk.mkdir(parents=True)
+        (pk / "boundaries.md").write_text(
+            "# Responsibility Zones\n## Green Zone\n- src/**\n", encoding="utf-8"
+        )
+        (pk / "tasks.md").write_text("# Tasks\n- [x] Step 1\n", encoding="utf-8")
+        (pk / "observations.md").write_text(
+            "# Obs\n| Date | Cat | Comp | Obs | Sol |\n", encoding="utf-8"
+        )
+        (pk / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
+        (pk / "weak_spots.md").write_text("# Weak spots\n", encoding="utf-8")
+
+        scripts_dir = self.root / "scripts"
+        scripts_dir.mkdir(parents=True)
+        (scripts_dir / "check_boundaries.py").write_text(
+            "#!/usr/bin/env python3\n", encoding="utf-8"
+        )
+        (scripts_dir / "verify_identity.py").write_text(
+            "#!/usr/bin/env python3\n", encoding="utf-8"
+        )
+
+        skills_dir = self.root / ".agents" / "skills" / "record-observation"
+        skills_dir.mkdir(parents=True)
+        (skills_dir / "SKILL.md").write_text(
+            "---\nname: record-observation\n---\n# Skill\n", encoding="utf-8"
+        )
+
+        team_dir = self.root / ".agents" / "team" / "agent-dev-lead"
+        team_dir.mkdir(parents=True)
+        (team_dir / "profile.md").write_text(
+            f"---\nrole_id: agent-dev-lead\nharness_id: {active_harness}\n"
+            f"installation_id: {active_installation}\n"
+            f"actor_id: vlv-code/test-project::{active_harness}::{active_installation}::agent-dev-lead\n---\n",
+            encoding="utf-8",
+        )
+
+        registry = {
+            "schema_version": "1.0.0",
+            "project_id": "vlv-code/test-project",
+            "installations": {
+                active_installation: {
+                    "harness_id": active_harness,
+                    "status": "active",
+                    "description": "Active installation",
+                },
+                "zc-main": {
+                    "harness_id": "zcode",
+                    "status": "planned",
+                    "description": "Planned target",
+                },
+            },
+            "roles": {
+                "agent-dev-lead": {
+                    "description": "Dev Lead",
+                    "bindings": {
+                        active_installation: {
+                            "actor_id": (
+                                f"vlv-code/test-project::{active_harness}"
+                                f"::{active_installation}::agent-dev-lead"
+                            ),
+                            "status": "active",
+                            "profile_path": ".agents/team/agent-dev-lead/profile.md",
+                        },
+                        "zc-main": {
+                            "actor_id": "vlv-code/test-project::zcode::zc-main::agent-dev-lead",
+                            "status": "planned",
+                            "profile_path": None,
+                        },
+                    },
+                }
+            },
+        }
+        (self.root / ".agents" / "meta-project.json").write_text(
+            json.dumps(registry, indent=2), encoding="utf-8"
+        )
+
+    def _run_digest(self, extra_args=None, cwd=None) -> subprocess.CompletedProcess:
+        cmd = [sys.executable, "-B", str(SCRIPT_PATH), "--repo-root", str(self.root), "--facts-digest"]
+        if extra_args:
+            cmd.extend(extra_args)
+        return subprocess.run(
+            cmd,
+            cwd=str(cwd or REPO_ROOT),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def _digest_payload(self, extra_args=None) -> dict:
+        proc = self._run_digest(extra_args)
+        self.assertEqual(
+            proc.returncode, 0, f"rc={proc.returncode}, stderr={proc.stderr}"
+        )
+        return json.loads(proc.stdout)
+
+    # ------------------------------------------------------------------
+    # Determinism (RED-first: two consecutive runs byte-identical)
+    # ------------------------------------------------------------------
+    def test_digest_two_consecutive_runs_byte_identical(self):
+        self._create_minimal_metaproject()
+        first = self._run_digest()
+        second = self._run_digest()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(
+            first.stdout,
+            second.stdout,
+            "facts digest must be byte-stable for identical inputs",
+        )
+
+    def test_digest_shape_and_version_constant(self):
+        self._create_minimal_metaproject()
+        data = self._digest_payload()
+        self.assertEqual(data["facts_digest_version"], "1")
+        self.assertEqual(data["facts_digest_version"], FACTS_DIGEST_VERSION)
+        # Exact top-level key set — the digest is a stable contract, no
+        # opportunistic extra keys (byte-stability depends on it).
+        self.assertEqual(
+            sorted(data.keys()),
+            ["capabilities", "facts_digest_version", "harness", "installation", "slices", "state"],
+        )
+        self.assertEqual(sorted(data["slices"].keys()), sorted(SLICE_PATHS))
+        self.assertEqual(
+            sorted(data["capabilities"].keys()),
+            ["hooks", "local_checks", "read_instructions", "roles", "skills"],
+        )
+        for cap in data["capabilities"].values():
+            self.assertIsInstance(cap, str)
+        for rel in SLICE_PATHS:
+            digest_value = data["slices"][rel]
+            self.assertIsInstance(digest_value, str)
+            self.assertEqual(digest_value, _sha256_file(self.root / rel))
+
+    # ------------------------------------------------------------------
+    # Absent slices -> null
+    # ------------------------------------------------------------------
+    def test_digest_absent_slices_null_on_empty_repo(self):
+        data = self._digest_payload()
+        self.assertEqual(data["state"], "NONE")
+        self.assertEqual(data["facts_digest_version"], "1")
+        for rel in SLICE_PATHS:
+            self.assertIsNone(data["slices"][rel], f"{rel} must be null when absent")
+
+    # ------------------------------------------------------------------
+    # Sensitivity: one modified slice -> exactly that hash flips
+    # ------------------------------------------------------------------
+    def test_digest_single_slice_flip_sensitivity(self):
+        self._create_minimal_metaproject()
+        before = self._digest_payload()
+        # Modify exactly one knowledge slice (classification-safe append).
+        tasks_path = self.root / ".agents" / "project_knowledge" / "tasks.md"
+        tasks_path.write_text(
+            tasks_path.read_text(encoding="utf-8") + "- [ ] new step\n",
+            encoding="utf-8",
+        )
+        after = self._digest_payload()
+        changed = {
+            rel for rel in SLICE_PATHS if before["slices"][rel] != after["slices"][rel]
+        }
+        self.assertEqual(
+            changed,
+            {".agents/project_knowledge/tasks.md"},
+            "exactly the modified slice's hash must flip",
+        )
+        self.assertEqual(
+            after["slices"][".agents/project_knowledge/tasks.md"],
+            _sha256_file(tasks_path),
+        )
+        # The rest of the digest is unchanged (state classification included).
+        self.assertEqual(before["state"], after["state"])
+        self.assertEqual(before["capabilities"], after["capabilities"])
+
+    # ------------------------------------------------------------------
+    # Zero-write invariant (survey-first, no disk cache)
+    # ------------------------------------------------------------------
+    def test_digest_zero_write_invariant(self):
+        self._create_minimal_metaproject()
+        before = _tree_snapshot(self.root)
+        proc = self._run_digest(["--read-only"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        after = _tree_snapshot(self.root)
+        self.assertEqual(
+            before,
+            after,
+            "--facts-digest must produce zero disk modifications "
+            "(no lock files, no disk cache, no telemetry)",
+        )
+
+    # ------------------------------------------------------------------
+    # Context-unresolved behavior (digest describes the REPOSITORY)
+    # ------------------------------------------------------------------
+    def test_digest_context_unresolved_without_flags(self):
+        self._create_minimal_metaproject()
+        data = self._digest_payload()
+        self.assertEqual(data["state"], "CONTEXT_UNRESOLVED")
+        self.assertIsNone(data["harness"])
+        self.assertIsNone(data["installation"])
+        self.assertEqual(data["capabilities"]["roles"], "untested")
+
+    # ------------------------------------------------------------------
+    # Compositability with --harness/--installation
+    # ------------------------------------------------------------------
+    def test_digest_composable_with_context_flags(self):
+        self._create_minimal_metaproject()
+        args = ["--harness", "antigravity", "--installation", "ag-main"]
+        first = self._run_digest(args)
+        second = self._run_digest(args)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(
+            first.stdout,
+            second.stdout,
+            "digest with context flags must also be byte-stable",
+        )
+        data = json.loads(first.stdout)
+        self.assertEqual(data["state"], "HEALTHY_REGISTERED")
+        self.assertEqual(data["harness"], "antigravity")
+        self.assertEqual(data["installation"], "ag-main")
+        self.assertEqual(data["capabilities"]["roles"], "available")
+
+    def test_digest_function_is_pure_and_ordered(self):
+        """compute_facts_digest returns the payload without touching disk
+        beyond reading slices, and the CLI serializes it deterministically
+        (sort_keys + fixed separators)."""
+        self._create_minimal_metaproject()
+        from scripts.inspect_meta_project import inspect_repository
+
+        report = inspect_repository(self.root)
+        digest = compute_facts_digest(self.root, report)
+        canonical = json.dumps(
+            digest, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        )
+        # Same serialization the CLI emits (module-level contract, not a
+        # call-site choice).
+        proc = self._run_digest()
+        self.assertEqual(proc.stdout.strip(), canonical)
+
+
+# ---------------------------------------------------------------------------
+# TestInspectDocstringCanon (from tests/test_gwave_i.py)
+# ---------------------------------------------------------------------------
+class TestInspectDocstringCanon(unittest.TestCase):
+    """Auditor doc-contradiction #3: the module docstring said 7 canonical
+    states while the code implements 8 (CONTEXT_UNRESOLVED included)."""
+
+    def test_docstring_lists_eight_canonical_states(self):
+        doc = (REPO_ROOT / "scripts" / "inspect_meta_project.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("8 canonical states", doc)
+        self.assertIn("CONTEXT_UNRESOLVED", doc)
+        self.assertNotIn("7 canonical states", doc)
+
+
+# ---------------------------------------------------------------------------
+# TestOrchestrationReporting (from tests/test_jwave_q.py)
+# ---------------------------------------------------------------------------
+class TestOrchestrationReporting(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp(prefix="jwave_q_")
+        self.root = Path(self.temp_dir).resolve()
+        # Accessed via the module object so a RED-state AttributeError lands
+        # on the individual tests instead of failing module import.
+        self.resolve_orchestration = inspect_meta_project.resolve_orchestration
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    # -- helper outcomes (tests 14-17) --------------------------------------
+
+    def test_resolve_orchestration_none_without_context(self):
+        """Falsy installation id or unknown/non-object entry -> None."""
+        self.assertIsNone(self.resolve_orchestration({}, "t9"))
+        self.assertIsNone(self.resolve_orchestration({INSTALLATION: {}}, None))
+        self.assertIsNone(self.resolve_orchestration({INSTALLATION: {}}, ""))
+        self.assertIsNone(self.resolve_orchestration({INSTALLATION: {}}, "ghost"))
+        # A non-object installation entry is not a declared context either.
+        self.assertIsNone(self.resolve_orchestration({INSTALLATION: "x"}, INSTALLATION))
+        self.assertIsNone(self.resolve_orchestration(None, INSTALLATION))
+
+    def test_resolve_orchestration_default_when_not_declared(self):
+        installations = {
+            INSTALLATION: {"harness_id": HARNESS, "status": "active"},
+        }
+        self.assertEqual(
+            self.resolve_orchestration(installations, INSTALLATION),
+            {
+                "installation": INSTALLATION,
+                "native_orchestrator": None,
+                "dispatcher_binding": "standalone",
+                "dispatcher_binding_source": "default",
+            },
+        )
+        # Explicit null block means "not declared" as well.
+        installations[INSTALLATION]["orchestration"] = None
+        self.assertEqual(
+            self.resolve_orchestration(installations, INSTALLATION),
+            {
+                "installation": INSTALLATION,
+                "native_orchestrator": None,
+                "dispatcher_binding": "standalone",
+                "dispatcher_binding_source": "default",
+            },
+        )
+
+    def test_resolve_orchestration_invalid_block(self):
+        for malformed in ("hosted", ["x"]):
+            with self.subTest(block=malformed):
+                installations = {
+                    INSTALLATION: {
+                        "harness_id": HARNESS,
+                        "status": "active",
+                        "orchestration": malformed,
+                    },
+                }
+                self.assertEqual(
+                    self.resolve_orchestration(installations, INSTALLATION),
+                    {
+                        "installation": INSTALLATION,
+                        "native_orchestrator": None,
+                        "dispatcher_binding": None,
+                        "dispatcher_binding_source": "invalid",
+                    },
+                )
+
+    def test_resolve_orchestration_registry_declared_variants(self):
+        base = {"harness_id": HARNESS, "status": "active"}
+        # native True + orchestrator-hosted
+        declared = dict(base)
+        declared["orchestration"] = {
+            "native_orchestrator": True,
+            "dispatcher_binding": "orchestrator-hosted",
+        }
+        self.assertEqual(
+            self.resolve_orchestration({INSTALLATION: declared}, INSTALLATION),
+            {
+                "installation": INSTALLATION,
+                "native_orchestrator": True,
+                "dispatcher_binding": "orchestrator-hosted",
+                "dispatcher_binding_source": "registry",
+            },
+        )
+        # native False declared
+        declared = dict(base)
+        declared["orchestration"] = {
+            "native_orchestrator": False,
+            "dispatcher_binding": "standalone",
+        }
+        self.assertEqual(
+            self.resolve_orchestration({INSTALLATION: declared}, INSTALLATION),
+            {
+                "installation": INSTALLATION,
+                "native_orchestrator": False,
+                "dispatcher_binding": "standalone",
+                "dispatcher_binding_source": "registry",
+            },
+        )
+        # binding declared alone (native absent -> None)
+        declared = dict(base)
+        declared["orchestration"] = {"dispatcher_binding": "standalone"}
+        self.assertEqual(
+            self.resolve_orchestration({INSTALLATION: declared}, INSTALLATION),
+            {
+                "installation": INSTALLATION,
+                "native_orchestrator": None,
+                "dispatcher_binding": "standalone",
+                "dispatcher_binding_source": "registry",
+            },
+        )
+        # Malformed binding value inside an otherwise valid registry falls
+        # back to standalone/default without raising.
+        declared = dict(base)
+        declared["orchestration"] = {
+            "native_orchestrator": True,
+            "dispatcher_binding": "HOSTED",
+        }
+        self.assertEqual(
+            self.resolve_orchestration({INSTALLATION: declared}, INSTALLATION),
+            {
+                "installation": INSTALLATION,
+                "native_orchestrator": True,
+                "dispatcher_binding": "standalone",
+                "dispatcher_binding_source": "default",
+            },
+        )
+
+    # -- inspect_repository report key (tests 18-20) ------------------------
+
+    def test_inspect_report_declared_orchestrator_hosted(self):
+        _make_fixture(
+            self.root,
+            {
+                "native_orchestrator": True,
+                "dispatcher_binding": "orchestrator-hosted",
+            },
+        )
+        report = inspect_repository(self.root, HARNESS, INSTALLATION)
+        self.assertEqual(report["state"], "HEALTHY_REGISTERED", report["conflicts"])
+        self.assertEqual(
+            report["orchestration"]["dispatcher_binding"],
+            "orchestrator-hosted",
+        )
+        self.assertEqual(
+            report["orchestration"]["dispatcher_binding_source"], "registry"
+        )
+        self.assertTrue(report["orchestration"]["native_orchestrator"] is True)
+
+    def test_inspect_report_default_when_not_declared(self):
+        _make_fixture(self.root, _ABSENT)
+        report = inspect_repository(self.root, HARNESS, INSTALLATION)
+        self.assertEqual(report["state"], "HEALTHY_REGISTERED")
+        self.assertEqual(
+            report["orchestration"]["dispatcher_binding"], "standalone"
+        )
+        self.assertEqual(
+            report["orchestration"]["dispatcher_binding_source"], "default"
+        )
+
+    def test_inspect_report_orchestration_none_without_context(self):
+        _make_fixture(self.root, _ABSENT)
+        report = inspect_repository(self.root)
+        self.assertIn("orchestration", report)
+        self.assertIsNone(report["orchestration"])
+
+    # -- human-readable report (test 21) ------------------------------------
+
+    def test_human_report_carries_dispatcher_binding_line(self):
+        _make_fixture(
+            self.root,
+            {
+                "native_orchestrator": True,
+                "dispatcher_binding": "orchestrator-hosted",
+            },
+        )
+        declared_report = inspect_repository(self.root, HARNESS, INSTALLATION)
+        declared_lines = format_human_report(declared_report).splitlines()
+        self.assertTrue(
+            any(line.startswith("Dispatcher Binding:") for line in declared_lines),
+            "human report must contain a 'Dispatcher Binding:' line "
+            "(declared case); got:\n" + "\n".join(declared_lines),
+        )
+        self.assertTrue(
+            any(
+                "orchestrator-hosted" in line and "declared in the registry" in line
+                for line in declared_lines
+            ),
+            "declared case must name the binding and its registry source",
+        )
+
+        default_root = self.root.parent / (
+            self.root.name + "_default"
+        )
+        default_root.mkdir(parents=True, exist_ok=True)
+        _make_fixture(default_root, _ABSENT)
+        default_report = inspect_repository(default_root, HARNESS, INSTALLATION)
+        default_lines = format_human_report(default_report).splitlines()
+        self.assertTrue(
+            any(line.startswith("Dispatcher Binding:") for line in default_lines),
+            "human report must contain a 'Dispatcher Binding:' line "
+            "(default case); got:\n" + "\n".join(default_lines),
+        )
+        self.assertTrue(
+            any("standalone" in line and "default" in line for line in default_lines),
+            "default case must describe the standalone fallback",
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestCrossHarnessTopologyDivergence (from tests/test_lwave_topology.py)
+# ---------------------------------------------------------------------------
+class TestCrossHarnessTopologyDivergence(unittest.TestCase):
+    """Test detect_cross_harness_divergence and inspector reporting."""
+
+    def test_detect_cross_harness_divergence_symmetric_or_single(self):
+        self.assertIsNotNone(
+            detect_cross_harness_divergence, "detect_cross_harness_divergence not defined"
+        )
+        # Single installation -> no divergence possible
+        installations_single = {"inst-a": {"harness_id": "h-a", "status": "active"}}
+        roles_single = {
+            "role-1": {
+                "bindings": {
+                    "inst-a": {"status": "active", "actor_id": "p::h-a::inst-a::r1"}
+                }
+            }
+        }
+        res = detect_cross_harness_divergence(installations_single, roles_single)
+        self.assertFalse(res["divergence_detected"])
+        self.assertEqual(res["asymmetric_roles"], [])
+
+        # Multiple installations, all roles symmetric
+        installations_multi = {
+            "inst-a": {"harness_id": "h-a", "status": "active"},
+            "inst-b": {"harness_id": "h-b", "status": "active"},
+        }
+        roles_symmetric = {
+            "role-1": {
+                "bindings": {
+                    "inst-a": {"status": "active", "actor_id": "p::h-a::inst-a::r1"},
+                    "inst-b": {"status": "active", "actor_id": "p::h-b::inst-b::r1"},
+                }
+            }
+        }
+        res = detect_cross_harness_divergence(installations_multi, roles_symmetric)
+        self.assertFalse(res["divergence_detected"])
+        self.assertEqual(res["asymmetric_roles"], [])
+
+    def test_detect_cross_harness_divergence_asymmetric(self):
+        self.assertIsNotNone(
+            detect_cross_harness_divergence, "detect_cross_harness_divergence not defined"
+        )
+        installations = {
+            "ag-main": {"harness_id": "antigravity", "status": "active"},
+            "zc-main": {"harness_id": "zcode", "status": "active"},
+        }
+        roles = {
+            "agent-dev-lead": {
+                "bindings": {
+                    "ag-main": {"status": "active", "actor_id": "p::ag::ag-main::dev"},
+                    "zc-main": {"status": "active", "actor_id": "p::zc::zc-main::dev"},
+                }
+            },
+            "agent-intake-dispatcher": {
+                "bindings": {
+                    "ag-main": {"status": "active", "actor_id": "p::ag::ag-main::dispatcher"}
+                }
+            },
+        }
+        res = detect_cross_harness_divergence(installations, roles)
+        self.assertTrue(res["divergence_detected"])
+        self.assertEqual(len(res["asymmetric_roles"]), 1)
+        asym = res["asymmetric_roles"][0]
+        self.assertEqual(asym["role_id"], "agent-intake-dispatcher")
+        self.assertEqual(asym["present_in"], ["ag-main"])
+        self.assertEqual(asym["missing_in"], ["zc-main"])
+
+    def test_inspect_repository_includes_cross_harness_keys(self):
+        if not (REPO_ROOT / ".agents" / "meta-project.json").is_file():
+            self.skipTest("dogfood-branch contract: requires live .agents/meta-project.json")
+        self.assertIsNotNone(inspect_repository, "inspect_repository not defined")
+        rep = inspect_repository(REPO_ROOT)
+        self.assertIn("cross_harness_divergence", rep)
+        self.assertIn("asymmetric_roles", rep)
+        # In this repository, ag-main has 4 roles and zc-main has 3 roles
+        self.assertTrue(rep["cross_harness_divergence"])
+        asym_role_ids = [r["role_id"] for r in rep["asymmetric_roles"]]
+        self.assertIn("agent-intake-dispatcher", asym_role_ids)
+
+    def test_format_human_report_cross_harness_output(self):
+        if not (REPO_ROOT / ".agents" / "meta-project.json").is_file():
+            self.skipTest("dogfood-branch contract: requires live .agents/meta-project.json")
+        self.assertIsNotNone(format_human_report, "format_human_report not defined")
+        rep = inspect_repository(REPO_ROOT)
+        output = format_human_report(rep)
+        self.assertIn("Cross-Harness Roles: asymmetric", output)
+        self.assertIn("agent-intake-dispatcher", output)
+
+    def test_facts_digest_invariance(self):
+        if not (REPO_ROOT / ".agents" / "meta-project.json").is_file():
+            self.skipTest("dogfood-branch contract: requires live .agents/meta-project.json")
+        self.assertIsNotNone(compute_facts_digest, "compute_facts_digest not defined")
+        rep = inspect_repository(REPO_ROOT)
+        digest = compute_facts_digest(REPO_ROOT, rep)
+        expected_keys = {
+            "capabilities",
+            "facts_digest_version",
+            "harness",
+            "installation",
+            "slices",
+            "state",
+        }
+        self.assertEqual(
+            set(digest.keys()),
+            expected_keys,
+            "compute_facts_digest top-level keys must remain strictly invariant",
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestPerInstallationCollaborationModel (from tests/test_lwave_topology.py)
+# ---------------------------------------------------------------------------
+class TestPerInstallationCollaborationModel(unittest.TestCase):
+    """Test validation of optional installations.<id>.collaboration_model."""
+
+    def setUp(self):
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="test_collab_"))
+        self.agents_dir = self.temp_dir / ".agents"
+        self.agents_dir.mkdir(parents=True, exist_ok=True)
+        self.team_dir = self.agents_dir / "team"
+        self.team_dir.mkdir(parents=True, exist_ok=True)
+
+        # Basic role profile
+        rdir = self.team_dir / "agent-worker"
+        rdir.mkdir(parents=True, exist_ok=True)
+        (rdir / "profile.md").write_text(
+            "---\nrole_id: agent-worker\ninvocation_triggers:\n  - work\n---\n# Worker\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_valid_collaboration_model_passes(self):
+        self.assertIsNotNone(validate_identity_registry, "validate_identity_registry not defined")
+        reg = {
+            "schema_version": "1.1.0",
+            "project_id": "test-repo",
+            "installations": {
+                "ag-main": {
+                    "harness_id": "antigravity",
+                    "status": "active",
+                    "collaboration_model": "quad",
+                },
+                "zc-main": {
+                    "harness_id": "zcode",
+                    "status": "active",
+                    "collaboration_model": "triad",
+                },
+            },
+            "roles": {
+                "agent-worker": {
+                    "description": "Worker",
+                    "bindings": {
+                        "ag-main": {
+                            "actor_id": "test-repo::antigravity::ag-main::agent-worker",
+                            "status": "active",
+                            "profile_path": ".agents/team/agent-worker/profile.md",
+                        }
+                    },
+                }
+            },
+        }
+        reg_file = self.agents_dir / "meta-project.json"
+        reg_file.write_text(json.dumps(reg, indent=2), encoding="utf-8")
+
+        is_valid, errors = validate_identity_registry(self.temp_dir)
+        self.assertTrue(is_valid)
+        self.assertEqual(errors, [], f"Unexpected validation errors: {errors}")
+
+    def test_resolve_team_topology_supports_quad(self):
+        from manage_reports import resolve_team_topology
+        res = resolve_team_topology({"profile": "active_development", "collaboration_model": "quad"})
+        self.assertEqual(res["target_topology"], "quad")
+        self.assertTrue(res["supported"])
+        self.assertEqual(
+            res["suggested_roles"],
+            [
+                "agent-intake-dispatcher",
+                "agent-dev-lead",
+                "agent-quality-guardian",
+                "agent-github-steward",
+            ],
+        )
+
+    def test_invalid_collaboration_model_fails(self):
+        self.assertIsNotNone(validate_identity_registry, "validate_identity_registry not defined")
+        reg = {
+            "schema_version": "1.1.0",
+            "project_id": "test-repo",
+            "installations": {
+                "ag-main": {
+                    "harness_id": "antigravity",
+                    "status": "active",
+                    "collaboration_model": "invalid_model_abc",
+                }
+            },
+            "roles": {
+                "agent-worker": {
+                    "description": "Worker",
+                    "bindings": {
+                        "ag-main": {
+                            "actor_id": "test-repo::antigravity::ag-main::agent-worker",
+                            "status": "active",
+                            "profile_path": ".agents/team/agent-worker/profile.md",
+                        }
+                    },
+                }
+            },
+        }
+        reg_file = self.agents_dir / "meta-project.json"
+        reg_file.write_text(json.dumps(reg, indent=2), encoding="utf-8")
+
+        is_valid, errors = validate_identity_registry(self.temp_dir)
+        self.assertFalse(is_valid)
+        self.assertTrue(
+            any("unsupported collaboration_model 'invalid_model_abc'" in e for e in errors),
+            f"Expected error about invalid collaboration_model, got: {errors}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestManageSkillWaveLContracts (from tests/test_lwave_topology.py)
+# ---------------------------------------------------------------------------
+class TestManageSkillWaveLContracts(unittest.TestCase):
+    """Verify manage-meta-project/SKILL.md line budget and Wave L protocol."""
+
+    def test_manage_skill_under_240_lines(self):
+        skill_path = REPO_ROOT / "skills/manage-meta-project/SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        self.assertLessEqual(
+            len(lines),
+            240,
+            f"skills/manage-meta-project/SKILL.md exceeded 240 lines ({len(lines)})",
+        )
+
+    def test_manage_skill_contains_duty_deconfliction_and_asymmetry(self):
+        skill_path = REPO_ROOT / "skills/manage-meta-project/SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+        for token in (
+            "detect_role_duty_conflicts",
+            "deconflict",
+            "keep-as-is",
+            "mirror-to-harness",
+        ):
+            self.assertIn(token, text, f"Missing {token!r} in manage-meta-project/SKILL.md")
+
+
+# ---------------------------------------------------------------------------
+# TestAgentsMdSection7Annotations (from tests/test_lwave_topology.py)
+# ---------------------------------------------------------------------------
+class TestAgentsMdSection7Annotations(unittest.TestCase):
+    """Verify Section 7 in AGENTS.md annotates role bindings to installations."""
+
+    def test_section_7_role_annotations(self):
+        agents_md = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn(
+            "[Intake Dispatcher](.agents/team/agent-intake-dispatcher/profile.md) [ag-main]",
+            agents_md,
+        )
+        self.assertIn(
+            "[Lead Developer](.agents/team/agent-dev-lead/profile.md) [ag-main, zc-main]",
+            agents_md,
+        )
+        self.assertIn(
+            "[Quality & Meta-Architecture Guardian](.agents/team/agent-quality-guardian/profile.md) [ag-main, zc-main]",
+            agents_md,
+        )
+        self.assertIn(
+            "[GitHub Steward & Release Captain](.agents/team/agent-github-steward/profile.md) [ag-main, zc-main]",
+            agents_md,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
-

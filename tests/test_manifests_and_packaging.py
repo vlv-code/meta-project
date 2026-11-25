@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+"""Canonical domain tests for release manifests, plugin manifests, and skill packaging.
+Consolidated from test_dwave_k.py, test_pwave_p.py, and test_pwave_f.py.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+import unittest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ROOT_DIR = REPO_ROOT
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+MANIFEST_PATH = REPO_ROOT / "templates" / "release_manifest.json"
+RELEASE_MANIFEST = MANIFEST_PATH
+CLAUDE_PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
+MARKETPLACE_MANIFEST = REPO_ROOT / ".claude-plugin" / "marketplace.json"
+AGENT_PLUGIN_MANIFEST = REPO_ROOT / "plugin.json"
+UPDATER_PATH = "scripts/update_meta_project.py"
+SKILLS_DIR = ROOT_DIR / "skills"
+EXPECTED_SKILL_COUNT = 10
+WAVE_P_SKILLS = (
+    "decommission-meta-project",
+    "ground-meta-project",
+    "init-meta-project",
+    "manage-meta-project",
+    "record-observation",
+    "scan-meta-project",
+    "sync-architecture",
+    "tune-meta-project",
+    "update-meta-project",
+)
+EXPECTED_LICENSE = "MIT"
+EXPECTED_COMPAT_SUBSTR = "Python 3.10+"
+
+_SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+    r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+    r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+)
+
+AGENT_PLUGINS_SCHEMA_URL = (
+    "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+)
+AGENT_PLUGINS_ALLOWED_KEYS = {
+    "$schema",
+    "name",
+    "version",
+    "description",
+    "author",
+    "homepage",
+    "repository",
+    "license",
+    "keywords",
+    "extensions",
+}
+AGENT_PLUGINS_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{0,63}$")
+CLAUDE_PLUGIN_NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def _component_paths(components):
+    """Paths as the engine sees them."""
+    return [str(c.get("path", "")) for c in components if str(c.get("path", ""))]
+
+
+def _load_json(path: Path) -> object:
+    with path.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+class CanonicalManifestContract(unittest.TestCase):
+    """Contract on the CANONICAL templates/release_manifest.json."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        cls.components = cls.manifest.get("components") or []
+        cls.paths = _component_paths(cls.components)
+
+    def test_every_component_is_file_kind(self):
+        """No directory-kind entries remain (D4): no trailing slash, and
+        each path resolves to an actual file in the repo tree."""
+        dir_kind = [p for p in self.paths if p.endswith("/")]
+        self.assertEqual(
+            dir_kind, [], f"directory-kind components remain in manifest: {dir_kind}"
+        )
+
+    def test_updater_is_registered_component(self):
+        """D5: the update engine ships as a manifest component."""
+        self.assertIn(
+            UPDATER_PATH,
+            self.paths,
+            f"{UPDATER_PATH} missing from canonical manifest components",
+        )
+
+    def test_framework_version_is_semver(self):
+        version = str(self.manifest.get("framework_version", ""))
+        self.assertIsNotNone(
+            _SEMVER_RE.match(version),
+            f"framework_version {version!r} does not parse as semver 2.0.0",
+        )
+
+    def test_all_component_paths_exist_in_repo_tree(self):
+        missing = [p for p in self.paths if not (REPO_ROOT / p).is_file()]
+        self.assertEqual(
+            missing, [], f"manifest component paths absent from repo tree: {missing}"
+        )
+
+class WavePManifestTestBase(unittest.TestCase):
+    """Shared skip-guarded manifest loading for Wave P contract tests."""
+
+    def _load(self, path: Path):
+        if not path.is_file():
+            self.skipTest(f"manifest not created yet: {path.relative_to(REPO_ROOT)}")
+        return _load_json(path)
+
+
+class TestFrameworkVersionLock(WavePManifestTestBase):
+    """Version lock: both plugin manifests track framework_version."""
+
+    def _framework_version(self) -> str:
+        return _load_json(RELEASE_MANIFEST)["framework_version"]
+
+    def test_claude_plugin_manifest_version_is_locked(self):
+        framework_version = self._framework_version()
+        manifest = self._load(CLAUDE_PLUGIN_MANIFEST)
+        self.assertEqual(
+            manifest.get("version"),
+            framework_version,
+            ".claude-plugin/plugin.json 'version' must equal "
+            "templates/release_manifest.json 'framework_version'",
+        )
+
+    def test_agent_plugin_manifest_version_is_locked(self):
+        framework_version = self._framework_version()
+        manifest = self._load(AGENT_PLUGIN_MANIFEST)
+        self.assertEqual(
+            manifest.get("version"),
+            framework_version,
+            "root plugin.json 'version' must equal "
+            "templates/release_manifest.json 'framework_version'",
+        )
+
+
+class TestAgentPluginsContract(WavePManifestTestBase):
+    """Agent Plugins 1.0.0 contract for the root plugin.json."""
+
+    def _manifest(self) -> dict:
+        manifest = self._load(AGENT_PLUGIN_MANIFEST)
+        self.assertIsInstance(manifest, dict, "root plugin.json must be a JSON object")
+        return manifest
+
+    def test_schema_is_pinned_to_100(self):
+        manifest = self._manifest()
+        self.assertEqual(manifest.get("$schema"), AGENT_PLUGINS_SCHEMA_URL)
+
+    def test_name_required_and_matches_pattern(self):
+        manifest = self._manifest()
+        name = manifest.get("name")
+        self.assertIsInstance(name, str, "'name' is required and must be a string")
+        self.assertRegex(name, AGENT_PLUGINS_NAME_RE)
+
+    def test_top_level_keys_are_closed(self):
+        manifest = self._manifest()
+        unexpected = sorted(set(manifest) - AGENT_PLUGINS_ALLOWED_KEYS)
+        self.assertEqual(
+            unexpected,
+            [],
+            f"root plugin.json top-level keys are closed to "
+            f"{sorted(AGENT_PLUGINS_ALLOWED_KEYS)}; found extra: {unexpected}",
+        )
+
+
+class TestClaudePluginContract(WavePManifestTestBase):
+    """Claude plugin manifest contract for .claude-plugin/plugin.json."""
+
+    def _manifest(self) -> dict:
+        manifest = self._load(CLAUDE_PLUGIN_MANIFEST)
+        self.assertIsInstance(
+            manifest, dict, ".claude-plugin/plugin.json must be a JSON object"
+        )
+        return manifest
+
+    def test_name_required_kebab_case(self):
+        manifest = self._manifest()
+        name = manifest.get("name")
+        self.assertIsInstance(name, str, "'name' is required and must be a string")
+        self.assertRegex(name, CLAUDE_PLUGIN_NAME_RE)
+
+    def test_author_name_required(self):
+        manifest = self._manifest()
+        author = manifest.get("author")
+        self.assertIsInstance(author, dict, "'author' is required and must be an object")
+        self.assertIsInstance(
+            author.get("name"), str, "'author.name' is required and must be a string"
+        )
+        self.assertTrue(author["name"].strip(), "'author.name' must be non-empty")
+
+    def test_recommended_fields_present(self):
+        manifest = self._manifest()
+        for field in ("version", "homepage", "repository", "license"):
+            self.assertIn(field, manifest, f"'{field}' must be present")
+
+
+class TestMarketplaceContract(WavePManifestTestBase):
+    """Marketplace manifest contract for .claude-plugin/marketplace.json."""
+
+    def _manifest(self) -> dict:
+        manifest = self._load(MARKETPLACE_MANIFEST)
+        self.assertIsInstance(
+            manifest, dict, ".claude-plugin/marketplace.json must be a JSON object"
+        )
+        return manifest
+
+    def test_marketplace_name_required(self):
+        manifest = self._manifest()
+        name = manifest.get("name")
+        self.assertIsInstance(name, str, "'name' is required and must be a string")
+        self.assertTrue(name.strip(), "'name' must be non-empty")
+
+    def test_owner_name_required(self):
+        manifest = self._manifest()
+        owner = manifest.get("owner")
+        self.assertIsInstance(owner, dict, "'owner' is required and must be an object")
+        self.assertIsInstance(
+            owner.get("name"), str, "'owner.name' is required and must be a string"
+        )
+        self.assertTrue(owner["name"].strip(), "'owner.name' must be non-empty")
+
+    def test_plugins_list_entries_have_name_and_source(self):
+        manifest = self._manifest()
+        plugins = manifest.get("plugins")
+        self.assertIsInstance(plugins, list, "'plugins' is required and must be a list")
+        self.assertTrue(plugins, "'plugins' must register at least one plugin")
+        for index, entry in enumerate(plugins):
+            with self.subTest(index=index):
+                self.assertIsInstance(entry, dict, "each plugins[] entry must be an object")
+                self.assertIsInstance(entry.get("name"), str, "entry 'name' required")
+                self.assertIsInstance(entry.get("source"), str, "entry 'source' required")
+                self.assertTrue(entry["source"], "entry 'source' must be non-empty")
+
+def read_frontmatter(text: str):
+    """Return the raw frontmatter block (between the opening and closing
+    --- delimiter lines), or None if absent/malformed."""
+    match = re.match(r"^---[ \t]*\n(.*?)\n---[ \t]*\n", text, re.DOTALL)
+    return match.group(1) if match else None
+
+
+def top_level_scalar(frontmatter: str, key: str):
+    """Return the single-line scalar value of a top-level `key: value`
+    frontmatter entry (column-0 key only), or None. Surrounding quotes
+    are stripped; the raw text form is the caller's concern."""
+    match = re.search(
+        rf"^{re.escape(key)}:[ \t]*(.+?)[ \t]*$", frontmatter, re.MULTILINE
+    )
+    if not match:
+        return None
+    value = match.group(1)
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    return value
+
+
+def description_block(frontmatter: str) -> str:
+    """Extract the raw description entry chunk: the `description:` line plus
+    every following continuation line (indented or blank, folded-block style)
+    up to the next top-level key or the end of the frontmatter block."""
+    captured = []
+    in_block = False
+    for line in frontmatter.split("\n"):
+        if line.startswith("description:"):
+            in_block = True
+            captured.append(line)
+            continue
+        if in_block:
+            if line == "" or line[0] in " \t":
+                captured.append(line)
+            else:
+                break
+    return "\n".join(captured)
+
+
+def metadata_version_present(frontmatter: str) -> bool:
+    """True if the frontmatter declares a version under a `metadata:` block —
+    either block-style (indented sub-keys) or inline flow-style."""
+    lines = frontmatter.split("\n")
+    in_metadata = False
+    for line in lines:
+        if re.match(r"^metadata:[ \t]*$", line):
+            in_metadata = True
+            continue
+        if re.match(r"^metadata:[ \t]*\{", line):
+            # inline flow-style mapping: look for a version key on the line
+            if re.search(r"[{,]\s*['\"]?version['\"]?\s*:", line):
+                return True
+            continue
+        if in_metadata:
+            if line == "" or line[0] in " \t":
+                if re.match(r"^[ \t]+['\"]?version['\"]?[ \t]*:", line):
+                    return True
+            else:
+                break  # next top-level key: metadata block ended
+    return False
+
+
+def head_text(relpath: str) -> str:
+    """Return file content at git HEAD via `git show HEAD:<relpath>`."""
+    result = subprocess.run(
+        ["git", "show", f"HEAD:{relpath}"],
+        cwd=str(ROOT_DIR),
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise AssertionError(
+            f"git show HEAD:{relpath} failed: "
+            f"{result.stderr.decode('utf-8', errors='replace')}"
+        )
+    return result.stdout.decode("utf-8")
+
+class TestSkillInventory(unittest.TestCase):
+    def test_skill_glob_is_exactly_nine(self):
+        skill_files = sorted(SKILLS_DIR.glob("*/SKILL.md"))
+        self.assertEqual(
+            len(skill_files),
+            EXPECTED_SKILL_COUNT,
+            "The packaging frontmatter contract is scoped to exactly "
+            f"{EXPECTED_SKILL_COUNT} skills; found {len(skill_files)}: "
+            f"{[str(p.relative_to(ROOT_DIR)) for p in skill_files]}",
+        )
+
+
+class TestPackagingFrontmatter(unittest.TestCase):
+    def test_every_skill_has_license_and_compatibility(self):
+        for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
+            with self.subTest(skill=skill_file.parent.name):
+                frontmatter = read_frontmatter(
+                    skill_file.read_text(encoding="utf-8")
+                )
+                self.assertIsNotNone(
+                    frontmatter,
+                    f"{skill_file}: missing or malformed frontmatter",
+                )
+                license_value = top_level_scalar(frontmatter, "license")
+                self.assertIsNotNone(
+                    license_value,
+                    f"{skill_file}: top-level frontmatter key 'license' missing",
+                )
+                self.assertEqual(
+                    license_value,
+                    EXPECTED_LICENSE,
+                    f"{skill_file}: license must be {EXPECTED_LICENSE!r}",
+                )
+                compat_value = top_level_scalar(frontmatter, "compatibility")
+                self.assertIsNotNone(
+                    compat_value,
+                    f"{skill_file}: top-level frontmatter key 'compatibility' missing",
+                )
+                self.assertIn(
+                    EXPECTED_COMPAT_SUBSTR,
+                    compat_value,
+                    f"{skill_file}: compatibility must mention "
+                    f"{EXPECTED_COMPAT_SUBSTR!r}",
+                )
+
+    def test_no_frontmatter_metadata_version_block(self):
+        for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
+            with self.subTest(skill=skill_file.parent.name):
+                frontmatter = read_frontmatter(
+                    skill_file.read_text(encoding="utf-8")
+                )
+                self.assertIsNotNone(frontmatter, f"{skill_file}: no frontmatter")
+                self.assertFalse(
+                    metadata_version_present(frontmatter),
+                    f"{skill_file}: frontmatter carries a version under a "
+                    "'metadata:' block — version is single-sourced in "
+                    "templates/release_manifest.json; do not duplicate it",
+                )
+
+    def test_descriptions_byte_identical_to_head(self):
+        for skill_name in WAVE_P_SKILLS:
+            skill_file = SKILLS_DIR / skill_name / "SKILL.md"
+            relpath = skill_file.relative_to(ROOT_DIR).as_posix()
+            with self.subTest(skill=skill_name):
+                working = read_frontmatter(
+                    skill_file.read_text(encoding="utf-8")
+                )
+                self.assertIsNotNone(working, f"{skill_file}: no frontmatter")
+                head = read_frontmatter(head_text(relpath))
+                self.assertIsNotNone(
+                    head, f"HEAD:{relpath}: no frontmatter at HEAD"
+                )
+                self.assertEqual(
+                    description_block(working),
+                    description_block(head),
+                    f"{relpath}: description entry diverged from git HEAD — "
+                    "Wave PF must add packaging keys without touching "
+                    "descriptions",
+                )
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,16 +1,33 @@
 #!/usr/bin/env python3
-"""Adversarial parity & contract tests for Wave K Lanes K2-K3 (Priorities 3->2->1)."""
+"""Canonical domain tests for skills and templates contracts.
+Consolidated from test_kwave_p.py, test_ewave_t.py, and test_jwave_o.py.
+"""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import subprocess
 import sys
 import unittest
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ROOT_DIR = REPO_ROOT
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
+TEMPLATES_DIR = REPO_ROOT / "templates"
+SKILL = REPO_ROOT / "skills" / "manage-meta-project" / "SKILL.md"
+INIT_SKILL_PATH = REPO_ROOT / "skills" / "init-meta-project" / "SKILL.md"
+
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+try:
+    import sync_templates
+except ImportError:
+    sync_templates = None
 
 BANNED_CIRCUIT_BREAKER_PHRASES = (
     "2nd consecutive",
@@ -19,9 +36,38 @@ BANNED_CIRCUIT_BREAKER_PHRASES = (
     "2 consecutive failed attempts",
 )
 
+BINDING_HEADING = "Dispatcher Runtime Binding (harness-dependent)"
+MATRIX_HEADING = "#### 3. Open Competency Catalog"
+FORBIDDEN_HARNESS_NAMES = (
+    "zcode",
+    "antigravity",
+    "claude",
+    "cursor",
+    "codex",
+    "gemini",
+    "copilot",
+    "windsurf",
+)
+
 
 def _read(rel_path: str) -> str:
     return (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+
+
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _phase(text, start_heading, end_heading):
+    start = text.find(start_heading)
+    if start == -1:
+        return None
+    if end_heading is None:
+        return text[start:]
+    end = text.find(end_heading, start)
+    if end == -1:
+        return None
+    return text[start:end]
 
 
 class TestSystemPromptAndProfileContracts(unittest.TestCase):
@@ -333,6 +379,256 @@ class TestManifestAndInspectorInvariance(unittest.TestCase):
             ag_ground = REPO_ROOT / ".agents/skills/ground-meta-project/SKILL.md"
             self.assertEqual(ground_path.read_bytes(), ag_ground.read_bytes())
 
+class TestArchitectureTemplateV2(unittest.TestCase):
+    """(a) Map-first architecture card: Depends on column + same-change rule, no Design Patterns."""
 
-if __name__ == "__main__":
+    def setUp(self):
+        self.content = read(TEMPLATES_DIR / "project_knowledge" / "architecture.md")
+
+    def test_component_map_has_depends_on_column(self):
+        self.assertIn("Component Map", self.content)
+        self.assertIn("| Component | Location | Role | Depends on |", self.content)
+
+    def test_same_change_update_rule_present(self):
+        self.assertIn(
+            "The map is updated IN THE SAME CHANGE that touches a component",
+            self.content,
+            "Same-change map update rule missing from architecture template header",
+        )
+        self.assertIn("a decision without a map update is an incomplete change", self.content)
+        self.assertIn("One row per component, no prose", self.content)
+
+    def test_design_patterns_removed(self):
+        self.assertNotIn(
+            "Design Patterns",
+            self.content,
+            "Design Patterns section must be removed from architecture template v2",
+        )
+
+    def test_stack_and_invariants_one_line_slots(self):
+        self.assertIn("Stack and Invariants", self.content)
+        for slot in ("Stack:", "State + Single Source of Truth:", "Cross-border contracts:"):
+            self.assertIn(slot, self.content, f"Missing one-line slot: {slot}")
+
+    def test_conditional_e2e_flows_section(self):
+        self.assertIn("End-to-End Data Flows", self.content)
+        self.assertIn("multi-tier", self.content.lower())
+
+
+class TestTasksTemplateCheckpointRule(unittest.TestCase):
+    """(b) Team Task Management Rules rule 5: Checkpoint (pause/handoff) with - [>] example."""
+
+    def setUp(self):
+        self.content = read(TEMPLATES_DIR / "project_knowledge" / "tasks.md")
+
+    def test_rule5_checkpoint_present(self):
+        self.assertIn("Checkpoint (pause/handoff)", self.content)
+
+    def test_checkpoint_status_marker_example(self):
+        self.assertIn(
+            "- [>]",
+            self.content,
+            "Template must contain a - [>] checkpoint example",
+        )
+
+    def test_checkpoint_compact_fields(self):
+        for field in ("goal:", "decided:", "done:", "open:", "next:"):
+            self.assertIn(field, self.content, f"Missing checkpoint field: {field}")
+
+    def test_ground_resumes_from_checkpoint(self):
+        self.assertIn("ground", self.content.lower())
+
+
+# (c, superseded per plan §6a owner decision ADJUST AND PROCEED, 2026-11-16):
+# Lane P2 extracted the embedded TEMPLATE blocks into
+# skills/init-meta-project/resources/. The byte-match-canonical invariant now
+# lives canonically in tests/test_ewave_p.py
+# (TestResourcesByteCanonical — all 9 resources, superset of the
+# architecture.md/tasks.md subset previously asserted here). The superseded
+# class TestInitSkillResourcesCanonical was removed as a byte-duplicate in
+# Wave F (T-D6 #1/#4): one canonical byte test, no drift-test forks.
+
+
+class TestSyncTargetsAndZeroDrift(unittest.TestCase):
+    """(d, superseded per plan §6a) RESOURCE_TARGETS declares the canonical
+    pairs for init (formerly EMBEDDED_TARGETS).
+
+    Wave F T-D6: the byte-identical write-then-check drift test that lived
+    here was deduplicated — the canonical implementation is
+    tests/test_ewave_p.py (TestSyncResourcesZeroDrift.
+    test_write_then_check_zero_drift) as a temp-clone fixture, since a test
+    must never run ``sync --write`` against the LIVE repo tree."""
+
+    def setUp(self):
+        if sync_templates is None:
+            self.skipTest("sync_templates module not implemented yet")
+
+    def test_resource_targets_declare_canonical_pairs(self):
+        targets = getattr(sync_templates, "RESOURCE_TARGETS", {})
+        self.assertEqual(
+            targets.get("architecture.md"),
+            "templates/project_knowledge/architecture.md",
+        )
+        self.assertEqual(
+            targets.get("tasks.md"),
+            "templates/project_knowledge/tasks.md",
+        )
+
+class TestDispatcherRuntimeBinding(unittest.TestCase):
+    """The binding block in Phase 2: table, contract, establishment rule."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = SKILL.read_text(encoding="utf-8")
+        cls.lines = cls.text.splitlines()
+
+    def _line_at(self, needle):
+        idx = self.text.find(needle)
+        self.assertNotEqual(idx, -1, f"marker not found: {needle!r}")
+        return self.lines[self.text[:idx].count("\n")]
+
+    def test_dispatcher_matrix_row_names_the_orchestrator_executor(self):
+        rows = [
+            line
+            for line in self.lines
+            if line.startswith("| `agent-intake-dispatcher` |")
+        ]
+        self.assertEqual(len(rows), 1, "expected exactly one dispatcher matrix row")
+        self.assertIn("native orchestrator", rows[0])
+        self.assertIn("binding above", rows[0])
+
+    def test_binding_block_sits_between_dispatcher_rule_and_role_matrix(self):
+        binding = self.text.find(BINDING_HEADING)
+        rule = self.text.find("Mandatory Dispatcher Rule")
+        matrix = self.text.find(MATRIX_HEADING)
+        self.assertNotEqual(binding, -1, "binding block heading missing")
+        self.assertNotEqual(rule, -1, "Mandatory Dispatcher Rule missing")
+        self.assertNotEqual(matrix, -1, "role matrix heading missing")
+        self.assertGreater(binding, rule)
+        self.assertLess(binding, matrix)
+
+    def test_binding_table_lists_standalone_first(self):
+        standalone_idx = self.text.find("| `standalone` (default) |")
+        hosted_idx = self.text.find("| `orchestrator-hosted` |")
+        self.assertNotEqual(standalone_idx, -1, "standalone binding row missing")
+        self.assertNotEqual(hosted_idx, -1, "orchestrator-hosted binding row missing")
+        self.assertLess(standalone_idx, hosted_idx)
+        standalone_line = self._line_at("| `standalone` (default) |")
+        hosted_line = self._line_at("| `orchestrator-hosted` |")
+        self.assertIn("user-mediated handoff packages", standalone_line)
+        self.assertIn("same dispatcher passport", hosted_line)
+
+    def test_hosted_row_gates_dispatch_on_every_delegation_level(self):
+        hosted_line = self._line_at("| `orchestrator-hosted` |")
+        for token in (
+            "delegation_level",
+            "strictly_manual",
+            "controlled",
+            "autonomous",
+        ):
+            self.assertIn(token, hosted_line)
+
+    def test_binding_is_never_inferred_and_defaults_to_standalone(self):
+        self.assertIn(
+            "never inferred from the harness name, environment variables "
+            "or another installation's records",
+            self.text,
+        )
+        self.assertIn("Unknown or absent orchestrator means `standalone`", self.text)
+
+    def test_binding_block_names_no_specific_harness(self):
+        block = _phase(self.text, BINDING_HEADING, MATRIX_HEADING)
+        self.assertIsNotNone(block, "binding block slice not found")
+        lowered = block.lower()
+        for harness in FORBIDDEN_HARNESS_NAMES:
+            self.assertNotIn(harness, lowered, f"harness named: {harness!r}")
+
+    def test_contract_is_identical_in_both_bindings(self):
+        intro_line = self._line_at("**" + BINDING_HEADING + ":**")
+        for token in (
+            "passport",
+            "qualified `actor_id`",
+            "verification policy",
+            "identical in both bindings",
+        ):
+            self.assertIn(token, intro_line)
+
+    def test_transient_subagents_stay_allowed(self):
+        self.assertIn(
+            "Transient subagents (rule 7) stay allowed under every binding",
+            self.text,
+        )
+
+
+class TestBindingClausesInPhases(unittest.TestCase):
+    """Binding guidance threaded through Phases 4, 5, 6 and 7."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = SKILL.read_text(encoding="utf-8")
+        cls.lines = cls.text.splitlines()
+
+    def test_phase4_proposal_asks_for_the_binding(self):
+        phase4 = _phase(self.text, "### Phase 4:", "### Phase 5:")
+        self.assertIsNotNone(phase4, "Phase 4 slice not found")
+        self.assertIn("Dispatcher binding", phase4)
+        self.assertIn("default `standalone`", phase4)
+
+    def test_phase5_appends_binding_clause_under_hosted(self):
+        step5 = [
+            line
+            for line in self.lines
+            if line.startswith("5. Generate the initial ready-to-use system prompt")
+        ]
+        self.assertEqual(len(step5), 1, "expected exactly one Phase 5 step 5 line")
+        self.assertIn("orchestrator-hosted", step5[0])
+        self.assertIn("append to every generated prompt", step5[0])
+
+    def test_phase6_treats_orchestrator_load_as_manual_step(self):
+        target = [
+            line
+            for line in self.lines
+            if "Profile Created ≠ Loaded by Harness" in line
+        ]
+        self.assertEqual(len(target), 1, "expected exactly one invariant bullet")
+        self.assertIn("orchestrator-hosted", target[0])
+        self.assertIn("manual step", target[0])
+
+    def test_rule2_points_hosted_dispatch_to_delegation_level(self):
+        phase7 = _phase(self.text, "### Phase 7:", None)
+        self.assertIsNotNone(phase7, "Phase 7 slice not found")
+        self.assertIn(
+            "Under the `orchestrator-hosted` dispatcher binding, "
+            "role-to-role dispatch follows the agreed `delegation_level`",
+            phase7,
+        )
+
+
+class TestHostIdentificationMarkers(unittest.TestCase):
+    """Phase 1 anti-anchoring example must use real session markers."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = SKILL.read_text(encoding="utf-8")
+
+    def test_host_identification_example_uses_real_session_markers(self):
+        self.assertNotIn("ZCODE_AGENT", self.text)
+        self.assertIn("`ZCODE_PROJECT_DIR` / `ZCODE_SESSION_ID`", self.text)
+
+
+class TestMandatoryDispatcherRulePreserved(unittest.TestCase):
+    """Lock-in: the original dispatcher rule sentence stays verbatim."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = SKILL.read_text(encoding="utf-8")
+
+    def test_mandatory_dispatcher_rule_keeps_its_original_sentence(self):
+        self.assertIn(
+            "Forbid leaving the user with an unrouted bundle of multiple "
+            "isolated roles without a single point of entry.",
+            self.text,
+        )
+
+if __name__ == '__main__':
     unittest.main()

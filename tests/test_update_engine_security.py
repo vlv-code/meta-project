@@ -65,7 +65,7 @@ from scripts.update_meta_project import (
     resolve_pin_with_cache_fallback,
     restore_updates,
 )
-from tests.test_update_meta_project import (
+from tests._git_fixtures import (
     ACTOR_ID,
     INSTALLATION_ID,
     ORIGIN_X_V1,

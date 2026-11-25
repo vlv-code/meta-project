@@ -1,27 +1,10 @@
 #!/usr/bin/env python3
-"""
-Wave K, Lane K1 — Epistemic Triage & Evidence Discipline tests (ADR / roadmap §10).
+"""Canonical domain test suite for triage_incident (scripts/triage_incident.py).
 
-RED-first adversarial TDD suite covering:
-  - scripts/triage_incident.py CLI subcommands:
-      probe, record-evidence, promote, check-tasks, artifact
-  - Fail-closed gates:
-      * promote without recorded evidence: -> rc=1, [EVIDENCE_REQUIRED]
-      * probe 2nd revision without new evidence -> rc=1, [TRIAGE_CIRCUIT_BREAKER]
-      * probe after record-evidence allows next revision (circuit breaker resets)
-      * check-tasks classifies verified_facts, unverified_hypotheses (e.g.
-        unbacked "финал" / "root cause" / "proven" / PROBE / DIAG- / INC-), and
-        thrashing_ids; --strict returns rc=1 on unverified or thrashing entries
-      * artifact computes size_bytes, sha256, mtime_utc; --compare reports
-        IDENTICAL_BYTES vs DIFFERS
-  - Adversarial inputs:
-      * path traversal (..), symlink escape, null bytes, empty/placeholder
-        evidence, newline injection into tasks.md, corrupt UTF-8, directory
-        targets, preservation of foreign agent annotations
-  - Manifest & skill parity (with distribution-tree skip guard for .agents/).
-
+Consolidated in Wave T (Lane T2) from tests/test_kwave_t.py.
 Zero-dependency: Python 3.10+ stdlib only.
 """
+
 
 from __future__ import annotations
 
@@ -58,7 +41,7 @@ def _run_triage(args, cwd=None) -> subprocess.CompletedProcess:
 
 class TempWorkspaceTestCase(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp(prefix="kwave_t_")
+        self.temp_dir = tempfile.mkdtemp(prefix="triage_incident_")
         self.root = Path(self.temp_dir).resolve()
         self.tasks_path = self.root / "tasks.md"
 
