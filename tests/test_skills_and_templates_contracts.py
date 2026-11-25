@@ -489,9 +489,12 @@ class TestDispatcherRuntimeBinding(unittest.TestCase):
         return self.lines[self.text[:idx].count("\n")]
 
     def test_dispatcher_matrix_row_names_the_orchestrator_executor(self):
+        # Wave Z2-B: progressive disclosure moved matrix to references/competencies.md
+        ref_path = REPO_ROOT / "skills/manage-meta-project/references/competencies.md"
+        source_text = ref_path.read_text(encoding="utf-8") if ref_path.is_file() else self.text
         rows = [
             line
-            for line in self.lines
+            for line in source_text.splitlines()
             if line.startswith("| `agent-intake-dispatcher` |")
         ]
         self.assertEqual(len(rows), 1, "expected exactly one dispatcher matrix row")
@@ -673,6 +676,79 @@ class TestScriptRootCanonicalResolution(unittest.TestCase):
             240,
             f"skills/manage-meta-project/SKILL.md exceeded 240 lines ({len(lines)})",
         )
+
+
+class TestProgressiveDisclosureSkillContracts(unittest.TestCase):
+    """Wave Z2-B: progressive disclosure contracts for heavy skills."""
+
+    def test_manage_references_competencies_exists_and_has_roles(self):
+        ref_path = REPO_ROOT / "skills/manage-meta-project/references/competencies.md"
+        self.assertTrue(ref_path.is_file(), f"Missing {ref_path}")
+        text = ref_path.read_text(encoding="utf-8")
+        self.assertIn("Open Competency Catalog", text)
+        for role in (
+            "agent-general-worker",
+            "agent-intake-dispatcher",
+            "agent-meta-guardian",
+            "agent-consensus-judge",
+            "agent-deep-auditor",
+            "agent-product-roaster",
+            "agent-creative-director",
+            "agent-ui-ux-engineer",
+            "agent-legal-compliance",
+            "agent-github-steward",
+            "agent-devops-infra",
+            "agent-qa-engineer",
+            "agent-tech-writer",
+        ):
+            self.assertIn(role, text, f"Missing role {role!r} in competencies.md")
+
+    def test_init_references_scenarios_exists_and_has_seven_scenarios(self):
+        ref_path = REPO_ROOT / "skills/init-meta-project/references/scenarios.md"
+        self.assertTrue(ref_path.is_file(), f"Missing {ref_path}")
+        text = ref_path.read_text(encoding="utf-8")
+        for sc in (
+            "Scenario 1: State `NONE`",
+            "Scenario 2: State `FOREIGN_RULES`",
+            "Scenario 3: State `HEALTHY_REGISTERED`",
+            "Scenario 4: State `HEALTHY_NEW_HARNESS`",
+            "Scenario 5: State `LEGACY_UNREGISTERED`",
+            "Scenario 6: State `PARTIAL_CORRUPTED`",
+            "Scenario 7: State `INCOMPATIBLE_SCHEMA`",
+        ):
+            self.assertIn(sc, text, f"Missing scenario {sc!r} in scenarios.md")
+
+    def test_update_references_troubleshooting_exists_and_has_diagnostics(self):
+        ref_path = REPO_ROOT / "skills/update-meta-project/references/troubleshooting.md"
+        self.assertTrue(ref_path.is_file(), f"Missing {ref_path}")
+        text = ref_path.read_text(encoding="utf-8")
+        for topic in (
+            "conflicts",
+            "protected",
+            "needs_base",
+            "local_repo_data",
+            "ENGINE_BUSY",
+        ):
+            self.assertIn(topic, text, f"Missing topic {topic!r} in troubleshooting.md")
+
+    def test_skills_carry_missing_resource_and_reference_contracts(self):
+        manage_text = (REPO_ROOT / "skills/manage-meta-project/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/competencies.md", manage_text)
+        self.assertIn("MISSING_RESOURCE", manage_text)
+        self.assertIn("Phase", manage_text)
+
+        init_text = (REPO_ROOT / "skills/init-meta-project/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/scenarios.md", init_text)
+        self.assertIn("MISSING_RESOURCE", init_text)
+
+        update_text = (REPO_ROOT / "skills/update-meta-project/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/troubleshooting.md", update_text)
+        self.assertIn("MISSING_RESOURCE", update_text)
+
+    def test_manage_skill_stays_under_240_lines(self):
+        manage_path = REPO_ROOT / "skills/manage-meta-project/SKILL.md"
+        lines = manage_path.read_text(encoding="utf-8").splitlines()
+        self.assertLessEqual(len(lines), 240, f"manage-meta-project/SKILL.md has {len(lines)} lines > 240")
 
 
 if __name__ == '__main__':

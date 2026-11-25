@@ -841,13 +841,32 @@ class TestManifestManageResourceComponents(unittest.TestCase):
                 f"manage resource component path absent from repo tree: {path}",
             )
 
-    def test_resource_component_count_is_twelve(self):
-        """Edge: 9 init resources (Wave E P2) + 3 manage resources (this wave)."""
+    def test_resource_component_count_is_fifteen(self):
+        """Edge: 9 init resources (Wave E P2) + 3 manage resources (Wave G) + 3 references (Wave Z2-B)."""
         resources = self._resource_components()
         self.assertEqual(
-            len(resources), 12,
-            f"resource components must be exactly the 9 init + 3 manage set; got {sorted(resources)}",
+            len(resources), 15,
+            f"resource components must be exactly the 9 init + 3 manage + 3 references set; got {sorted(resources)}",
         )
+
+    def test_references_resource_components_declared(self):
+        resources = self._resource_components()
+        expected = {
+            "skills/manage-meta-project/references/competencies.md": "skills/manage-meta-project/SKILL.md",
+            "skills/init-meta-project/references/scenarios.md": "skills/init-meta-project/SKILL.md",
+            "skills/update-meta-project/references/troubleshooting.md": "skills/update-meta-project/SKILL.md",
+        }
+        for path, req_skill in expected.items():
+            self.assertIn(path, resources, f"Missing {path} in manifest resources")
+            self.assertEqual(
+                resources[path].get("requires"),
+                [req_skill],
+                f"resource {path} must depend on {req_skill}",
+            )
+            self.assertTrue(
+                (ROOT_DIR / path).is_file(),
+                f"resource component path absent from repo tree: {path}",
+            )
 
     def test_manage_skill_component_edge_intact(self):
         by_path = {str(c.get("path", "")): c for c in self.components}
@@ -1078,6 +1097,73 @@ class TestManageResourceTargetsDeclared(unittest.TestCase):
                 hasattr(sync_templates, symbol),
                 f"removed embedded-sync symbol reappeared: {symbol}",
             )
+
+
+class TestSkillReferencesSync(unittest.TestCase):
+    """Wave Z2-B: references/ mirroring in sync_skill_mirroring and sync_global_skills."""
+
+    def test_sync_skill_mirroring_handles_references(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            skill_dir = root / "skills" / "sample-skill"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("# Sample\n", encoding="utf-8")
+            ref_dir = skill_dir / "references"
+            ref_dir.mkdir(parents=True)
+            (ref_dir / "guide.md").write_text("# Reference Guide\n", encoding="utf-8")
+
+            agents_dir = root / ".agents" / "skills" / "sample-skill"
+            agents_dir.mkdir(parents=True)
+            (agents_dir / "SKILL.md").write_text("# Sample\n", encoding="utf-8")
+
+            # Check: drift detected for missing reference in .agents
+            in_sync, drifts = sync_templates.sync_skill_mirroring(root, write=False)
+            self.assertFalse(in_sync)
+            self.assertTrue(any("references/guide.md" in d for d in drifts))
+
+            # Write: repair drift
+            in_sync_w, _ = sync_templates.sync_skill_mirroring(root, write=True)
+            mirrored_ref = agents_dir / "references" / "guide.md"
+            self.assertTrue(mirrored_ref.is_file())
+            self.assertEqual(mirrored_ref.read_bytes(), (ref_dir / "guide.md").read_bytes())
+
+            # Check again: in_sync=True
+            in_sync_after, drifts_after = sync_templates.sync_skill_mirroring(root, write=False)
+            self.assertTrue(in_sync_after)
+            self.assertEqual(drifts_after, [])
+
+    def test_sync_global_skills_handles_references(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            skill_dir = root / "skills" / "sample-skill"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("# Sample\n", encoding="utf-8")
+            ref_dir = skill_dir / "references"
+            ref_dir.mkdir(parents=True)
+            (ref_dir / "guide.md").write_text("# Reference Guide\n", encoding="utf-8")
+
+            global_dir = root / "global_cache"
+            global_dir.mkdir(parents=True)
+            global_skill = global_dir / "sample-skill"
+            global_skill.mkdir(parents=True)
+            (global_skill / "SKILL.md").write_text("# Sample\n", encoding="utf-8")
+
+            # Check: drift detected for missing reference in global
+            in_sync, drifts = sync_templates.sync_global_skills(root, global_dir=global_dir, write=False)
+            self.assertFalse(in_sync)
+            self.assertTrue(any("references" in d or "guide.md" in d for d in drifts))
+
+            # Write: repair drift
+            sync_templates.sync_global_skills(root, global_dir=global_dir, write=True)
+            target_ref = global_skill / "references" / "guide.md"
+            self.assertTrue(target_ref.is_file())
+            self.assertEqual(target_ref.read_bytes(), (ref_dir / "guide.md").read_bytes())
+
+            # Check again: in_sync=True
+            in_sync_after, drifts_after = sync_templates.sync_global_skills(root, global_dir=global_dir, write=False)
+            self.assertTrue(in_sync_after)
+            self.assertEqual(drifts_after, [])
+
 
 if __name__ == '__main__':
     unittest.main()

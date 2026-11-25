@@ -81,6 +81,13 @@
       "requires": []
     },
     {
+      "path": "skills/init-meta-project/references/scenarios.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
       "path": "skills/init-meta-project/resources/observations.md",
       "kind": "resource",
       "requires": [
@@ -151,6 +158,13 @@
       ]
     },
     {
+      "path": "skills/manage-meta-project/references/competencies.md",
+      "kind": "resource",
+      "requires": [
+        "skills/manage-meta-project/SKILL.md"
+      ]
+    },
+    {
       "path": "skills/manage-meta-project/resources/profile.md",
       "kind": "resource",
       "requires": [
@@ -197,6 +211,13 @@
       "kind": "skill",
       "requires": [
         "scripts/update_meta_project.py"
+      ]
+    },
+    {
+      "path": "skills/update-meta-project/references/troubleshooting.md",
+      "kind": "resource",
+      "requires": [
+        "skills/update-meta-project/SKILL.md"
       ]
     },
     {

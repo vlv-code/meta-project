@@ -25,6 +25,15 @@ Autonomous non-destructive skill for updating procedural skills, runtime scripts
 
 ---
 
+## Reference Loading Contract
+
+This skill ships with diagnostic reference documentation in `references/troubleshooting.md`. Read it on-demand during Phase 2 or Phase 3 when encountering merge conflicts, protected components, or runtime lock contention.
+
+**Missing reference handling:**
+If `references/troubleshooting.md` is absent or unreadable, emit `[MISSING_RESOURCE] references/troubleshooting.md: reference file absent` and fall back to standard CLI diagnostics or manual conflict resolution without blocking execution.
+
+---
+
 ## Execution steps
 
 ### Phase 1: Pre-Flight — Context Inspection & Availability Check
@@ -54,7 +63,7 @@ Autonomous non-destructive skill for updating procedural skills, runtime scripts
    ```
    Zero-write. Default scope is the full component set declared in the source's `templates/release_manifest.json` (read at the source root `manifest.json` with fallback to `templates/release_manifest.json`); `--components` narrows it (dependencies from `requires` stay with their dependents); `--protect` patterns are ADDITIONAL — they unite with the engine defaults, never replace them.
    - **Summary mode (default):** the plan JSON prints ops/paths/sha256 per action WITHOUT content blobs; `--full` restores the machine-consumable form (actions carry `content_b64`). A summary plan file saved from stdout is still executable: `apply --plan-file` re-materializes content from the plan's pinned source and hash-verifies it against `upstream_sha256`.
-2. **Analyze the plan — this analysis is the agent's job** (the engine only refuses; the agent explains):
+2. **Analyze the plan — this analysis is the agent's job** (the engine only refuses; the agent explains; see `references/troubleshooting.md` for diagnostic matrices):
    - `conflicts` — unmarked local modifications (outside `local_repo_data` markers) that the engine refuses to overwrite. Present each conflict (path + nature of the local change) to the user. HOW to resolve — add `local_repo_data` markers, merge manually, or skip the component — is the USER's decision; the agent never picks silently. Exception: an unknown-origin local file whose bytes hash-EQUAL the pinned upstream content can be ADOPTED with the user's consent (`--adopt-existing`, Phase 3) — the lock records it without rewriting the file.
    - `protected` — components matching protect patterns (boundary gate, workflows, integrity tests, LICENSE, ...) OR classified Red by the project's own `.agents/project_knowledge/boundaries.md` (union: engine defaults ∪ `--protect` patterns ∪ project Red zone). Automated changes are refused: the Red-Zone sanction is an explicitly OPEN item, no sanctioned mechanism exists. Only the manual, user-confirmed path is available for these.
    - `needs_base` — locally modified components with no merge base matching the lock-recorded sha256 in the cache or in the origin's history (the engine fetches base candidates from the origin at the lock-recorded source commit, hash-verified). If both are unavailable (dead origin, no cache), either supply an integral cache containing the base content, or the user explicitly gives up "safe merge" for those components (manual decision). The engine never claims a safe merge without a base.

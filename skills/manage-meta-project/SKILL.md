@@ -115,23 +115,16 @@ The binding is established per installation in Phase 4 — stated by the user or
 
 #### 3. Open Competency Catalog (Role Matrix)
 > [!IMPORTANT]
-> The catalog below is an **Open Competency Catalog**, not an immutable closed enum. Agents have full autonomy to synthesize combined roles or invent custom, domain-specific roles (e.g., `agent-solana-smart-contracts`, `agent-3d-designer`, `agent-data-pipeline`) matching the repository's real architecture.
+> The catalog is an **Open Competency Catalog**, not an immutable closed enum. Agents have full autonomy to synthesize combined roles or invent custom, domain-specific roles matching the repository's real architecture. Detailed role definitions and matrices are progressively disclosed via `references/`.
 
-| Role | Deploy when (repository markers) | Stack skills | Red-zone defaults (never autonomous) |
+| Phase | Reference file | Content / Purpose | On `MISSING_RESOURCE` Fallback |
 | :--- | :--- | :--- | :--- |
-| `agent-general-worker` | Any project — fundamental default role | `clean-code`, `code-reviewer`, `systematic-debugging` + stack skills | destructive actions; specialized domain modules without Handoff |
-| `agent-intake-dispatcher` | Any project with 2+ roles; executed by a role session or by the harness's native orchestrator (binding above) | `prompt-engineering`, `brainstorming`, `triage-incident` | direct modification of project source code; speculative fix prompts on unverified hypotheses |
-| `agent-meta-guardian` | `meta-project` structure present | `clean-code`, `code-reviewer` | deleting the knowledge base without user confirmation |
-| `agent-consensus-judge` | Contested decisions | `architecture-decision-records`, `api-design-principles` | decisions without empirical evidence |
-| `agent-deep-auditor` | Mature codebase (>500 lines) | `systematic-debugging`, `code-reviewer` | destructive refactorings, autonomous file deletion |
-| `agent-product-roaster` | Product services, startups | `search_web`, `brainstorming` | changing business logic without specifications |
-| `agent-creative-director` | UI components, web, themes, icons | `image-generator`, `css-tokens` | replacing brand identity without confirmation |
-| `agent-ui-ux-engineer` | Frontend, bots, interfaces | `semantic-html`, `css-coder`, `ui-ux-invariants` | removing confirmations for destructive actions |
-| `agent-legal-compliance` | `LICENSE`, public repositories | SPDX/SBOM audit | changing repository license |
-| `agent-github-steward` | `.github/`, git remotes | `github-management`, `github-actions-creator`, `clean-code`, `code-reviewer` | force-push, merging into main without review, modifying secrets |
-| `agent-devops-infra` | `Dockerfile`, `docker-compose*` | `docker-expert`, `kubernetes-architect`, `bash-linux` | production secrets, `.env*`, production k8s |
-| `agent-qa-engineer` | `tests/`, testing frameworks | `test-driven-development`, `verification-before-completion` | disabling tests in CI |
-| `agent-tech-writer` | `docs/`, OpenAPI, Swagger | `mermaid-diagram-specialist`, `openapi`, `google-style-guide` | publishing unreviewed docs |
+| Phase 2 (Planning) | `references/competencies.md` | Role catalogue, domain markers, stack skills, and red-zone boundaries | Use core generalist triad or query user for domain roles |
+| Phase 4 (Alignment) | `references/competencies.md` | Role descriptions and duty deconfliction guidelines | Propose minimal standard roles (`agent-dev-lead`, `agent-quality-guardian`) |
+| Other phases | None | Survey, report intake, and materialization are self-contained | Proceed with standard protocol |
+
+**Reference Loading Contract (`MISSING_RESOURCE`):**
+If `references/competencies.md` is absent or unreadable, emit `[MISSING_RESOURCE] references/competencies.md: reference file absent` and fallback gracefully to standard baseline roles (`agent-dev-lead`, `agent-quality-guardian`, `agent-github-steward`) or request explicit role requirements from the user. Never block execution if core principles suffice.
 
 #### 4. Execution Routing (delegation cost control)
 When a step can be delegated or mechanized, choose the route by task CERTAINTY — task CERTAINTY beats task size (a Red-Zone policy one-liner goes to a strong model; a batch of identical spec'd edits goes to a cheap executor):
