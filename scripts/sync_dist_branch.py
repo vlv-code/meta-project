@@ -30,7 +30,9 @@ import sys
 from typing import List
 
 DIST_PATHS = [
+    ".agents/plugins",
     ".claude-plugin",
+    ".cursor-plugin",
     ".github",
     ".gitattributes",
     ".gitignore",
@@ -38,11 +40,12 @@ DIST_PATHS = [
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "CONTRIBUTING.ru.md",
+    "docs",
+    "gemini-extension.json",
     "LICENSE",
+    "plugin.json",
     "README.md",
     "README.ru.md",
-    "docs",
-    "plugin.json",
     "scripts",
     "skills",
     "templates",
@@ -53,7 +56,6 @@ DIST_PATHS = [
 # git as exclude pathspecs so restore/ls-tree skip them natively (no
 # per-path argv quoting issues with non-ASCII names).
 DIST_EXCLUDE_PATHSPECS = [
-    ":(exclude).agents/**",
     ":(exclude)docs/superpowers/**",
     ":(exclude)docs/archive/**",
     ":(exclude)download/**",
@@ -61,11 +63,22 @@ DIST_EXCLUDE_PATHSPECS = [
 
 SELF_INSTALL_PREFIX = ".agents/"
 DIST_EXCLUDE_PREFIXES = (
-    ".agents/",
     "docs/superpowers/",
     "docs/archive/",
     "download/",
 )
+
+
+def _is_dist_allowed(path: str) -> bool:
+    """Fail-closed whitelist for distribution paths.
+    Inside '.agents/', ONLY '.agents/plugins/' is allowed into dist.
+    Working documents (docs/superpowers, docs/archive, download) are excluded.
+    """
+    if path.startswith(".agents/"):
+        return path.startswith(".agents/plugins/")
+    if any(path.startswith(pref) for pref in DIST_EXCLUDE_PREFIXES):
+        return False
+    return True
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:
@@ -88,7 +101,7 @@ def _source_dist_files(source: str) -> List[str]:
     return [
         f
         for f in res.stdout.split("\0")
-        if f and not any(f.startswith(pref) for pref in DIST_EXCLUDE_PREFIXES)
+        if f and _is_dist_allowed(f)
     ]
 
 
@@ -97,7 +110,7 @@ def _target_dist_files() -> List[str]:
     return [
         f
         for f in res.stdout.split("\0")
-        if f and not any(f.startswith(pref) for pref in DIST_EXCLUDE_PREFIXES)
+        if f and _is_dist_allowed(f)
     ]
 
 
