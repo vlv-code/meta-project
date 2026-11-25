@@ -549,11 +549,12 @@ class TestHooksInstallLifecycle(HooksTestBase):
 
         # PreToolUse
         pre_entries = hooks.get("PreToolUse", [])
-        self.assertEqual(len(pre_entries), 1)
-        self.assertEqual(pre_entries[0]["matcher"], "Edit|Write|MultiEdit")
-        self.assertIn("hooks", pre_entries[0])
-        self.assertEqual(pre_entries[0]["hooks"][0]["type"], "command")
-        self.assertIn("dispatch.py", pre_entries[0]["hooks"][0]["command"])
+        self.assertGreaterEqual(len(pre_entries), 1)
+        edit_entries = [e for e in pre_entries if e.get("matcher") == "Edit|Write|MultiEdit"]
+        self.assertEqual(len(edit_entries), 1)
+        self.assertIn("hooks", edit_entries[0])
+        self.assertEqual(edit_entries[0]["hooks"][0]["type"], "command")
+        self.assertIn("dispatch.py", edit_entries[0]["hooks"][0]["command"])
 
     def test_install_nested_schemas_and_attributes(self):
         # 1. Claude Code
@@ -663,10 +664,14 @@ class TestHooksInstallLifecycle(HooksTestBase):
 
         claude_cfg = json.loads((self.root / ".claude" / "settings.json").read_text(encoding="utf-8"))
         pre_list = claude_cfg["hooks"]["PreToolUse"]
-        # Exactly 1 matcher block for Edit|Write|MultiEdit
-        self.assertEqual(len(pre_list), 1)
-        meta_hooks = [h for h in pre_list[0]["hooks"] if "hooks/dispatch.py" in str(h.get("command", ""))]
+        # Exactly 1 matcher block for Edit|Write|MultiEdit and 1 for Bash without duplication
+        edit_matchers = [b for b in pre_list if b.get("matcher") == "Edit|Write|MultiEdit"]
+        self.assertEqual(len(edit_matchers), 1)
+        meta_hooks = [h for h in edit_matchers[0]["hooks"] if "hooks/dispatch.py" in str(h.get("command", ""))]
         self.assertEqual(len(meta_hooks), 1, "Expected exactly 1 meta-project hook entry without duplicate/collision")
+
+        bash_matchers = [b for b in pre_list if b.get("matcher") == "Bash"]
+        self.assertEqual(len(bash_matchers), 1)
 
     def test_verify_includes_probe_4_adr_15(self):
         rc_i, _, _ = self._run_install(["install", "--harness", "claude-code", "--no-git-hook"])
@@ -678,6 +683,252 @@ class TestHooksInstallLifecycle(HooksTestBase):
         rc_z, out_z, _ = self._run_install(["verify", "--harness", "zcode"])
         self.assertEqual(rc_z, 0)
         self.assertIn("Confirm live hook execution inside an actual ZCode Desktop session", out_z)
+
+
+class TestWaveZ32SessionStart(HooksTestBase):
+    """Wave Z3.2: SessionStart target_harness detection, runtime installation resolution, triage, compact, grounding."""
+
+    def test_session_start_detects_zcode_host_and_active_installation(self):
+        (self.root / "AGENTS.md").write_text("# Project Passport: Test\n## 1. Concept\nNorth Stars\n", encoding="utf-8")
+        meta_json = {
+            "schema_version": "1.1.0",
+            "project_id": "test-zcode-project",
+            "installations": {
+                "zc-main": {"harness_id": "zcode", "status": "active"}
+            },
+        }
+        (self.agents_dir / "meta-project.json").write_text(json.dumps(meta_json), encoding="utf-8")
+
+        # Simulate real ZCode desktop environment markers
+        env = {
+            "ZCODE_PROJECT_DIR": str(self.root),
+            "ZCODE_SESSION_ID": "zcode-session-999",
+        }
+        rc, out, err = self._run_dispatch(["--harness", "zcode", "--event", "session-start"], {}, env=env)
+        self.assertEqual(rc, 0, f"SessionStart failed: {err}")
+        data = json.loads(out)
+        ctx = data["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("State=HEALTHY_REGISTERED", ctx)
+        self.assertIn("Installation=zc-main", ctx)
+        self.assertNotIn("unbound", ctx)
+
+    def test_session_start_triage_incident_parsing_and_compact_memory(self):
+        (self.root / "AGENTS.md").write_text("# Project Passport: Test\n## 1. Concept\nNorth Stars\n", encoding="utf-8")
+        meta_json = {
+            "schema_version": "1.1.0",
+            "project_id": "test-project",
+            "installations": {"ag-main": {"harness_id": "antigravity", "status": "active"}},
+        }
+        (self.agents_dir / "meta-project.json").write_text(json.dumps(meta_json), encoding="utf-8")
+
+        # Tasks with structured PROBE
+        tasks_content = """# Current and Active Project Tasks
+- [?] PROBE: DIAG-042 investigate silent failure in build container
+  - hypothesis: path issue in container
+"""
+        (self.pk_dir / "tasks.md").write_text(tasks_content, encoding="utf-8")
+
+        # Observations with >20 rows to trigger compact_observations
+        obs_rows = ["# Observations", "", "| Date | Category | Path | Issue | Solution |", "| :--- | :--- | :--- | :--- | :--- |"]
+        for i in range(25):
+            obs_rows.append(f"| 2026-11-25 | [test] | path{i}.py | issue {i} | solution {i} |")
+        (self.pk_dir / "observations.md").write_text("\n".join(obs_rows) + "\n", encoding="utf-8")
+
+        rc, out, err = self._run_dispatch(["--harness", "claude-code", "--event", "session-start"], {})
+        self.assertEqual(rc, 0, f"SessionStart failed: {err}")
+        data = json.loads(out)
+        ctx = data["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("DIAG-042", ctx)
+        self.assertIn("compact_memory.py", ctx)
+
+    def test_session_start_post_compaction_grounding(self):
+        meta_json = {
+            "schema_version": "1.1.0",
+            "project_id": "test-project",
+            "installations": {"ag-main": {"harness": "antigravity", "status": "active"}},
+        }
+        (self.agents_dir / "meta-project.json").write_text(json.dumps(meta_json), encoding="utf-8")
+        tasks_content = """# Tasks
+- [?] PROBE: DIAG-099 open probe without evidence
+"""
+        (self.pk_dir / "tasks.md").write_text(tasks_content, encoding="utf-8")
+
+        payload = {"source": "compact"}
+        rc, out, err = self._run_dispatch(["--harness", "claude-code", "--event", "session-start"], payload)
+        self.assertEqual(rc, 0)
+        data = json.loads(out)
+        ctx = data["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("Post-Compaction Grounding", ctx)
+        self.assertIn("FACTS vs HYPOTHESES", ctx)
+
+
+class TestWaveZ32BashGuard(HooksTestBase):
+    """Wave Z3.2: PreToolUse narrow anti-bypass Bash guard."""
+
+    def test_bash_git_commit_no_verify_denied(self):
+        bypass_cmds = [
+            "git commit --no-verify -m 'skip checks'",
+            "git commit -n -m 'skip'",
+            "git commit -m 'msg' --no-verify",
+        ]
+        for cmd in bypass_cmds:
+            payload = {"tool_name": "bash", "tool_input": {"command": cmd}}
+            rc, out, _ = self._run_dispatch(["--harness", "claude-code", "--event", "pre-tool-use"], payload)
+            self.assertEqual(rc, 2, f"Expected deny on {cmd}")
+            d = json.loads(out)
+            self.assertEqual(d["hookSpecificOutput"]["permissionDecision"], "deny")
+
+            # Gemini harness returns rc=0 with decision="deny"
+            rc_g, out_g, _ = self._run_dispatch(["--harness", "gemini", "--event", "pre-tool-use"], payload)
+            self.assertEqual(rc_g, 0)
+            d_g = json.loads(out_g)
+            self.assertEqual(d_g["decision"], "deny")
+
+    def test_bash_git_push_force_denied(self):
+        force_cmds = [
+            "git push --force origin main",
+            "git push -f",
+            "git push --force-with-lease origin dev",
+        ]
+        for cmd in force_cmds:
+            payload = {"tool_name": "bash", "tool_input": {"command": cmd}}
+            rc, out, _ = self._run_dispatch(["--harness", "claude-code", "--event", "pre-tool-use"], payload)
+            self.assertEqual(rc, 2, f"Expected deny on {cmd}")
+            d = json.loads(out)
+            self.assertEqual(d["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_bash_safe_commands_allowed(self):
+        safe_cmds = [
+            "git status",
+            "git diff LICENSE",
+            "python -m unittest discover",
+            "pytest tests/",
+            "cat README.md",
+            "echo hello",
+        ]
+        for cmd in safe_cmds:
+            payload = {"tool_name": "bash", "tool_input": {"command": cmd}}
+            rc, out, err = self._run_dispatch(["--harness", "claude-code", "--event", "pre-tool-use"], payload)
+            self.assertEqual(rc, 0, f"Expected allow on safe command '{cmd}': {err}")
+            d = json.loads(out)
+            self.assertEqual(d["hookSpecificOutput"]["permissionDecision"], "allow")
+
+    def test_bash_override_allows_bypass(self):
+        payload = {"tool_name": "bash", "tool_input": {"command": "git commit --no-verify -m 'override'"}}
+        env = {"META_PROJECT_ALLOW_RED_ZONE": "1"}
+        rc, out, err = self._run_dispatch(["--harness", "claude-code", "--event", "pre-tool-use"], payload, env=env)
+        self.assertEqual(rc, 0, f"Expected allow with override: {err}")
+        d = json.loads(out)
+        self.assertEqual(d["hookSpecificOutput"]["permissionDecision"], "allow")
+
+
+class TestWaveZ32PostToolUseFailureAndPreCompact(HooksTestBase):
+    """Wave Z3.2: PostToolUseFailure sliding window and PreCompact read-only advisory."""
+
+    def test_post_tool_use_failure_circuit_breaker(self):
+        session_id = "test-failure-session-1"
+        payload = {"session_id": session_id, "tool_name": "edit_file"}
+
+        # First failure: silent no-op (rc=0, {})
+        rc1, out1, _ = self._run_dispatch(["--harness", "claude-code", "--event", "post-tool-use-failure"], payload)
+        self.assertEqual(rc1, 0)
+        d1 = json.loads(out1)
+        self.assertEqual(d1, {})
+
+        # Second failure of same tool within 5 minutes: returns hint
+        rc2, out2, _ = self._run_dispatch(["--harness", "claude-code", "--event", "post-tool-use-failure"], payload)
+        self.assertEqual(rc2, 0)
+        d2 = json.loads(out2)
+        hint = d2["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("Circuit Breaker Hint", hint)
+        self.assertIn("edit_file", hint)
+
+        # Zero repository files created (all in tempfile)
+        repo_files = list(self.root.rglob("meta-project-failures*"))
+        self.assertEqual(len(repo_files), 0, "No failure files should be created in repository")
+
+    def test_pre_compact_read_only_advisory(self):
+        # With open PROBE in tasks.md
+        tasks_content = """# Tasks
+- [?] PROBE: DIAG-005 investigate memory leak
+"""
+        (self.pk_dir / "tasks.md").write_text(tasks_content, encoding="utf-8")
+
+        rc, out, err = self._run_dispatch(["--harness", "claude-code", "--event", "pre-compact"], {})
+        self.assertEqual(rc, 0)
+        d = json.loads(out)
+        ctx = d.get("hookSpecificOutput", {}).get("additionalContext") or d.get("systemMessage") or d.get("additionalContext") or ""
+        self.assertIn("Pre-Compact", ctx)
+        self.assertIn("DIAG-005", ctx)
+
+        # When tasks clean
+        (self.pk_dir / "tasks.md").write_text("# Tasks\n- [ ] Clean task\n", encoding="utf-8")
+        rc2, out2, _ = self._run_dispatch(["--harness", "claude-code", "--event", "pre-compact"], {})
+        self.assertEqual(rc2, 0)
+        d2 = json.loads(out2)
+        self.assertEqual(d2, {})
+
+
+class TestWaveZ32ManifestAndInstaller(HooksTestBase):
+    """Wave Z3.2: hooks.json quotes, 4 events, install.py lifecycle and Probe 5."""
+
+    def _run_install(self, args: list[str]) -> tuple[int, str, str]:
+        cmd = [sys.executable, str(REPO_ROOT / "hooks" / "install.py"), *args, "--repo-root", str(self.root)]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        return proc.returncode, proc.stdout, proc.stderr
+
+    def test_hooks_json_has_quotes_and_all_4_events(self):
+        hooks_json_path = REPO_ROOT / "hooks" / "hooks.json"
+        self.assertTrue(hooks_json_path.is_file(), f"Missing {hooks_json_path}")
+        content = hooks_json_path.read_text(encoding="utf-8")
+        data = json.loads(content)
+        hooks = data.get("hooks", {})
+
+        # All 4 events
+        self.assertIn("SessionStart", hooks)
+        self.assertIn("PreToolUse", hooks)
+        self.assertIn("PostToolUseFailure", hooks)
+        self.assertIn("PreCompact", hooks)
+
+        # PreToolUse has both Edit/Write and Bash
+        matchers = [entry.get("matcher") for entry in hooks["PreToolUse"] if isinstance(entry, dict)]
+        self.assertIn("Edit|Write|MultiEdit", matchers)
+        self.assertIn("Bash", matchers)
+
+        # Quotes around dispatch command
+        self.assertIn('\\"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\\"', content)
+
+    def test_install_claude_includes_bash_failure_and_compact(self):
+        rc, _, err = self._run_install(["install", "--harness", "claude-code", "--no-git-hook"])
+        self.assertEqual(rc, 0, f"Install failed: {err}")
+
+        settings_path = self.root / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        hooks = data["hooks"]
+
+        self.assertIn("SessionStart", hooks)
+        self.assertIn("PreToolUse", hooks)
+        self.assertIn("PostToolUseFailure", hooks)
+        self.assertIn("PreCompact", hooks)
+
+        pre_matchers = [e.get("matcher") for e in hooks["PreToolUse"] if isinstance(e, dict)]
+        self.assertIn("Edit|Write|MultiEdit", pre_matchers)
+        self.assertIn("Bash", pre_matchers)
+
+    def test_verify_includes_probe_5_bash(self):
+        self._run_install(["install", "--harness", "claude-code", "--no-git-hook"])
+        rc, out, err = self._run_install(["verify", "--harness", "claude-code"])
+        self.assertEqual(rc, 0, f"Verify failed: {err}")
+        self.assertIn("5 live dry-run probes", out)
+
+    def test_uninstall_cleans_all_events(self):
+        self._run_install(["install", "--harness", "claude-code", "--no-git-hook"])
+        rc, _, _ = self._run_install(["uninstall", "--harness", "claude-code"])
+        self.assertEqual(rc, 0)
+
+        settings_path = self.root / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        self.assertNotIn("hooks", data)
 
 
 if __name__ == "__main__":
