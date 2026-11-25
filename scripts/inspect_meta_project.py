@@ -571,13 +571,23 @@ def inspect_repository(
                 else:
                     state = "HEALTHY_REGISTERED"
             elif harness:
-                # Search installation matching harness
-                found_active = False
-                for iid, info in installations.items():
-                    if isinstance(info, dict) and info.get("harness_id") == harness and info.get("status") == "active":
-                        found_active = True
-                        break
-                state = "HEALTHY_REGISTERED" if found_active else "HEALTHY_NEW_HARNESS"
+                # Search installation matching harness (Lane Z1-D: auto-resolve single active)
+                active_matching = [
+                    iid
+                    for iid, info in installations.items()
+                    if isinstance(info, dict)
+                    and info.get("harness_id") == harness
+                    and info.get("status") == "active"
+                ]
+                if len(active_matching) == 1:
+                    target_installation = active_matching[0]
+                    state = "HEALTHY_REGISTERED"
+                elif len(active_matching) > 1:
+                    target_installation = None
+                    state = "HEALTHY_REGISTERED"
+                else:
+                    target_installation = None
+                    state = "HEALTHY_NEW_HARNESS"
             else:
                 # Unknown runtime context (audit §4): report indeterminacy
                 # instead of silently adopting any active installation.
@@ -686,7 +696,7 @@ def inspect_repository(
     latest_init_report: Optional[Dict[str, Any]] = None
     reports_base = agents_dir / "reports"
     if reports_base.is_dir():
-        candidate_insts = [target_installation] if target_installation else list(installations.keys())
+        candidate_insts = [target_installation] if target_installation else []
         for c_inst in candidate_insts:
             if not c_inst:
                 continue

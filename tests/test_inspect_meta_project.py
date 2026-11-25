@@ -1532,5 +1532,114 @@ class TestAgentsMdSection7Annotations(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestAutoResolveActiveInstallation (Lane Z1-D)
+# ---------------------------------------------------------------------------
+class TestAutoResolveActiveInstallation(unittest.TestCase):
+    """Lane Z1-D: Auto-resolve single active installation when --installation is None."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_minimal_metaproject(self.root, active_harness="antigravity", active_installation="ag-main")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _set_orchestration(self, installation_id: str, orch: dict):
+        reg_file = self.root / ".agents" / "meta-project.json"
+        reg = json.loads(reg_file.read_text(encoding="utf-8"))
+        reg["installations"][installation_id]["orchestration"] = orch
+        reg_file.write_text(json.dumps(reg, indent=2), encoding="utf-8")
+
+    def _add_init_report(self, installation_id: str, run_id: str = "init-test-01"):
+        rep_dir = self.root / ".agents" / "reports" / installation_id / "init"
+        rep_dir.mkdir(parents=True, exist_ok=True)
+        rep_file = rep_dir / f"{run_id}.json"
+        rep_file.write_text(json.dumps({
+            "run_id": run_id,
+            "status": "completed",
+            "created_at": "2026-11-25T00:00:00Z",
+            "installation_id": installation_id,
+        }), encoding="utf-8")
+        ptr_file = rep_dir / "latest.json"
+        ptr_file.write_text(json.dumps({
+            "run_id": run_id,
+            "status": "completed",
+            "created_at": "2026-11-25T00:00:00Z",
+            "path": f"{run_id}.json",
+        }), encoding="utf-8")
+
+    def test_case_1_single_active_installation_auto_resolves(self):
+        """Case 1: exactly 1 active installation for target harness -> auto-resolve."""
+        self._set_orchestration("ag-main", {
+            "dispatcher_binding": "standalone",
+            "native_orchestrator": True,
+        })
+        self._add_init_report("ag-main", "init-ag-01")
+
+        report = inspect_repository(self.root, target_harness="antigravity", target_installation=None)
+
+        self.assertEqual(report["state"], "HEALTHY_REGISTERED")
+        self.assertEqual(report["runtime_context"]["target_installation"], "ag-main")
+        self.assertEqual(report["capabilities"]["roles"]["status"], "available")
+        self.assertIsNotNone(report["orchestration"])
+        self.assertEqual(report["orchestration"]["installation"], "ag-main")
+        self.assertEqual(report["orchestration"]["dispatcher_binding"], "standalone")
+        self.assertIsNotNone(report["latest_init_report"])
+        self.assertEqual(report["latest_init_report"]["installation_id"], "ag-main")
+        self.assertEqual(report["latest_init_report"]["run_id"], "init-ag-01")
+
+    def test_case_2_multiple_active_installations_fail_closed(self):
+        """Case 2: 2+ active installations for target harness -> fail-closed (target_installation=None)."""
+        reg_file = self.root / ".agents" / "meta-project.json"
+        reg = json.loads(reg_file.read_text(encoding="utf-8"))
+        reg["installations"]["ag-secondary"] = {
+            "harness_id": "antigravity",
+            "status": "active",
+            "description": "Secondary Antigravity installation",
+        }
+        reg_file.write_text(json.dumps(reg, indent=2), encoding="utf-8")
+
+        self._add_init_report("ag-main", "init-ag-01")
+        self._add_init_report("ag-secondary", "init-ag-02")
+
+        report = inspect_repository(self.root, target_harness="antigravity", target_installation=None)
+
+        self.assertEqual(report["state"], "HEALTHY_REGISTERED")
+        self.assertIsNone(report["runtime_context"]["target_installation"])
+        self.assertEqual(report["capabilities"]["roles"]["status"], "untested")
+        self.assertIsNone(report["orchestration"])
+        self.assertIsNone(report["latest_init_report"])
+
+    def test_case_3_zero_active_installations_healthy_new_harness(self):
+        """Case 3: 0 active installations for target harness -> HEALTHY_NEW_HARNESS, target_installation=None."""
+        report = inspect_repository(self.root, target_harness="cursor", target_installation=None)
+
+        self.assertEqual(report["state"], "HEALTHY_NEW_HARNESS")
+        self.assertIsNone(report["runtime_context"]["target_installation"])
+        self.assertEqual(report["capabilities"]["roles"]["status"], "untested")
+        self.assertIsNone(report["orchestration"])
+        self.assertIsNone(report["latest_init_report"])
+
+    def test_case_4_facts_digest_invariance_with_auto_resolved_installation(self):
+        """Case 4: top-level keys of --facts-digest remain invariant and reflect auto-resolved installation."""
+        report = inspect_repository(self.root, target_harness="antigravity", target_installation=None)
+        digest = compute_facts_digest(self.root, report)
+
+        expected_keys = [
+            "capabilities",
+            "facts_digest_version",
+            "harness",
+            "installation",
+            "slices",
+            "state",
+        ]
+        self.assertEqual(sorted(digest.keys()), expected_keys)
+        self.assertEqual(digest["harness"], "antigravity")
+        self.assertEqual(digest["installation"], "ag-main")
+        self.assertEqual(digest["capabilities"]["roles"], "available")
+
+
 if __name__ == "__main__":
     unittest.main()
