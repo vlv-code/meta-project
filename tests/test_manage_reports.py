@@ -13,6 +13,7 @@ Zero-dependency: Python 3.10+ stdlib only.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -2397,6 +2398,166 @@ class TestRoleDutyDeconfliction(unittest.TestCase):
 
         updated_text = self.worker_profile.read_text(encoding="utf-8")
         self.assertNotIn('  - "plan task"', updated_text)
+
+
+# ---------------------------------------------------------------------------
+# TestZ1AFingerprintsNormalization (Lane Z1-A)
+# ---------------------------------------------------------------------------
+class TestZ1AFingerprintsNormalization(TempDirTestCase):
+    """Lane Z1-A: input_fingerprints normalization (dict vs list) and
+    update_report.json canonical template validation."""
+
+    def test_check_report_staleness_list_fingerprints(self):
+        """check_report_staleness must inspect list-format fingerprints:
+        - fresh files -> is_stale is False
+        - modified file -> is_stale is True
+        - corrupted element (missing path or sha256) -> fail-closed is_stale is True."""
+        repo = _init_git_repo(self.base / "repo")
+        test_file = repo / "data.txt"
+        test_file.write_text("initial content\n", encoding="utf-8")
+        _commit_all(repo, "initial commit")
+        digest = hashlib.sha256(test_file.read_bytes()).hexdigest()
+
+        report = {
+            "schema_version": "1.0.0",
+            "report_type": "update",
+            "project_id": "vlv-code/meta-project",
+            "installation_id": "ag-main",
+            "harness_id": "antigravity",
+            "actor_id": "vlv-code/meta-project::antigravity::ag-main::agent-dev-lead",
+            "run_id": "20261125T000000Z-test0001",
+            "status": "completed",
+            "git_state": get_git_state(repo),
+            "input_fingerprints": [
+                {"path": "data.txt", "sha256": digest}
+            ],
+            "versions": {
+                "before": "1.0.0",
+                "after": {
+                    "framework_version": "1.0.1",
+                    "commit_sha": "a" * 40,
+                },
+            },
+            "source": {
+                "ref": "v1.0.1",
+                "commit_sha": "a" * 40,
+                "origin": "upstream",
+            },
+            "affected_components": [
+                {"path": "data.txt", "kind": "template", "action": "updated"}
+            ],
+        }
+
+        # 1. Fresh file matches list fingerprint -> not stale.
+        is_stale, details = check_report_staleness(repo, report)
+        self.assertFalse(
+            is_stale,
+            f"Fresh report with list fingerprints must not be stale: {details}",
+        )
+
+        # 2. Modified file -> stale.
+        test_file.write_text("modified content\n", encoding="utf-8")
+        is_stale, details = check_report_staleness(repo, report)
+        self.assertTrue(
+            is_stale,
+            "Modified file in list fingerprints must trigger staleness",
+        )
+        self.assertTrue(
+            any("data.txt" in r for r in details.get("reasons", [])),
+            f"Expected data.txt in reasons, got: {details.get('reasons')}",
+        )
+
+        # Restore file content for corruption tests.
+        test_file.write_text("initial content\n", encoding="utf-8")
+
+        # 3. Corrupted element: missing sha256 -> fail-closed stale.
+        corrupted_no_sha = dict(report)
+        corrupted_no_sha["input_fingerprints"] = [{"path": "data.txt"}]
+        is_stale, details = check_report_staleness(repo, corrupted_no_sha)
+        self.assertTrue(
+            is_stale,
+            "Fingerprint item missing sha256 must fail closed as stale",
+        )
+        self.assertTrue(
+            any(
+                "fingerprint" in r.lower() or "malformed" in r.lower()
+                for r in details.get("reasons", [])
+            ),
+            f"Expected malformed fingerprint in reasons, got: {details.get('reasons')}",
+        )
+
+        # 4. Corrupted element: missing path -> fail-closed stale.
+        corrupted_no_path = dict(report)
+        corrupted_no_path["input_fingerprints"] = [{"sha256": digest}]
+        is_stale, details = check_report_staleness(repo, corrupted_no_path)
+        self.assertTrue(
+            is_stale,
+            "Fingerprint item missing path must fail closed as stale",
+        )
+
+    def test_cli_verify_update_report_template(self):
+        """templates/reports/update_report.json must pass manage_reports.py verify
+        and adhere to the canonical schema (versions.after object, kind 'template')."""
+        template_path = REPO_ROOT / "templates" / "reports" / "update_report.json"
+        self.assertTrue(template_path.is_file(), f"Missing template: {template_path}")
+
+        template = json.loads(template_path.read_text(encoding="utf-8"))
+
+        # versions.after must be an object with framework_version and 40-char commit_sha
+        after = template.get("versions", {}).get("after")
+        self.assertIsInstance(
+            after, dict, f"versions.after must be an object, got {type(after)}"
+        )
+        self.assertEqual(after.get("framework_version"), "1.0.0-alpha.7")
+        self.assertEqual(after.get("commit_sha"), "a" * 40)
+
+        # affected_components kind must be "template", not plural "templates"
+        affected = template.get("affected_components", [])
+        self.assertTrue(len(affected) > 0, "affected_components must not be empty")
+        for comp in affected:
+            self.assertNotEqual(
+                comp.get("kind"),
+                "templates",
+                f"affected_components kind 'templates' must be corrected to 'template' in {comp}",
+            )
+
+        # CLI verify execution
+        proc = _run_cli(
+            REPO_ROOT, "verify", "--report", str(template_path), "--json"
+        )
+        self.assertEqual(
+            proc.returncode,
+            0,
+            f"CLI verify failed: {proc.stderr}\n{proc.stdout}",
+        )
+        data = json.loads(proc.stdout)
+        self.assertTrue(data.get("valid"), f"Report failed verification: {data}")
+
+    def test_normalize_input_fingerprints_helper(self):
+        """Unit contract for normalize_input_fingerprints."""
+        from scripts.manage_reports import normalize_input_fingerprints
+
+        # dict[str, str]
+        d = {"a": "sha_a", "b": "sha_b"}
+        self.assertEqual(normalize_input_fingerprints(d), d)
+
+        # list[dict]
+        lst = [{"path": "a", "sha256": "sha_a"}, {"path": "b", "sha256": "sha_b"}]
+        self.assertEqual(normalize_input_fingerprints(lst), {"a": "sha_a", "b": "sha_b"})
+
+        # corrupted elements
+        self.assertIsNone(normalize_input_fingerprints([{"path": "a"}]))
+        self.assertIsNone(normalize_input_fingerprints([{"sha256": "sha_a"}]))
+        self.assertIsNone(normalize_input_fingerprints([{"path": 123, "sha256": "sha_a"}]))
+        self.assertIsNone(normalize_input_fingerprints([{"path": "a", "sha256": 123}]))
+        self.assertIsNone(normalize_input_fingerprints({"a": 123}))
+        self.assertIsNone(normalize_input_fingerprints({123: "a"}))
+        self.assertIsNone(normalize_input_fingerprints("string"))
+        self.assertIsNone(normalize_input_fingerprints(123))
+
+        # empty
+        self.assertEqual(normalize_input_fingerprints({}), {})
+        self.assertEqual(normalize_input_fingerprints([]), {})
 
 
 if __name__ == "__main__":

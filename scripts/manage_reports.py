@@ -100,6 +100,48 @@ def collect_input_fingerprints(repo_root: Path) -> Dict[str, Optional[str]]:
             fingerprints[rel] = None
     return fingerprints
 
+
+def normalize_input_fingerprints(
+    fingerprints: Any,
+) -> Optional[Dict[str, Optional[str]]]:
+    """
+    Normalize input_fingerprints into a canonical mapping of path -> sha256_digest.
+
+    Accepts:
+      - dict[str, str | None]: returns dict after validating keys and values.
+      - list[dict]: transforms [{'path': p, 'sha256': s}, ...] into {p: s}.
+        If an element lacks 'path' or 'sha256' or either is not a str -> fail-closed (returns None).
+    Returns None if input is invalid/malformed/unsupported.
+    """
+    if isinstance(fingerprints, dict):
+        normalized: Dict[str, Optional[str]] = {}
+        for k, v in fingerprints.items():
+            if not isinstance(k, str):
+                return None
+            if not (v is None or isinstance(v, str)):
+                return None
+            normalized[k] = v
+        return normalized
+
+    if isinstance(fingerprints, list):
+        normalized = {}
+        for item in fingerprints:
+            if not isinstance(item, dict):
+                return None
+            if "path" not in item or "sha256" not in item:
+                return None
+            p = item["path"]
+            s = item["sha256"]
+            if not isinstance(p, str) or not isinstance(s, str):
+                return None
+            normalized[p] = s
+        return normalized
+
+    return None
+
+
+normalize_fingerprints = normalize_input_fingerprints
+
 VALID_SCENARIO_PROFILES = {
     "active_development",
     "maintenance",
@@ -270,7 +312,8 @@ def _validate_input_fingerprints(fingerprints: Any) -> List[str]:
     digests or null (null = file absent at fingerprinting time).
     """
     problems: List[str] = []
-    if not isinstance(fingerprints, dict) or not fingerprints:
+    norm = normalize_input_fingerprints(fingerprints)
+    if norm is None or not norm:
         problems.append(
             "Completed init/manage report must carry a non-empty "
             "'input_fingerprints' mapping of essential decision inputs "
@@ -278,7 +321,7 @@ def _validate_input_fingerprints(fingerprints: Any) -> List[str]:
         )
         return problems
     missing = [
-        rel for rel in ESSENTIAL_INPUT_PATHS if rel not in fingerprints
+        rel for rel in ESSENTIAL_INPUT_PATHS if rel not in norm
     ]
     if missing:
         problems.append(
@@ -287,7 +330,7 @@ def _validate_input_fingerprints(fingerprints: Any) -> List[str]:
         )
     malformed = [
         str(rel)
-        for rel, value in fingerprints.items()
+        for rel, value in norm.items()
         if not (
             value is None
             or (
@@ -449,12 +492,27 @@ def validate_report(
         if (
             not isinstance(versions, dict)
             or not str(versions.get("before", "")).strip()
-            or not str(versions.get("after", "")).strip()
         ):
             errors.append(
                 "Missing or invalid field 'versions' in update report "
                 "(must be an object with non-empty 'before' and 'after')"
             )
+        else:
+            after = versions.get("after")
+            if isinstance(after, dict):
+                if (
+                    not str(after.get("framework_version", "")).strip()
+                    or not str(after.get("commit_sha", "")).strip()
+                ):
+                    errors.append(
+                        "Invalid field 'versions.after' in update report "
+                        "(object must carry non-empty 'framework_version' and 'commit_sha')"
+                    )
+            elif not str(after or "").strip():
+                errors.append(
+                    "Missing or invalid field 'versions' in update report "
+                    "(must be an object with non-empty 'before' and 'after')"
+                )
 
         source = data.get("source")
         if not isinstance(source, dict):
@@ -525,6 +583,11 @@ def validate_report(
                     )
 
     return errors
+
+
+def verify_update_report(data: Dict[str, Any]) -> List[str]:
+    """Validate an update report document against schema and semantic invariants."""
+    return validate_report(data, expected_type="update")
 
 
 def get_report_dir(
@@ -1270,12 +1333,31 @@ def check_report_staleness(
             f"commit moved: report {report_sha[:8]} != HEAD {current_sha[:8]}"
         )
 
-    fingerprints = report_data.get("input_fingerprints")
-    if isinstance(fingerprints, dict) and fingerprints:
-        current_fps = collect_input_fingerprints(repo_root)
-        for rel in sorted(fingerprints):
-            if current_fps.get(rel) != fingerprints.get(rel):
-                reasons.append(f"essential input changed since report: {rel}")
+    raw_fingerprints = report_data.get("input_fingerprints")
+    if raw_fingerprints is not None:
+        norm_fps = normalize_input_fingerprints(raw_fingerprints)
+        if norm_fps is None:
+            reasons.append(
+                "input_fingerprints is malformed: entries must carry valid path and sha256 strings"
+            )
+        else:
+            current_fps = collect_input_fingerprints(repo_root)
+            for rel in sorted(norm_fps):
+                if rel in current_fps:
+                    actual = current_fps[rel]
+                else:
+                    target_file = Path(repo_root) / rel
+                    if target_file.is_file():
+                        try:
+                            actual = hashlib.sha256(
+                                target_file.read_bytes()
+                            ).hexdigest()
+                        except OSError:
+                            actual = None
+                    else:
+                        actual = None
+                if actual != norm_fps[rel]:
+                    reasons.append(f"essential input changed since report: {rel}")
     elif current_sha != "unknown":
         # Report predates fingerprinting: freshness of essential inputs is
         # unverifiable; treat dirty essential inputs as stale.
@@ -1508,9 +1590,10 @@ def verify_declared_registry_delta(
     Returns None when admitted, an intake refusal message otherwise.
     """
     fingerprints = report_data.get("input_fingerprints")
+    norm_fps = normalize_input_fingerprints(fingerprints)
     recorded = (
-        fingerprints.get(REGISTRY_PATH)
-        if isinstance(fingerprints, dict)
+        norm_fps.get(REGISTRY_PATH)
+        if isinstance(norm_fps, dict)
         else None
     )
     registry_file = Path(repo_root) / REGISTRY_PATH
@@ -1789,16 +1872,31 @@ def evaluate_manage_intake(
     # NOT a blanket staleness trigger; it is admitted via declared
     # changes[] in step 7c.
     fingerprints = data.get("input_fingerprints")
-    if isinstance(fingerprints, dict) and fingerprints:
-        current_fps = collect_input_fingerprints(repo_root)
-        for rel in sorted(fingerprints):
-            if rel == REGISTRY_PATH:
-                continue  # handled by declared-delta admission (7c)
-            if current_fps.get(rel) != fingerprints.get(rel):
-                errors.append(
-                    "Intake rejected: stale report (essential input changed "
-                    f"since report: {rel})"
-                )
+    if fingerprints is not None:
+        norm_fps = normalize_input_fingerprints(fingerprints)
+        if norm_fps is None:
+            errors.append(
+                "Intake rejected: malformed input_fingerprints in report"
+            )
+        else:
+            current_fps = collect_input_fingerprints(repo_root)
+            for rel in sorted(norm_fps):
+                if rel == REGISTRY_PATH:
+                    continue  # handled by declared-delta admission (7c)
+                if rel in current_fps:
+                    actual = current_fps[rel]
+                else:
+                    p = Path(repo_root) / rel
+                    actual = (
+                        hashlib.sha256(p.read_bytes()).hexdigest()
+                        if p.is_file()
+                        else None
+                    )
+                if actual != norm_fps.get(rel):
+                    errors.append(
+                        "Intake rejected: stale report (essential input changed "
+                        f"since report: {rel})"
+                    )
     else:
         # Report predates fingerprinting: freshness of essential inputs is
         # unverifiable; treat dirty non-registry essential inputs as stale.
