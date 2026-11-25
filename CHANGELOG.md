@@ -17,6 +17,11 @@
   - Детекция установленных хуков харнессов в `scripts/_inspect_classifier.py` (`capabilities.hooks` 2B) и интеграция `hooks/**` в `templates/release_manifest.json` и `scripts/sync_dist_branch.py`.
 
 ### Fixed / Исправлено
+- **Волна Z3.1 — Сквозной доступ на чтение по ADR #15 и вложенные схемы хуков (Hook Schemas & Read Pass-Through)**:
+  - Реализован сквозной допуск (pass-through allow) для инструментов чтения (`Read`, `read_file`, `grep`, `glob`, `list_dir`) в `hooks/dispatch.py`, исключающий взаимоблокировку (deadlock) при доступе к файлам Red Zone (`boundaries.md`, `weak_spots.md`) в режиме `--with-read-gate`.
+  - Выравнивание схем генерации конфигов хуков в `hooks/install.py` и `hooks/hooks.json` под официальные спецификации харнессов: вложенная структура `hooks: [{type: "command", command: ...}]` для Claude Code, Codex, Gemini CLI и Copilot, `version: 1` для Cursor.
+  - Сохранение соседних пользовательских хуков внутри общих матчеров (`Edit|Write|MultiEdit`) при установке и удалении.
+  - Добавлена 4-я контрольная сухая проба в `hooks/install.py verify` для верификации инварианта ADR #15 и информационное предупреждение для ZCode.
 - **Волна Z3 — Разделение постоянных и транзиторных артефактов обновления (Update Hygiene, §11.3)**:
   - Изоляция транзиторных файлов `.agents/update.lock`, `.agents/update.journal.json` и временных бэкапов в `.gitignore` при сохранении постоянных аудируемых отчётов `.agents/reports/*/update/*.json`.
   - Выравнивание процедурных закрытий в `skills/init-meta-project/SKILL.md` и `skills/update-meta-project/SKILL.md`.
