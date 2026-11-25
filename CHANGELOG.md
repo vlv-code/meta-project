@@ -10,6 +10,15 @@
 
 ## [Unreleased]
 
+### Planned / В планах
+- Интеграция обратной связи сообщества и эмпирические тесты на многоязычных репозиториях.
+- Разработка шаблонов адаптеров для альтернативных агентных сред.
+- Экосистема хуков (Волна Z3): тонкие адаптеры PreToolUse / SessionStart / compact_memory и установщик `hooks/install.py`.
+
+---
+
+## [1.0.0-alpha.9] - 2026-11-25
+
 ### Added / Добавлено
 - **Волна Z2 — Нативные маркетплейс-манифесты и фильтрация дистрибуции (Vendor Packaging, §11.2)**:
   - Добавлены нативные манифесты для Codex CLI (`.agents/plugins/marketplace.json`), Cursor (`.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json`) и Gemini CLI (`gemini-extension.json`) с единым версионированием из `templates/release_manifest.json`.
