@@ -18,6 +18,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -112,6 +113,23 @@ def _emit_response(
             # cursor, copilot, codex
             res = {"additionalContext": context}
 
+    elif event_norm in ("post-tool-use-failure", "pre-compact"):
+        if not context:
+            res = {}
+        elif harness_norm in ("claude-code", "zcode"):
+            res = {
+                "hookSpecificOutput": {
+                    "hookEventName": (
+                        "PostToolUseFailure" if event_norm == "post-tool-use-failure" else "PreCompact"
+                    ),
+                    "additionalContext": context,
+                }
+            }
+        elif harness_norm == "gemini":
+            res = {"systemMessage": context}
+        else:
+            res = {"additionalContext": context}
+
     elif event_norm == "post-tool-use":
         res = {}
 
@@ -156,7 +174,11 @@ def _emit_response(
     sys.stdout.flush()
 
 
-def _handle_session_start(repo_root: Optional[Path], harness: str) -> None:
+def _handle_session_start(
+    repo_root: Optional[Path],
+    harness: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> None:
     """Handle session-start event with read-only context gathering (budget <= 4000)."""
     if repo_root is None:
         _emit_response(harness, "session-start", decision="allow", context="")
@@ -177,13 +199,27 @@ def _handle_session_start(repo_root: Optional[Path], harness: str) -> None:
         except ImportError:
             import inspect_meta_project
 
+        target_harness = harness
+        if detect_host_harness:
+            detected = detect_host_harness()
+            if detected:
+                if harness in ("claude-code", "zcode") and detected == "zcode":
+                    target_harness = "zcode"
+                elif detected != "antigravity":
+                    target_harness = detected
+
         with contextlib.redirect_stdout(io.StringIO()):
-            report = inspect_meta_project.inspect_repository(repo_root)
+            report = inspect_meta_project.inspect_repository(repo_root, target_harness=target_harness)
             digest = inspect_meta_project.compute_facts_digest(repo_root, report)
 
         state = report.get("state", "UNKNOWN")
         proj_id = report.get("project_id", "unregistered")
-        inst_id = report.get("installation_id") or "unbound"
+        inst_id = (
+            report.get("runtime_context", {}).get("target_installation")
+            or report.get("resolved_target_installation")
+            or report.get("installation_id")
+            or "unbound"
+        )
         context_parts.append(f"Meta-Project Environment: State={state} | Project={proj_id} | Installation={inst_id}")
 
         # Active slices
@@ -192,36 +228,77 @@ def _handle_session_start(repo_root: Optional[Path], harness: str) -> None:
     except Exception:
         context_parts.append(f"Meta-Project Environment: active at {repo_root.name}")
 
-    # 2. Epistemic check: open hypotheses from tasks.md
+    # 2. Epistemic check: open hypotheses/probes from tasks.md via triage_incident
     tasks_file = repo_root / ".agents" / "project_knowledge" / "tasks.md"
     if tasks_file.is_file():
         try:
+            try:
+                from scripts import triage_incident
+            except ImportError:
+                import triage_incident
+
             tasks_text = tasks_file.read_text(encoding="utf-8")
-            unverified: List[str] = []
-            for line in tasks_text.splitlines():
-                if "- [ ]" in line and any(k in line.lower() for k in ("hypothesis", "гипотез", "unverified")):
-                    unverified.append(line.strip()[:80])
-            if unverified:
+            blocks = triage_incident._parse_task_blocks(tasks_text)
+            open_items: List[str] = []
+            for b in blocks:
+                diag = triage_incident._analyze_diagnostic_block(b)
+                if diag and not diag.get("verified"):
+                    open_items.append(diag.get("explicit_id") or diag.get("header") or diag.get("id"))
+                elif b.get("status_char") in ("?", " ") and any(
+                    k in b.get("header", "").lower() for k in ("hypothesis", "probe", "diag-", "unverified")
+                ):
+                    open_items.append(b.get("header", "")[:80])
+            if open_items:
                 context_parts.append(
-                    f"Epistemic Alert: {len(unverified)} open unverified hypothesis item(s) in tasks.md: "
-                    + "; ".join(unverified[:2])
+                    f"Epistemic Alert: {len(open_items)} open unverified item(s) in tasks.md: "
+                    + "; ".join(open_items[:3])
                 )
         except Exception:
             pass
 
-    # 3. Compact memory advisory
+    # 3. Compact memory advisory via compact_memory in-memory dry-run
     obs_file = repo_root / ".agents" / "project_knowledge" / "observations.md"
-    if obs_file.is_file() and tasks_file.is_file():
+    needs_compact: List[str] = []
+    if obs_file.is_file():
         try:
-            obs_lines = len(obs_file.read_text(encoding="utf-8").splitlines())
-            tasks_lines = len(tasks_file.read_text(encoding="utf-8").splitlines())
-            if obs_lines > 200 or tasks_lines > 200:
-                context_parts.append(
-                    f"Memory Advisory: observations.md ({obs_lines} lines) / tasks.md ({tasks_lines} lines) "
-                    "recommend running scripts/compact_memory.py --dry-run."
-                )
+            try:
+                from scripts import compact_memory
+            except ImportError:
+                import compact_memory
+
+            obs_text = obs_file.read_text(encoding="utf-8")
+            c_obs, _, _ = compact_memory.compact_observations(obs_text)
+            if c_obs:
+                needs_compact.append("observations.md")
         except Exception:
             pass
+
+    if tasks_file.is_file():
+        try:
+            try:
+                from scripts import compact_memory
+            except ImportError:
+                import compact_memory
+
+            tasks_text = tasks_file.read_text(encoding="utf-8")
+            c_tasks, _, _ = compact_memory.compact_tasks(tasks_text)
+            if c_tasks:
+                needs_compact.append("tasks.md")
+        except Exception:
+            pass
+
+    if needs_compact:
+        context_parts.append(
+            f"Memory Advisory: {', '.join(needs_compact)} recommend running scripts/compact_memory.py --dry-run."
+        )
+
+    # 4. Post-compaction grounding
+    if isinstance(payload, dict) and (payload.get("source") == "compact" or payload.get("trigger") == "compact"):
+        context_parts.append(
+            "Post-Compaction Grounding:\n"
+            "Distinguish verified FACTS vs HYPOTHESES (unverified assumptions). "
+            "Re-read AGENTS.md and active knowledge slices before acting on assumptions."
+        )
 
     rendered = "\n".join(context_parts)
     # Hard budget: <= 4000 characters
@@ -318,6 +395,50 @@ def _handle_pre_tool_use(
     # This guarantees that agents can freely read boundaries and weak spots without deadlocking.
     if tool_name in READ_TOOLS:
         _emit_response(harness, "pre-tool-use", decision="allow", reason="Read-only operation allowed (ADR #15)")
+        sys.exit(0)
+
+    # Wave Z3.2: Narrow anti-bypass Bash guard
+    if tool_name in ("bash", "shell", "run_command", "execute_command", "terminal"):
+        tool_input = payload.get("tool_input", {})
+        if isinstance(tool_input, str):
+            try:
+                tool_input = json.loads(tool_input)
+            except Exception:
+                tool_input = {"command": tool_input}
+        cmd_str = ""
+        if isinstance(tool_input, dict):
+            cmd_str = str(
+                tool_input.get("command")
+                or tool_input.get("CommandLine")
+                or tool_input.get("cmd")
+                or ""
+            ).strip()
+        elif isinstance(tool_input, str):
+            cmd_str = tool_input.strip()
+
+        # Check override
+        if os.environ.get("META_PROJECT_ALLOW_RED_ZONE") == "1":
+            _emit_response(
+                harness,
+                "pre-tool-use",
+                decision="allow",
+                reason="Override active (META_PROJECT_ALLOW_RED_ZONE=1)",
+            )
+            sys.exit(0)
+
+        # Deny git commit with --no-verify or -n
+        # Deny git push with --force, -f, or --force-with-lease
+        deny_reason: Optional[str] = None
+        if re.search(r"\bgit\s+commit\b.*(?:\s--no-verify\b|\s-n\b)", cmd_str):
+            deny_reason = "Bypassing pre-commit checks with 'git commit --no-verify' is denied by Meta-Project policy"
+        elif re.search(r"\bgit\s+push\b.*(?:\s--force\b|\s-f\b|\s--force-with-lease\b)", cmd_str):
+            deny_reason = "Force-pushing with 'git push --force' is denied by Meta-Project policy"
+
+        if deny_reason:
+            _emit_response(harness, "pre-tool-use", decision="deny", reason=deny_reason)
+            sys.exit(0 if harness == "gemini" else 2)
+
+        _emit_response(harness, "pre-tool-use", decision="allow", reason="Safe shell command allowed")
         sys.exit(0)
 
     raw_paths = _extract_paths_from_payload(payload)
@@ -485,6 +606,133 @@ def _handle_pre_tool_use(
         sys.exit(0)
 
 
+def _handle_post_tool_use_failure(
+    repo_root: Optional[Path],
+    harness: str,
+    payload: Dict[str, Any],
+) -> None:
+    """Handle post-tool-use-failure with sliding window circuit breaker in tempdir."""
+    session_id = payload.get("session_id") or "default-session"
+    tool_name = str(payload.get("tool_name", "")).strip().lower() or "unknown-tool"
+
+    repo_token = (
+        hashlib.sha256(str(repo_root.resolve()).encode("utf-8")).hexdigest()[:12]
+        if repo_root is not None
+        else "norepo"
+    )
+    token = hashlib.sha256(f"{repo_token}:{session_id}".encode("utf-8")).hexdigest()[:16]
+    journal_path = Path(tempfile.gettempdir()) / f"meta-project-failures-{token}.json"
+
+    now = time.time()
+    failures: List[Dict[str, Any]] = []
+
+    if journal_path.is_file():
+        try:
+            raw = json.loads(journal_path.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                # Retain failures within 5-minute sliding window (300s), max 64 items
+                failures = [
+                    f for f in raw
+                    if isinstance(f, dict) and now - f.get("ts", 0) < 300
+                ][-63:]
+        except Exception:
+            failures = []
+
+    failures.append({"tool": tool_name, "ts": now})
+    try:
+        journal_path.write_text(json.dumps(failures), encoding="utf-8")
+    except Exception:
+        pass
+
+    # Count failures of the same tool in the current window
+    same_tool_failures = sum(1 for f in failures if f.get("tool") == tool_name)
+    if same_tool_failures >= 2:
+        hint = (
+            f"[Circuit Breaker Hint] Repeated tool failure ({same_tool_failures}x) detected for '{tool_name}'. "
+            "Per Meta-Project North Stars: STOP iterative blind fixes, inspect error traces, "
+            "verify assumptions against boundaries/weak_spots, and consider triage-incident before retrying."
+        )
+        _emit_response(harness, "post-tool-use-failure", decision="allow", context=hint)
+    else:
+        _emit_response(harness, "post-tool-use-failure", decision="allow", context="")
+    sys.exit(0)
+
+
+def _handle_pre_compact(
+    repo_root: Optional[Path],
+    harness: str,
+    payload: Dict[str, Any],
+) -> None:
+    """Handle pre-compact read-only advisory."""
+    if repo_root is None:
+        _emit_response(harness, "pre-compact", decision="allow", context="")
+        sys.exit(0)
+
+    # Ensure scripts directory and framework root are in sys.path
+    framework_root = Path(__file__).resolve().parent.parent
+    p_dirs = [framework_root, framework_root / "scripts"]
+    if repo_root is not None:
+        p_dirs.extend([repo_root, repo_root / "scripts"])
+    for p_dir in p_dirs:
+        if str(p_dir) not in sys.path:
+            sys.path.insert(0, str(p_dir))
+
+    advisories: List[str] = []
+
+    # Check open probes in tasks.md via triage_incident
+    tasks_file = repo_root / ".agents" / "project_knowledge" / "tasks.md"
+    if tasks_file.is_file():
+        try:
+            try:
+                from scripts import triage_incident
+            except ImportError:
+                import triage_incident
+
+            tasks_text = tasks_file.read_text(encoding="utf-8")
+            blocks = triage_incident._parse_task_blocks(tasks_text)
+            open_items: List[str] = []
+            for b in blocks:
+                diag = triage_incident._analyze_diagnostic_block(b)
+                if diag and not diag.get("verified"):
+                    open_items.append(diag.get("explicit_id") or diag.get("header") or diag.get("id"))
+                elif b.get("status_char") in ("?", " ") and any(
+                    k in b.get("header", "").lower() for k in ("hypothesis", "probe", "diag-")
+                ):
+                    open_items.append(b.get("header", "")[:80])
+            if open_items:
+                advisories.append(
+                    f"Pre-Compact Epistemic Advisory: {len(open_items)} unverified diagnostic item(s) pending: "
+                    + "; ".join(open_items[:3])
+                )
+        except Exception:
+            pass
+
+    # Check compaction status
+    obs_file = repo_root / ".agents" / "project_knowledge" / "observations.md"
+    if obs_file.is_file() and tasks_file.is_file():
+        try:
+            try:
+                from scripts import compact_memory
+            except ImportError:
+                import compact_memory
+
+            obs_text = obs_file.read_text(encoding="utf-8")
+            tasks_text = tasks_file.read_text(encoding="utf-8")
+            c_obs, _, _ = compact_memory.compact_observations(obs_text)
+            c_tasks, _, _ = compact_memory.compact_tasks(tasks_text)
+            if c_obs or c_tasks:
+                advisories.append("Pre-Compact Memory Advisory: Memory tables ready for compaction.")
+        except Exception:
+            pass
+
+    if advisories:
+        msg = "\n".join(advisories)
+        _emit_response(harness, "pre-compact", decision="allow", context=msg)
+    else:
+        _emit_response(harness, "pre-compact", decision="allow", context="")
+    sys.exit(0)
+
+
 def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(description="Meta-Project thin hooks event dispatcher")
     parser.add_argument(
@@ -496,7 +744,13 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser.add_argument(
         "--event",
         required=True,
-        choices=["pre-tool-use", "post-tool-use", "session-start"],
+        choices=[
+            "pre-tool-use",
+            "post-tool-use",
+            "session-start",
+            "post-tool-use-failure",
+            "pre-compact",
+        ],
         help="Hook event to handle",
     )
     parser.add_argument(
@@ -536,11 +790,15 @@ def main(argv: Optional[List[str]] = None) -> None:
     repo_root = _find_repo_root(cwd_hint)
 
     if args.event == "session-start":
-        _handle_session_start(repo_root, args.harness)
+        _handle_session_start(repo_root, args.harness, payload)
     elif args.event == "post-tool-use":
         _handle_post_tool_use(repo_root, args.harness, payload, args.with_read_gate)
     elif args.event == "pre-tool-use":
         _handle_pre_tool_use(repo_root, args.harness, payload, args.with_read_gate, args.red_policy)
+    elif args.event == "post-tool-use-failure":
+        _handle_post_tool_use_failure(repo_root, args.harness, payload)
+    elif args.event == "pre-compact":
+        _handle_pre_compact(repo_root, args.harness, payload)
 
 
 if __name__ == "__main__":

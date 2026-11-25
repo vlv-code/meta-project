@@ -155,11 +155,19 @@ def install_harness(
     if h in ("claude-code", "zcode"):
         hooks = data.setdefault("hooks", {})
 
-        # PreToolUse (nested schema with matcher)
+        # PreToolUse (nested schema with matchers for Edit and Bash)
         pre_cleaned = _clean_hook_list(hooks.get("PreToolUse", []))
-        hooks["PreToolUse"] = _append_nested_hook(
+        pre_with_edit = _append_nested_hook(
             pre_cleaned,
             matcher="Edit|Write|MultiEdit",
+            hook_obj={
+                "type": "command",
+                "command": _build_dispatch_command(h, "pre-tool-use", with_read_gate, red_policy),
+            },
+        )
+        hooks["PreToolUse"] = _append_nested_hook(
+            pre_with_edit,
+            matcher="Bash",
             hook_obj={
                 "type": "command",
                 "command": _build_dispatch_command(h, "pre-tool-use", with_read_gate, red_policy),
@@ -174,6 +182,28 @@ def install_harness(
             hook_obj={
                 "type": "command",
                 "command": _build_dispatch_command(h, "session-start"),
+            },
+        )
+
+        # PostToolUseFailure (nested schema without matcher)
+        failure_cleaned = _clean_hook_list(hooks.get("PostToolUseFailure", []))
+        hooks["PostToolUseFailure"] = _append_nested_hook(
+            failure_cleaned,
+            matcher=None,
+            hook_obj={
+                "type": "command",
+                "command": _build_dispatch_command(h, "post-tool-use-failure"),
+            },
+        )
+
+        # PreCompact (nested schema without matcher)
+        compact_cleaned = _clean_hook_list(hooks.get("PreCompact", []))
+        hooks["PreCompact"] = _append_nested_hook(
+            compact_cleaned,
+            matcher=None,
+            hook_obj={
+                "type": "command",
+                "command": _build_dispatch_command(h, "pre-compact"),
             },
         )
 
@@ -338,7 +368,7 @@ def uninstall_harness(repo_root: Path, harness: str) -> None:
 
     if h in ("claude-code", "zcode"):
         hooks = data.get("hooks", {})
-        for ev in ["PreToolUse", "SessionStart", "PostToolUse"]:
+        for ev in ["PreToolUse", "SessionStart", "PostToolUse", "PostToolUseFailure", "PreCompact"]:
             if ev in hooks:
                 cleaned = _clean_hook_list(hooks[ev])
                 if cleaned:
@@ -407,7 +437,7 @@ def uninstall_harness(repo_root: Path, harness: str) -> None:
 
 
 def verify_harness(repo_root: Path, harness: str) -> bool:
-    """Verify harness hook configuration and execute 4 live dry-run probes."""
+    """Verify harness hook configuration and execute 5 live dry-run probes."""
     config_path = _get_config_path(repo_root, harness)
     if not config_path or not config_path.is_file():
         print(f"[FAIL] Config file not found for {harness}: {config_path}")
@@ -532,7 +562,52 @@ def verify_harness(repo_root: Path, harness: str) -> bool:
         print(f"[FAIL] Probe 4 output is not valid JSON: {e}")
         return False
 
-    print(f"[OK] Harness {harness} passed syntax, marker, and 4 live dry-run probes.")
+    # Probe 5: pre-tool-use Bash anti-bypass guard (deny git commit --no-verify, allow git status)
+    cmd5_deny = [sys.executable, str(dispatch_script), "--harness", h, "--event", "pre-tool-use"]
+    payload_bash_deny = json.dumps({"tool_name": "bash", "tool_input": {"command": "git commit --no-verify -m 'probe'"}})
+    proc5_deny = subprocess.run(cmd5_deny, input=payload_bash_deny, capture_output=True, text=True, cwd=str(repo_root))
+    expected_rc5 = 0 if h == "gemini" else 2
+    if proc5_deny.returncode != expected_rc5:
+        print(f"[FAIL] Probe 5 (Bash anti-bypass deny) failed (rc={proc5_deny.returncode}): {proc5_deny.stderr}")
+        return False
+    try:
+        d5 = json.loads(proc5_deny.stdout)
+        decision5 = (
+            d5.get("hookSpecificOutput", {}).get("permissionDecision")
+            or d5.get("permission")
+            or d5.get("permissionDecision")
+            or d5.get("decision")
+        )
+        expected_decision5 = "block" if h == "codex" else "deny"
+        if decision5 != expected_decision5:
+            print(f"[FAIL] Probe 5 expected {expected_decision5}, got {decision5}")
+            return False
+    except Exception as e:
+        print(f"[FAIL] Probe 5 deny output is not valid JSON: {e}")
+        return False
+
+    cmd5_allow = [sys.executable, str(dispatch_script), "--harness", h, "--event", "pre-tool-use"]
+    payload_bash_allow = json.dumps({"tool_name": "bash", "tool_input": {"command": "git status"}})
+    proc5_allow = subprocess.run(cmd5_allow, input=payload_bash_allow, capture_output=True, text=True, cwd=str(repo_root))
+    if proc5_allow.returncode != 0:
+        print(f"[FAIL] Probe 5 (Bash safe command allow) failed (rc={proc5_allow.returncode}): {proc5_allow.stderr}")
+        return False
+    try:
+        d5_a = json.loads(proc5_allow.stdout)
+        decision5_a = (
+            d5_a.get("hookSpecificOutput", {}).get("permissionDecision")
+            or d5_a.get("permission")
+            or d5_a.get("permissionDecision")
+            or d5_a.get("decision")
+        )
+        if decision5_a != "allow":
+            print(f"[FAIL] Probe 5 expected allow, got {decision5_a}")
+            return False
+    except Exception as e:
+        print(f"[FAIL] Probe 5 allow output is not valid JSON: {e}")
+        return False
+
+    print(f"[OK] Harness {harness} passed syntax, marker, and 5 live dry-run probes.")
     if h == "zcode":
         print("[NOTICE] Synthetic dry-run probes passed for zcode (.claude/settings.json). Confirm live hook execution inside an actual ZCode Desktop session.")
     return True
