@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meta-Project — Agent Environment Framework</title>
+<meta name="description" content="Context organization framework for AI coding agents: machine-enforced boundaries, multi-harness hooks, 10 skills, and a one-command plugin install for Claude Code.">
+<style>
+  :root{--bg:#0d1117;--bg2:#161b22;--fg:#e6edf3;--fg-dim:#8b949e;--accent:#7c95ff;--accent2:#3fb950;--border:#30363d;--code:#0d1117;--warn:#d29922}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px}
+  header{border-bottom:1px solid var(--border);background:var(--bg2)}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .brand{font-weight:700;font-size:1.1rem}
+  .brand span{color:var(--accent)}
+  .nav-right{display:flex;gap:16px;align-items:center;font-size:.95rem}
+  .lang-btn{background:none;border:1px solid var(--border);color:var(--fg-dim);border-radius:6px;padding:2px 10px;cursor:pointer;font-size:.85rem}
+  .lang-btn:hover{color:var(--fg);border-color:var(--fg-dim)}
+  .hero{padding:72px 0 56px;text-align:center}
+  .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
+  .badge{background:var(--bg2);border:1px solid var(--border);color:var(--fg-dim);border-radius:999px;padding:4px 14px;font-size:.8rem}
+  .badge b{color:var(--accent2)}
+  h1{font-size:2.6rem;line-height:1.15;margin-bottom:16px}
+  h1 .grad{background:linear-gradient(90deg,var(--accent),#a371f7);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--fg-dim);max-width:720px;margin:0 auto 36px;font-size:1.15rem}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{border-radius:8px;padding:10px 22px;font-weight:600;font-size:.95rem;border:1px solid var(--border);color:var(--fg)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#0d1117}
+  .btn.ghost:hover{border-color:var(--fg-dim)}
+  h2{font-size:1.6rem;margin:56px 0 8px;padding-top:8px}
+  .lead{color:var(--fg-dim);margin-bottom:24px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+  .card h3{font-size:1.02rem;margin-bottom:8px}
+  .card p{color:var(--fg-dim);font-size:.92rem}
+  .card code{background:var(--code);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.85rem}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:.88rem;margin:12px 0 4px}
+  .steps{margin:10px 0}
+  .steps li{margin:10px 0 10px 24px;color:var(--fg-dim)}
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th,td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+  th{background:var(--bg2);color:var(--fg-dim);font-weight:600}
+  td code{background:var(--code);border-radius:4px;padding:1px 6px;font-size:.82rem}
+  .note{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:8px;padding:14px 18px;color:var(--fg-dim);font-size:.92rem;margin-top:20px}
+  footer{border-top:1px solid var(--border);margin-top:72px;padding:28px 0;color:var(--fg-dim);font-size:.88rem;text-align:center}
+  .ru-block{display:none}
+  html[data-lang="ru"] .en{display:none}
+  html[data-lang="ru"] .ru-block{display:block}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <div class="brand">meta<span>·</span>project</div>
+    <div class="nav-right">
+      <button class="lang-btn" id="lang">RU</button>
+      <a href="https://github.com/vlv-code/meta-project">GitHub &#8599;</a>
+    </div>
+  </div>
+</header>
+<div class="wrap hero">
+  <div class="badges">
+    <span class="badge">release <b>v1.0.0-beta.1</b></span>
+    <span class="badge">10 skills</span>
+    <span class="badge">6 harnesses via hooks</span>
+    <span class="badge">zero dependencies</span>
+  </div>
+  <div class="en">
+    <h1>Machine-enforced guardrails<br>for <span class="grad">AI coding agents</span></h1>
+    <p class="sub">Context organization framework for AI coding agents: machine-enforced boundaries, multi-harness hooks, 10 skills, and one-command installation as a Claude&nbsp;Code plugin.</p>
+  </div>
+  <div class="ru-block" lang="ru">
+    <h1>Машинные ограничители<br>для <span class="grad">ИИ-агентов</span></h1>
+    <p class="sub">Фреймворк организации контекста для ИИ-агентов: машинный контроль границ, хуки для шести харнессов, 10 навыков и установка в одну команду как плагин Claude&nbsp;Code.</p>
+  </div>
+  <div class="cta">
+    <a class="btn primary" href="#install">Install</a>
+    <a class="btn ghost" href="https://github.com/vlv-code/meta-project/blob/main/README.md">Read the docs</a>
+    <a class="btn ghost" href="https://github.com/vlv-code/meta-project/releases">Releases</a>
+  </div>
+</div>
+<div class="wrap">
+  <h2>Why</h2>
+  <div class="en"><p class="lead">Prompt files tell the agent what to do. Meta-Project <b>enforces</b> it: a boundary gate in CI, thin hooks in six harnesses, and evidence-first triage.</p></div>
+  <div class="ru-block" lang="ru"><p class="lead">Промпт-файлы говорят агенту, что делать. Meta-Project это <b>принуждает</b>: гейт границ в CI, тонкие хуки в шести харнессах и triage по уликам.</p></div>
+  <div class="grid">
+    <div class="card"><h3>&#129763; Boundary Gate</h3><p>Green / Yellow / Red zones with Default Deny: unmapped paths halt the agent. Enforced in CI against a trusted-base revision and locally via thin hooks.</p></div>
+    <div class="card"><h3>&#129685; Thin harness hooks</h3><p>Zero-dependency adapters for Claude Code, ZCode, Cursor, Gemini CLI, GitHub Copilot and Codex: session context, PreToolUse decisions, failure capture.</p></div>
+    <div class="card"><h3>&#129517; 10 skills</h3><p>Init, manage, decommission, ground, scan, tune, update, record-observation, sync-architecture, triage-incident — each with explicit ownership boundaries.</p></div>
+    <div class="card"><h3>&#128269; Deterministic inspection</h3><p>Zero-write inspector classifies a repo into canonical states and prints a facts digest so unchanged slices need no re-read.</p></div>
+    <div class="card"><h3>&#128230; Managed updates</h3><p>SHA-pinned updates with an atomic journal, offline cache fallback and a lock file — local edits preserved via local_repo_data markers.</p></div>
+    <div class="card"><h3>&#128300; Evidence-first triage</h3><p>Probe, record evidence, promote: hypotheses stay hypotheses until an artifact proves them.</p></div>
+  </div>
+  <h2 id="install">Install</h2>
+  <div class="en"><p class="lead">Three channels, one framework. Works with Claude Code, ZCode, Cursor, Windsurf, Gemini CLI, GitHub Copilot and Codex.</p></div>
+  <div class="ru-block" lang="ru"><p class="lead">Три канала, один фреймворк. Работает с Claude Code, ZCode, Cursor, Windsurf, Gemini CLI, GitHub Copilot и Codex.</p></div>
+  <div class="grid">
+    <div class="card"><h3>Claude Code plugin</h3><p>Full framework as a single plugin.</p><pre><code>/plugin marketplace add vlv-code/meta-project
+/plugin install meta-project</code></pre></div>
+    <div class="card"><h3>Agent Plugins 1.0.0</h3><p>For VS Code, Cursor, Copilot, Codex.</p><pre><code>npx plugins add vlv-code/meta-project</code></pre></div>
+    <div class="card"><h3>skills.sh (per-skill)</h3><p>Pick individual skills.</p><pre><code>npx skills add vlv-code/meta-project</code></pre></div>
+  </div>
+  <div class="en"><p class="note">&#9888; Per-skill installers copy the skill folders only. sync-architecture is the only fully standalone skill; the other nine need the repository's scripts/ and templates/ — prefer the full plugin or package.</p></div>
+  <div class="ru-block" lang="ru"><p class="note">&#9888; Установщики отдельных навыков копируют только папки навыков. sync-architecture — единственный полностью автономный навык; остальные девять требуют scripts/ и templates/ репозитория — предпочтите полный плагин или пакет.</p></div>
+  <h2>Hook matrix</h2>
+  <div class="en"><p class="lead">Thin adapters (no duplicated policy engines) for six harnesses — one JSON object per event, silent no-op outside a Meta-Project repository, fail-closed where supported.</p></div>
+  <div class="ru-block" lang="ru"><p class="lead">Тонкие адаптеры (без дублирования движков политик) для шести харнессов — один JSON-объект на событие, молчаливый no-op вне репозитория Meta-Project, fail-closed там, где поддерживается.</p></div>
+  <table>
+    <tr><th>Harness</th><th>Config</th><th>Events</th><th>PreToolUse</th></tr>
+    <tr><td>claude-code / zcode</td><td><code>.claude/settings.json</code></td><td>SessionStart, PreToolUse, PostToolUseFailure, PreCompact</td><td>allow / deny (rc=2)</td></tr>
+    <tr><td>cursor</td><td><code>.cursor/hooks.json</code></td><td>sessionStart, preToolUse</td><td>fail-closed deny</td></tr>
+    <tr><td>gemini</td><td><code>.gemini/settings.json</code></td><td>SessionStart, BeforeTool, AfterTool</td><td>allow / deny (rc=0)</td></tr>
+    <tr><td>copilot</td><td><code>.github/hooks/meta-project.json</code></td><td>sessionStart, preToolUse</td><td>fail-closed deny</td></tr>
+    <tr><td>codex</td><td><code>.codex/hooks.json</code></td><td>SessionStart, PreToolUse</td><td>allow / block (rc=2)</td></tr>
+  </table>
+  <h2>Zones</h2>
+  <div class="en"><p class="lead">Every path in the repo maps to a zone. The agent reads the map; the gate enforces it.</p></div>
+  <div class="ru-block" lang="ru"><p class="lead">Каждый путь в репо отображён в зону. Агент читает карту; гейт принуждает.</p></div>
+  <div class="grid">
+    <div class="card"><h3><span style="color:#3fb950">GREEN</span></h3><p>Docs, tests, standalone utilities — the agent modifies autonomously.</p></div>
+    <div class="card"><h3><span style="color:#d29922">YELLOW</span></h3><p>Skills, templates, core logic — modifications with mandatory verification.</p></div>
+    <div class="card"><h3><span style="color:#f85149">RED</span></h3><p>Passport, secrets, migrations, CI policy — explicit user confirmation required.</p></div>
+    <div class="card"><h3><span style="color:#f85149">DEFAULT DENY</span></h3><p>Anything unmapped halts the agent. No silent improvisation.</p></div>
+  </div>
+  <h2>Docs</h2>
+  <ul class="steps">
+    <li><b>README (EN)</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/README.md">full framework guide</a></li>
+    <li><b>README (RU)</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/README.ru.md">полное руководство</a></li>
+    <li><b>Agent passport</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/AGENTS.md">AGENTS.md</a></li>
+    <li><b>Hooks ecosystem</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/hooks/README.md">six-harness matrix and design</a></li>
+    <li><b>Primitives vocabulary</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/docs/primitives.md">docs/primitives.md</a></li>
+    <li><b>ADR log + roadmap</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/docs/decisions_and_roadmap.md">docs/decisions_and_roadmap.md</a></li>
+    <li><b>Changelog</b> — <a href="https://github.com/vlv-code/meta-project/blob/main/CHANGELOG.md">CHANGELOG.md</a></li>
+  </ul>
+</div>
+<footer>
+  <div class="wrap">Distributed under the MIT license &middot; <a href="https://github.com/vlv-code/meta-project">vlv-code/meta-project</a> &middot; Built with Meta-Project</div>
+</footer>
+<script>
+  var html = document.documentElement;
+  var btn = document.getElementById("lang");
+  var lang = null;
+  try { lang = localStorage.getItem("mp-lang"); } catch (e) {}
+  if (!lang) { lang = navigator.language && navigator.language.slice(0, 2) === "ru" ? "ru" : "en"; }
+  html.setAttribute("data-lang", lang);
+  btn.textContent = lang === "en" ? "RU" : "EN";
+  btn.addEventListener("click", function () {
+    lang = lang === "en" ? "ru" : "en";
+    html.setAttribute("data-lang", lang);
+    try { localStorage.setItem("mp-lang", lang); } catch (e) {}
+    btn.textContent = lang === "en" ? "RU" : "EN";
+  });
+</script>
+</body>
+</html>
