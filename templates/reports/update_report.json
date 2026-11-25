@@ -26,7 +26,10 @@
   ],
   "versions": {
     "before": "1.0.0-alpha.1",
-    "after": "1.0.0-alpha.2"
+    "after": {
+      "framework_version": "1.0.0-alpha.7",
+      "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
   },
   "source": {
     "ref": "v1.0.0-alpha.2",
@@ -47,7 +50,7 @@
     },
     {
       "path": "templates/release_manifest.json",
-      "kind": "templates",
+      "kind": "template",
       "action": "created"
     }
   ],

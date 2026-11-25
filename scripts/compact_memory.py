@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 from typing import Any, List, Optional, Tuple, Union
 
 try:  # shared helpers (ADR #22): package-style import (tests: from
@@ -23,18 +24,46 @@ except ImportError:  # direct script execution: python scripts/compact_memory.py
     from _common import _error_envelope
 
 
+def _unlink_lock_file(path: Path) -> None:
+    """
+    Best-effort removal of an advisory lock file after release (T4.2).
+    Windows-safe: a blocked waiter may still hold the file open, so a
+    sharing-violation unlink is retried once and then ignored — the lock is
+    advisory hygiene, never a correctness boundary.
+    """
+    for attempt in range(2):
+        try:
+            path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except OSError:
+            if attempt == 0:
+                time.sleep(0.05)
+
+
 @contextlib.contextmanager
-def file_lock(target: Union[str, os.PathLike[str], Any], blocking: bool = True):
+def file_lock(
+    target: Union[str, os.PathLike[str], Any],
+    blocking: bool = True,
+    cleanup: bool = True,
+):
     """
     Cross-platform file locking context manager (Windows msvcrt / Unix fcntl).
     Accepts an open file object or a Path/str path.
+
+    With cleanup=True and a Path/str target, the lock file is unlinked after
+    release (order: unlock -> close -> unlink) so no stale `<target>.lock`
+    persists between runs.
     """
     opened_here = False
+    owned_path: Optional[Path] = None
     if isinstance(target, (str, os.PathLike)):
         p = Path(target)
         p.parent.mkdir(parents=True, exist_ok=True)
         f = open(p, "a+b")
         opened_here = True
+        owned_path = p
     else:
         f = target
 
@@ -55,6 +84,8 @@ def file_lock(target: Union[str, os.PathLike[str], Any], blocking: bool = True):
             finally:
                 if opened_here:
                     f.close()
+                    if cleanup and owned_path is not None:
+                        _unlink_lock_file(owned_path)
     else:
         import fcntl
 
@@ -68,23 +99,32 @@ def file_lock(target: Union[str, os.PathLike[str], Any], blocking: bool = True):
             finally:
                 if opened_here:
                     f.close()
+                    if cleanup and owned_path is not None:
+                        _unlink_lock_file(owned_path)
 
 
 ARCHIVE_NOTICE_LINE = (
     "> Historical observations compacted into `.agents/project_knowledge/archive/`."
 )
+TASKS_ARCHIVE_NOTICE_LINE = (
+    "> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`."
+)
+TASKS_ARCHIVE_NOTICE = (
+    "> [!NOTE]\n" + TASKS_ARCHIVE_NOTICE_LINE + "\n"
+)
 _DATE_ROW_RE = re.compile(r"^\|\s*\d{4}-\d{2}-\d{2}\s*\|")
-_CHECKPOINT_ROW_RE = re.compile(r"^-\s*\[>\]", re.IGNORECASE)
+_CHECKPOINT_ROW_RE = re.compile(r"^-\s*\[([>?])\]", re.IGNORECASE)
 
 
 def _checkpoint_block_indices(lines: List[str]) -> set:
-    """Indices of lines belonging to `- [>]` checkpoint blocks (Wave E).
+    """Indices of lines belonging to `- [>]` checkpoint blocks and `- [?]` probe blocks.
 
     A `- [>]` row marks ACTIVE WORK (in-flight/handoff checkpoint with its
-    indented goal/decided/done/open/next block). The row itself plus every
+    indented goal/decided/done/open/next block). A `- [?]` row marks an ACTIVE
+    PROBE block (hypothesis/evidence/verdict). The row itself plus every
     following line indented deeper than the checkpoint row belongs to the
     block; the first non-blank line at or below the checkpoint indentation
-    ends it (blank lines do not). Checkpoint block lines are NEVER
+    ends it (blank lines do not). Checkpoint/probe block lines are NEVER
     re-homed, archived, or compacted — only plain `- [x]` rows rotate."""
     guarded: set = set()
     in_block = False
@@ -204,9 +244,10 @@ def compact_observations(
         new_primary = "\n".join(new_primary_lines).rstrip() + "\n"
         return True, new_primary, ""
 
-    older_indices = set(unpinned_indices[:-keep_rows])
+    older_slice = unpinned_indices[:-keep_rows] if keep_rows > 0 else unpinned_indices
+    older_indices = set(older_slice)
     retained_rows = [r for i, r in enumerate(data_rows) if i not in older_indices]
-    older_rows = [data_rows[i] for i in unpinned_indices[:-keep_rows]]
+    older_rows = [data_rows[i] for i in older_slice]
 
     archive_notice = "> [!NOTE]\n" + ARCHIVE_NOTICE_LINE + "\n"
     new_primary_lines = pre_table + retained_rows + [""] + [archive_notice] + post_table
@@ -225,44 +266,104 @@ def compact_tasks(
     Compacts completed tasks (- [x]) in tasks.md when exceeding max_completed.
     Retains all pending tasks (- [ ]) and newest keep_completed completed tasks.
 
-    Wave E checkpoint invariant: `- [>]` checkpoint rows and their indented
-    checkpoint blocks are ACTIVE WORK — never re-homed/archived/compacted;
-    only `- [x]` compaction semantics apply to plain completed tasks (the
-    `- [x]` sub-items of an active checkpoint stay with their block).
+    Wave E checkpoint invariant & Wave Z2 probe invariant: `- [>]` checkpoint
+    rows and `- [?]` probe rows, along with their indented blocks, are ACTIVE
+    WORK — never re-homed/archived/compacted; only `- [x]` compaction semantics
+    apply to plain completed tasks (the `- [x]` sub-items of an active
+    checkpoint or probe stay with their block).
+
+    Archive NOTE blocks (> [!NOTE] Earlier completed tasks archived...) are
+    idempotently deduplicated so repeated compactions collapse to a single
+    notice block.
 
     Returns (compacted, new_primary_content, archive_chunk).
     """
     lines = content.splitlines()
-    guarded_indices = _checkpoint_block_indices(lines)
+
+    # 1. Filter out existing archive NOTE blocks and record position/count.
+    notice_count = 0
+    first_notice_idx: Optional[int] = None
+    cleaned_lines: List[str] = []
+    idx = 0
+
+    while idx < len(lines):
+        line = lines[idx]
+        if (
+            re.match(r"^>\s*\[!NOTE\]", line.strip(), re.IGNORECASE)
+            and idx + 1 < len(lines)
+            and re.match(
+                r"^>\s*Earlier completed tasks archived",
+                lines[idx + 1].strip(),
+                re.IGNORECASE,
+            )
+        ):
+            notice_count += 1
+            if first_notice_idx is None:
+                first_notice_idx = len(cleaned_lines)
+            idx += 2
+            while idx < len(lines) and not lines[idx].strip():
+                idx += 1
+            continue
+        cleaned_lines.append(line)
+        idx += 1
+
+    # Determine insertion position for the note (beginning of task section)
+    if first_notice_idx is not None:
+        target_notice_idx = first_notice_idx
+    else:
+        target_notice_idx = None
+        for i, line in enumerate(cleaned_lines):
+            if re.match(r"^-\s*\[([ xX>?])\]", line.strip()):
+                target_notice_idx = i
+                break
+        if target_notice_idx is None:
+            target_notice_idx = 0
+
+    guarded_indices = _checkpoint_block_indices(cleaned_lines)
     completed_indices: List[int] = []
 
-    for idx, line in enumerate(lines):
+    for i, line in enumerate(cleaned_lines):
         line_str = line.strip()
         if (
             re.match(r"^-\s*\[x\]", line_str, re.IGNORECASE)
-            and idx not in guarded_indices
+            and i not in guarded_indices
         ):
-            completed_indices.append(idx)
+            completed_indices.append(i)
 
-    if len(completed_indices) <= max_completed:
+    needs_rotation = len(completed_indices) > max_completed
+
+    if not needs_rotation:
+        if notice_count > 1:
+            new_lines: List[str] = []
+            inserted = False
+            for i, line in enumerate(cleaned_lines):
+                if not inserted and i == target_notice_idx:
+                    new_lines.append(TASKS_ARCHIVE_NOTICE)
+                    inserted = True
+                new_lines.append(line)
+            if not inserted:
+                new_lines.append(TASKS_ARCHIVE_NOTICE)
+            new_primary = "\n".join(new_lines).rstrip() + "\n"
+            return True, new_primary, ""
         return False, content, ""
 
-    rotate_indices = set(completed_indices[:-keep_completed])
-
+    rotate_indices = set(completed_indices[:-keep_completed] if keep_completed > 0 else completed_indices)
     archive_lines: List[str] = []
     new_lines: List[str] = []
     inserted_notice = False
 
-    for idx, line in enumerate(lines):
-        if idx in rotate_indices:
+    for i, line in enumerate(cleaned_lines):
+        if not inserted_notice and i == target_notice_idx:
+            new_lines.append(TASKS_ARCHIVE_NOTICE)
+            inserted_notice = True
+
+        if i in rotate_indices:
             archive_lines.append(line)
-            if not inserted_notice:
-                new_lines.append(
-                    "> [!NOTE]\n> Earlier completed tasks archived in `.agents/project_knowledge/archive/tasks_archive.md`.\n"
-                )
-                inserted_notice = True
         else:
             new_lines.append(line)
+
+    if not inserted_notice:
+        new_lines.append(TASKS_ARCHIVE_NOTICE)
 
     new_primary = "\n".join(new_lines).rstrip() + "\n"
     archive_chunk = "\n".join(archive_lines) + "\n"

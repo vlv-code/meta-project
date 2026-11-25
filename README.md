@@ -45,7 +45,7 @@ Context organization framework and separation of concerns between permanent rule
 
 ## Installation
 
-Install Meta-Project as a plugin or package — no manual copying required. Three channels are supported:
+Install Meta-Project as a plugin or package across Claude Code, Cursor, Codex, Gemini CLI, or Agent Plugins:
 
 ### Claude Code (plugin marketplace)
 
@@ -61,7 +61,7 @@ Then inside Claude Code: `/plugin install meta-project`
 npx plugins add vlv-code/meta-project
 ```
 
-Installs the Agent Plugins 1.0.0 package for compatible hosts.
+Installs via Agent Plugins, Cursor (`.cursor-plugin`), Codex (`.agents/plugins`), or Gemini CLI (`gemini-extension.json`).
 
 ### skills.sh (per-skill install)
 
@@ -283,7 +283,11 @@ To indicate that a project is designed or maintained with an agentic environment
 The project includes automated integrity tests for skills, YAML frontmatter, templates, and canonical structure:
 
 ```bash
+# Standard single-process test discovery:
 python -m unittest discover -s tests -p "test_*.py" -v
+
+# Fast parallel execution across all available CPU cores:
+python tests/run_parallel.py
 ```
 
 Tests have zero external dependencies and run on any platform with Python 3.10+.

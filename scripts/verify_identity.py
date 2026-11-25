@@ -30,7 +30,7 @@ VALID_SCENARIO_PROFILES = {
     "documentation",
 }
 VALID_DEPLOYMENT_MODES = {"shared_repo", "local_overlay", "hybrid"}
-VALID_COLLABORATION_MODELS = {"solo", "duo", "triad", "specialized_swarm"}
+VALID_COLLABORATION_MODELS = {"solo", "duo", "triad", "quad", "specialized_swarm"}
 VALID_VERIFICATION_POLICIES = {
     "self_check",
     "duo_peer_review",
@@ -301,6 +301,13 @@ def validate_identity_registry(repo_root: Path) -> Tuple[bool, List[str]]:
         if inst_data.get("orchestration") is not None:
             errors.extend(
                 validate_orchestration_block(inst_id, inst_data.get("orchestration"))
+            )
+        # Wave L: optional per-installation collaboration_model override.
+        collab_model = inst_data.get("collaboration_model")
+        if collab_model is not None and collab_model not in VALID_COLLABORATION_MODELS:
+            errors.append(
+                f"Installation '{inst_id}' has unsupported collaboration_model '{collab_model}'. "
+                f"Allowed: {sorted(VALID_COLLABORATION_MODELS)}"
             )
 
     for role_id, role_data in roles.items():

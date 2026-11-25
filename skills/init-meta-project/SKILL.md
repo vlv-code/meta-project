@@ -49,16 +49,22 @@ Guidance (verbatim contract): missing mandatory resource 'resources/<name>' — 
 
 **Survey-First Zero-Write Invariant:** Phase 1 performs only discovery and diagnosis — no file creation, telemetry, `.lock` files, or execution of untrusted repository scripts.
 
-0. **Step 0: Host Runtime Self-Identification (Anti-Anchoring Invariant):**
-   The agent MUST identify its current harness_id strictly from its own host execution environment (e.g. environment variables `ANTIGRAVITY_AGENT` -> `'antigravity'`, `ZCODE_AGENT` -> `'zcode'`, system prompt, or AppData path), NEVER by reading existing active entries in `.agents/meta-project.json` or `AGENTS.md`.
-   - **Strict Prohibition:** Do NOT copy `--harness` from the registry to force a green `HEALTHY_REGISTERED` status.
-   - **Key Semantics:** If the current harness is not registered or is planned, state `HEALTHY_NEW_HARNESS` (Scenario 4) is the expected, correct state triggering multi-harness adaptation. It is NOT an error to be bypassed.
+0. **Step 0: Host Runtime Self-Identification & SCRIPT_ROOT Resolution:**
+   - **Host Runtime Self-Identification (Anti-Anchoring Invariant):**
+     The agent MUST identify its current harness_id strictly from its own host execution environment (e.g. environment variables `ANTIGRAVITY_AGENT` -> `'antigravity'`, `ZCODE_AGENT` -> `'zcode'`, system prompt, or AppData path), NEVER by reading existing active entries in `.agents/meta-project.json` or `AGENTS.md`.
+     - **Strict Prohibition:** Do NOT copy `--harness` from the registry to force a green `HEALTHY_REGISTERED` status.
+     - **Key Semantics:** If the current harness is not registered or is planned, state `HEALTHY_NEW_HARNESS` (Scenario 4) is the expected, correct state triggering multi-harness adaptation. It is NOT an error to be bypassed.
+   - **Canonical SCRIPT_ROOT Resolution Order:**
+     When resolving and executing framework runtime scripts (`scripts/<script>.py`), locate `SCRIPT_ROOT` in the following canonical precedence order:
+     1. `./scripts/<script>.py` in the target repository (if already deployed);
+     2. `${CLAUDE_PLUGIN_ROOT}/scripts/<script>.py` (if set by environment);
+     3. `<dir_of_SKILL.md>/../../scripts/<script>.py` (sibling / plugin root of the installed skill).
 
-1. **Execute deterministic inspection** with EXPLICIT runtime context (registration states are undetermined without it — the survey reports `CONTEXT_UNRESOLVED` instead of silently adopting any active installation):
+1. **Execute deterministic inspection** with EXPLICIT runtime context via resolved `<SCRIPT_ROOT>/inspect_meta_project.py` (registration states are undetermined without it — the survey reports `CONTEXT_UNRESOLVED` instead of silently adopting any active installation):
    ```bash
-   python scripts/inspect_meta_project.py --json --harness <MY_ACTUAL_HARNESS> (or --harness auto) --installation <installation_id>
+   python <SCRIPT_ROOT>/inspect_meta_project.py --repo-root . --json --harness <MY_ACTUAL_HARNESS> (or --harness auto) --installation <installation_id>
    ```
-   *(If the script is not yet present, perform equivalent read-only inspection with pure Python stdlib, zero writes.)*
+   *(If the script is not yet present in SCRIPT_ROOT, perform equivalent read-only inspection with pure Python stdlib, zero writes.)*
 2. **Classify into one of 8 canonical states:** `NONE` (no scaffolding), `FOREIGN_RULES` (foreign instruction files: `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, foreign `AGENTS.md`), `HEALTHY_REGISTERED`, `HEALTHY_NEW_HARNESS` (target harness/installation unregistered or `planned`), `CONTEXT_UNRESOLVED` (no `--harness`/`--installation` — re-run with explicit context before routing), `LEGACY_UNREGISTERED` (legacy structure without `.agents/meta-project.json`), `PARTIAL_CORRUPTED` (missing/corrupted critical slices), `INCOMPATIBLE_SCHEMA` (registry schema incompatible with current tooling).
 3. **Evaluate capability matrix:** readiness per `read_instructions`, `local_checks`, `skills`, `roles`, `hooks` (`available` / `unavailable` / `untested`).
 4. **Select execution strategy:** route to Phase 2 (Scenario Agreement) and the Phase 3 scenario matching the state.
@@ -83,63 +89,37 @@ Agree the scenario across 4 dimensions (present options, capture decisions):
 
 ### Phase 3: Execution and Scaffolding by Canonical State
 
-#### Scenario 1: State `NONE` (Clean Scaffold Mode)
-Standard two-pass algorithm:
+Detailed execution steps and deep-dive checklists for all 7 scenarios are maintained in `references/scenarios.md`.
+If `references/scenarios.md` is absent (`[MISSING_RESOURCE] references/scenarios.md`), execute using the compact scenario routing below:
 
-##### Pass 1: Express Scan and Skeleton Generation (Fast & High-Level)
-1. **Express root inspection:** manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `requirements.txt`, `pom.xml`, `docker-compose.yml`); core directories (`src/`, `app/`, `tests/`, `migrations/`, `scripts/`, `data/`); project name, purpose, core concepts from `README.md`; required keys from `.env.example`. **Zero Unmapped Dirs Rule:** after filtering `.gitignore` paths, VCS metadata, and standard caches (`.git`, `node_modules`, `.venv`, `venv`, `dist`, `build`, `coverage`, `__pycache__`, `.pytest_cache`, `.idea`, `.vscode`), every remaining top-level source directory MUST be explicitly mapped to Green, Yellow, or Red in boundaries — unmapped falls under Default Deny / Red Zone.
-2. **Stack and orientations:** concise stack string (e.g. `Python 3.12, FastAPI, uv, pytest, Docker`) + 2-3 baseline North Stars (simplicity, strict typing, data immutability, offline-first as applicable).
-3. **Create directories:** `.agents/project_knowledge/`, `.agents/project_knowledge/archive/`, `.agents/skills/record-observation/`, `.agents/skills/sync-architecture/`, `.agents/skills/ground-meta-project/`, `scripts/`.
-4. **Deploy bundled meta-project skills and runtime scripts** (READ: `resources/record-observation-SKILL.md`, `resources/sync-architecture-SKILL.md`, `resources/ground-meta-project-SKILL.md`): deploy the agreed SUBSET defined by `templates/release_manifest.json` of the pinned source. The 3 shell skills are deployed by VERBATIM FILE COPY of those resource files to `.agents/skills/<skill>/SKILL.md` (no in-context transit). Runtime scripts deploy verbatim to repository `scripts/` (component paths and `kind` values from the manifest; `requires` dependencies deploy together with their dependent).
-   **Canonical Script Source Invariant:** deploy these files VERBATIM from the installed meta-project resources (pinned upstream `vlv-code/meta-project` @ `main`, or the matching version in the global skills cache). NEVER re-create, paraphrase, or partially copy runtime scripts from descriptions — a diverged script is a defect, not an adaptation.
-5. **Create initial knowledge slice drafts and registry:** (READ: `resources/observations.md`, `resources/boundaries.md`, `resources/weak_spots.md`) — materialize the three slice drafts from these resources into `.agents/project_knowledge/` byte-canonically (Pass 2 calibrates them in place). Write `.agents/meta-project.json` registering the CURRENT installation as `<installation_id>`/`<harness_id>` with status `active`; add a `planned` second-harness entry ONLY when the user explicitly plans one (`ag-main`/`zc-main` are Meta-Project's own configuration values, never generic scaffold defaults).
-   **Scaffold baseline `.gitignore` hygiene block (append-if-absent, never overwrite):**
-   If the repository root has no `.gitignore`, create it with the baseline block below; if a `.gitignore` already exists, APPEND only the missing entries (append-if-absent semantics — never overwrite or rewrite an existing file). Generated bytecode and lock artifacts are hygiene paths mapped Green: ignored by VCS, excluded from boundary audits and architecture-drift warnings.
-   ```gitignore
-   # Meta-Project hygiene baseline (append-if-absent)
-   __pycache__/
-   *.pyc
-   *.lock
-   ```
+#### Scenario Outline & Resource Loading Matrix:
+- **Scenario 1: State `NONE` (Clean Scaffold Mode):**
+  - **Pass 1 (Express Scan):** Manifests, core directories, North Stars; deploy bundled skills (`resources/record-observation-SKILL.md`, `resources/sync-architecture-SKILL.md`, `resources/ground-meta-project-SKILL.md`);
+  5. **Create initial knowledge slice drafts and registry:** (READ: `resources/observations.md`, `resources/boundaries.md`, `resources/weak_spots.md`) — materialize the three slice drafts from these resources into `.agents/project_knowledge/` byte-canonically. Write `.agents/meta-project.json` registering the CURRENT installation as `<installation_id>`/`<harness_id>` with status `active`.
+  Scaffold baseline `.gitignore` hygiene block (append-if-absent, never overwrite): generated bytecode and lock artifacts are hygiene paths mapped Green: ignored by VCS (`__pycache__/`, `*.pyc`, `*.lock`).
+  ##### Pass 2: Repository Deep-Dive, Principles & Shell Skills
+  - Mandatory Core Inspection Checklist: database/storage, external APIs, runtime containerization, UI/inputs.
+  - **Interactive Calibration Interview (Codified Two-Question Protocol):**
+    - Question 1 (North Stars & Core Invariants): project invariants and production constraints.
+    - Question 2 (Red Zone & Sensitive Paths): directories and credentials placed in Red Zone.
+  - Boundary calibration: Default Deny / 100% path coverage with Black Zone rule. Never drop mandatory security defaults: `src/auth/**`, `src/billing/**`, `src/payments/**`, `src/crypto/**`, `*.pem`, `*.key`, `config/secrets/**`, `.github/workflows/**`, `scripts/check_boundaries.py`.
+  - Populate architecture card, tasks checklist, and root passport (READ: `resources/architecture.md`, `resources/tasks.md`, `resources/AGENTS.md`) via in-memory synthesis flush protocol.
+  - Full 2-pass deep-dive instructions: `references/scenarios.md`.
+- **Scenario 2: State `FOREIGN_RULES` (Preserve & Merge Mode):**
+  Preserve foreign rules (`.cursorrules`, `CLAUDE.md`, `.windsurfrules`), map to Yellow/Green in boundaries, scaffold non-destructively. Detailed rules in `references/scenarios.md`.
+- **Scenario 3: State `HEALTHY_REGISTERED` (Pass-Through / No-Op Mode):**
+  Zero-diff verification (0 modified files). Issue adoption report if needed. Detailed rules in `references/scenarios.md`.
+- **Scenario 4: State `HEALTHY_NEW_HARNESS` (Multi-Harness Adaptation Mode):**
+  Preserve existing installations in registry, register new harness as active, scaffold role bindings in `.agents/team/`. Detailed rules in `references/scenarios.md`.
+- **Scenario 5: State `LEGACY_UNREGISTERED` (Legacy Adoption Mode):**
+  Preserve historical `observations.md` and `tasks.md`, upgrade passport and boundaries to Default Deny / 100% coverage, deploy runtime utilities. Detailed rules in `references/scenarios.md`.
+- **Scenario 6: State `PARTIAL_CORRUPTED` (Diagnose & Repair Mode):**
+  Surgically recreate only missing/corrupted files (READ matching resource from `resources/`) without touching intact knowledge bases. Detailed rules in `references/scenarios.md`.
+- **Scenario 7: State `INCOMPATIBLE_SCHEMA` (Read-Only Fallback Mode):**
+  Fail-closed protection: report schema mismatch, enter read-only inspection, provide manual migration instructions. Detailed rules in `references/scenarios.md`.
 
-##### Pass 2: Repository Deep-Dive, Principles & Shell Skills
-
-1. **Mandatory Core Inspection Checklist** (never populate `weak_spots.md` / `architecture.md` with boilerplate without reading key-module source): Storage & Database — primary data access module (LOC, schema coupling, migration setup); External API & Service Clients — retries, timeouts, fallbacks, global singletons; Containerization & Runtime — `Dockerfile`, compose, CI workflows (system binaries, permissions, volume mounts); User Interface & Input — keyboard/router modules (platform constraints, FSM states, destructive-action confirmation).
-2. **Interactive Calibration Interview (Codified Two-Question Protocol):** exactly 2 focused questions via `ask_question` or a direct interactive prompt:
-   - **Question 1 (North Stars & Core Invariants):** *"Какие ключевые архитектурные инварианты, бизнес-правила и ограничения продакшена (North Stars) нельзя нарушать при любых доработках?"* (What core architectural invariants, business rules, and production constraints must never be broken?)
-   - **Question 2 (Red Zone & Sensitive Paths):** *"Какие специфические каталоги или модули (биллинг, БД, криптография, ключи, легаси) являются критическими и должны быть заблокированы в Red Zone?"* (Which directories, databases, credentials, or legacy modules must be strictly placed into Red Zone?)
-   *Processing:* Q1 answers → Section 1 of `AGENTS.md` ("Principles and Architectural Orientations (North Stars)"); Q2 answers → Red Zone of `boundaries.md` before single-pass flush; skipped/empty answers → fall back gracefully to inspection-derived orientations.
-3. **Calibrate project concepts:** synthesize checklist findings and interview answers into 2-3 concise architectural orientations (North Stars) preventing contradictory agent actions.
-4. **Match stack skills from the agent shell registry:** Python/uv/ruff → `python-pro`; FastAPI → `fastapi-pro`; TypeScript/JavaScript → `typescript-expert`; Next.js → `nextjs-best-practices`; Docker → `docker-expert`; PostgreSQL/SQL → `postgresql-optimization`, `sql-pro`; Kubernetes/Helm → `kubernetes-architect`; Telegram/aiogram → `telegram-bot-builder`; CI/CD → `github-actions-creator`; clean code & review → `clean-code`, `code-reviewer`.
-5. **Calibrate boundaries (`boundaries.md` draft from Pass 1):** refine globs for actual project directories. Default Deny / 100% path coverage (Zero Unmapped Dirs) with the Black Zone rule: any unmapped path is Red by default. Test zone differentiation: new-feature tests Green; existing regression suites (`tests/**`, `*_test.*`, `*.spec.*`) Yellow with the no-weakening invariant (`assert`/`expect` must never be weakened); architectural integrity, API contract, schema, E2E tests strictly Red. Formatting/template engines Yellow; database files (`data/**`, `*.db`, `*.sqlite*`) Red; replace placeholder paths with actual migration (`alembic/versions/**`, `prisma/migrations/**`) and route/controller locations. **Never drop the mandatory security defaults:** `src/auth/**`, `src/billing/**`, `src/payments/**`, `src/crypto/**`, `*.pem`, `*.key`, `config/secrets/**`, CI/CD pipelines (`.github/workflows/**`), `.github/CODEOWNERS`, `scripts/check_boundaries.py`.
-6. **Risk and weak spot analysis (`weak_spots.md` draft):** record concrete technical debt from inspection — monoliths, singletons, external runtime dependencies (Redis, Postgres, brokers, system utilities like FFmpeg), platform constraints, mandatory `.env.example` variables.
-7. **Populate architecture and tasks slices** (READ: `resources/architecture.md`, `resources/tasks.md`): compose `architecture.md` strictly from the resource (map-first card) — Component Map table `Component | Location | Role | Depends on` (one row per component, no prose; the "updated IN THE SAME CHANGE that touches a component" rule applies from the very first commit); three one-line Stack / State + Single Source of Truth / Cross-border contracts slots; conditional "End-to-End Data Flows" section ONLY for multi-tier systems (omit for single-layer CLI/stdlib libraries to prevent bloat). `Design Patterns` is not part of the canonical format — do not add it. Compose `tasks.md` from the resource as well (team rules with the `- [>]` checkpoint convention, active objective, checklist, delegation registry).
-8. **In-Memory Synthesis Flush Protocol:** no intermediate drafts on disk; write in strict bottom-up order — Step A: pre-installed skills (`.agents/skills/record-observation/`, `sync-architecture/`, `ground-meta-project/`) and automation scripts (`scripts/check_boundaries.py`, `scripts/compact_memory.py` if shared-repo setup); Step B: knowledge slices (`observations.md` → `boundaries.md` → `weak_spots.md` → `architecture.md`); Step C (READ: `resources/AGENTS.md`): root passport composed from the resource — strictly last, as the aggregator of slice references and stack skills.
-
-#### Scenario 2: State `FOREIGN_RULES` (Preserve & Merge Mode)
-1. Strictly preserve foreign rule files (`.cursorrules`, `CLAUDE.md`, `.windsurfrules`, foreign `AGENTS.md`) — never delete or modify.
-2. Map foreign rule files into Yellow or Green zones in `boundaries.md` (avoid false Red triggers).
-3. Scaffold the `.agents/` structure non-destructively; incorporate foreign instructions into `AGENTS.md` by explicit reference or a designated coexistence section.
-
-#### Scenario 3: State `HEALTHY_REGISTERED` (Pass-Through / No-Op Mode)
-1. Zero-diff verification: **0 modified files**, no temporary files, no locks; report "Meta-Project is intact, verified, and active for current harness. All capability levels operational. Ready for work."
-2. Repeat-run semantics: fresh init report → strict no-op; no fresh report → ONE limited re-survey and an adoption init report (`python scripts/manage_reports.py init --action create`), WITHOUT re-scaffolding; read-only request → no report at all; `INCOMPATIBLE_SCHEMA` → diagnostics only, never automatic overwrite (Scenario 7).
-
-#### Scenario 4: State `HEALTHY_NEW_HARNESS` (Multi-Harness Adaptation Mode)
-1. Preserve existing installations — strictly forbidden to delete, disconnect, or alter active entries in `.agents/meta-project.json`.
-2. Register the new harness installation (e.g. `zc-main` / `zcode`) with active status.
-3. Scaffold role bindings in `.agents/team/` for the new harness, maintaining qualified `actor_id` coordinates.
-
-#### Scenario 5: State `LEGACY_UNREGISTERED` (Legacy Adoption Mode)
-1. Prohibition on destructive overwrite: preserve existing `observations.md` (all historical rows) and `tasks.md`.
-2. Upgrade standards: North Stars and directive protocol in `AGENTS.md` (no deletion of custom user invariants); Default Deny / 100% coverage in `boundaries.md`; 5-column observations table with `Category` column.
-3. Deploy registry and runtime utilities: `.agents/meta-project.json`, `scripts/inspect_meta_project.py`, `scripts/verify_identity.py`, `scripts/record_obs.py`.
-
-#### Scenario 6: State `PARTIAL_CORRUPTED` (Diagnose & Repair Mode)
-Report exact missing components or syntax errors from the inspection report (`missing_components`, `conflicts`); surgically recreate ONLY missing/corrupted files without touching intact knowledge bases or profiles (READ only the resource matching the file being recreated).
-
-#### Scenario 7: State `INCOMPATIBLE_SCHEMA` (Read-Only Fallback Mode)
-Fail-closed protection: no automatic writes when `schema_version` is incompatible; report the mismatch, enter read-only inspection mode, and provide manual migration instructions.
+**Reference Loading Contract (`MISSING_RESOURCE`):**
+If `references/scenarios.md` is absent or unreadable, emit `[MISSING_RESOURCE] references/scenarios.md: reference file absent` and fall back to the scenario outline above and basic discovery. Do not block execution if core steps can proceed.
 
 ---
 

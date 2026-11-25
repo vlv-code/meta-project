@@ -1,0 +1,19 @@
+{
+  "name": "meta-project",
+  "version": "1.0.0-alpha.8",
+  "description": "Agentic environment and context organization framework: project passport (AGENTS.md), dynamic knowledge slices, and procedural skills for any repository.",
+  "author": {
+    "name": "vlv-code"
+  },
+  "homepage": "https://github.com/vlv-code/meta-project",
+  "repository": "https://github.com/vlv-code/meta-project",
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "context",
+    "skills",
+    "cursor",
+    "python",
+    "meta-project"
+  ]
+}

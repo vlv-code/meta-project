@@ -150,6 +150,24 @@ def sync_skill_mirroring(
                         mirror_res.parent.mkdir(parents=True, exist_ok=True)
                         mirror_res.write_bytes(res_bytes)
 
+        # References ship WITH the skill (Wave Z2-B progressive disclosure):
+        # mirror skills/<name>/references/* into .agents/skills/<name>/references/*.
+        skill_references_dir = skill_file.parent / "references"
+        if skill_references_dir.is_dir():
+            for ref_file in sorted(skill_references_dir.iterdir()):
+                if not ref_file.is_file():
+                    continue
+                mirror_ref = agent_skills_dir / skill_name / "references" / ref_file.name
+                ref_bytes = ref_file.read_bytes()
+                if not mirror_ref.is_file() or mirror_ref.read_bytes() != ref_bytes:
+                    drift_messages.append(
+                        f"Drift: .agents/skills/{skill_name}/references/{ref_file.name} "
+                        f"is out of sync with skills/{skill_name}/references/{ref_file.name}"
+                    )
+                    if write:
+                        mirror_ref.parent.mkdir(parents=True, exist_ok=True)
+                        mirror_ref.write_bytes(ref_bytes)
+
         if not mirror_file.is_file():
             drift_messages.append(
                 f"Drift: Missing mirrored skill at {mirror_file.relative_to(repo_root)}"
@@ -186,7 +204,8 @@ def sync_global_skills(
     repo_root: Path, global_dir: Path, write: bool = False
 ) -> Tuple[bool, List[str]]:
     """
-    Ensures that every canonical skill in skills/*/SKILL.md has an identical copy in global_dir/*/SKILL.md.
+    Ensures that every canonical skill in skills/*/SKILL.md and its resources/
+    has an identical copy in global_dir/*/.
     Returns (in_sync, list_of_drift_messages).
     """
     drift_messages: List[str] = []
@@ -199,6 +218,42 @@ def sync_global_skills(
         skill_name = skill_file.parent.name
         target_skill_dir = global_dir / skill_name
         target_file = target_skill_dir / "SKILL.md"
+
+        # Byte-exact resources synchronization
+        skill_resources_dir = skill_file.parent / "resources"
+        if skill_resources_dir.is_dir():
+            target_res_dir = target_skill_dir / "resources"
+            for res_file in sorted(skill_resources_dir.iterdir()):
+                if not res_file.is_file():
+                    continue
+                target_res = target_res_dir / res_file.name
+                res_bytes = res_file.read_bytes()
+                if not target_res.is_file() or target_res.read_bytes() != res_bytes:
+                    drift_messages.append(
+                        f"Global Drift: Global skill '{skill_name}' resource '{res_file.name}' "
+                        f"diverges from repo canonical"
+                    )
+                    if write:
+                        target_res_dir.mkdir(parents=True, exist_ok=True)
+                        target_res.write_bytes(res_bytes)
+
+        # Byte-exact references synchronization (Wave Z2-B progressive disclosure)
+        skill_references_dir = skill_file.parent / "references"
+        if skill_references_dir.is_dir():
+            target_ref_dir = target_skill_dir / "references"
+            for ref_file in sorted(skill_references_dir.iterdir()):
+                if not ref_file.is_file():
+                    continue
+                target_ref = target_ref_dir / ref_file.name
+                ref_bytes = ref_file.read_bytes()
+                if not target_ref.is_file() or target_ref.read_bytes() != ref_bytes:
+                    drift_messages.append(
+                        f"Global Drift: Global skill '{skill_name}' reference '{ref_file.name}' "
+                        f"diverges from repo canonical"
+                    )
+                    if write:
+                        target_ref_dir.mkdir(parents=True, exist_ok=True)
+                        target_ref.write_bytes(ref_bytes)
 
         if not target_file.is_file():
             drift_messages.append(

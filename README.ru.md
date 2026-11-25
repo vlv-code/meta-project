@@ -45,7 +45,7 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 
 ## Установка
 
-Установите Meta-Project как плагин или пакет — без ручного копирования. Поддерживаются три канала:
+Установите Meta-Project как плагин или пакет для Claude Code, Cursor, Codex, Gemini CLI или Agent Plugins:
 
 ### Claude Code (маркетплейс плагинов)
 
@@ -61,7 +61,7 @@ claude plugin marketplace add vlv-code/meta-project
 npx plugins add vlv-code/meta-project
 ```
 
-Устанавливает пакет Agent Plugins 1.0.0 для совместимых хостов.
+Установка через Agent Plugins, Cursor (`.cursor-plugin`), Codex (`.agents/plugins`) или Gemini CLI (`gemini-extension.json`).
 
 ### skills.sh (установка отдельных навыков)
 
@@ -283,7 +283,11 @@ Meta-Project поддерживает два сценария использов
 Проект содержит автоматические тесты целостности навыков, YAML frontmatter, шаблонов и канонической структуры:
 
 ```bash
+# Стандартный однопоточный прогон тестов:
 python -m unittest discover -s tests -p "test_*.py" -v
+
+# Быстрый параллельный прогон по всем доступным ядрам:
+python tests/run_parallel.py
 ```
 
 Тесты не имеют внешних зависимостей и работают на любой системе с Python 3.10+.

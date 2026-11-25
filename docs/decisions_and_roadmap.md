@@ -419,6 +419,7 @@
   - [x] P2.0 (Migration Prep 1): Детерминированный движок обследования `inspect_meta_project.py`, самодостаточный паспорт и универсальный протокол адаптации репозитория (`docs/superpowers/plans/2026-11-14-universal-init-and-repo-adoption.md`, коммит `9d2329b` — план доступен только в ветке `dev`).
   - [x] P2.0b (Migration Prep 2): Протокол согласования сценария, машиночитаемые отчёты инициализации (`.agents/reports/<installation_id>/init/<run_id>.json`) и сценарий-зависимая оркестрация команды в `manage-meta-project` (`docs/superpowers/plans/2026-11-15-scenario-agreement-init-reports-and-manage.md`).
   - [ ] P2.1: Утилита управления хуками сред `hooks/install.py` (`install`, `verify`, `uninstall`).
+    - *Примечание (2026-11-25, §11.3):* старт экосистемы хуков (волна Z3: `P2.1–P2.3`, тонкие обёртки поверх `check_boundaries.py` / `inspect_meta_project.py` / `compact_memory.py`, плюс единый онбординг/установка локального git `pre-commit` хука) запланирован **после завершения волн Z1 и Z2**.
   - [ ] P2.2: MVP адаптер `PreToolUse` для быстрой валидации путей записи по Green/Yellow/Red до исполнения tool call.
     - *Примечание (внешний аудит #4, §4, вариант A; диспозиция — §9):* тот же адаптер `PreToolUse` — второй потребительский сценарий: журнал чтений срезов знаний (`PostToolUse` на чтение пишет журнал сессии, исключённый из Git; `PreToolUse` на запись сверяет целевой путь с зонами и требует прочитанного обязательного среза: Yellow/Red → `boundaries.md`, модуль из `weak_spots.md` → `weak_spots.md`; нарушение → отказ с подсказкой). Гейт проверяет доступ, а не осмысление; только safety-relevant срезы, чтобы не воспроизвести Context Bloat. Отдельный пункт бэклога не заводится.
   - [ ] P2.3: MVP адаптер `SessionStart` для безопасной подачи компактного контекста без Context Bloat (<1500 токенов).
@@ -506,5 +507,161 @@
 3. **Приоритет 3 (Ролевые границы и диспетчер):** донести `Toolchain Handoff Tripwire` в `templates/team/system_prompt.md` и `templates/team/profile.md`, уточнить контракт `Pragmatic Handoff vs Dogmatism` и режим работы диспетчера (`Probe Bundle` / `mode: investigate` Handoff без спекулятивных фикс-промптов).
 4. **Приоритет 4 (Двухфазный `tasks.md` и анти-отмывание в `ground-meta-project`):** формализовать `- [?] PROBE` / `evidence:` / `- [ ] FIX` в `templates/project_knowledge/tasks.md` и перенести `FACTS vs HYPOTHESES` + вызов `triage_incident.py check-tasks` в Phase 2 (Recovery) навыка `skills/ground-meta-project/SKILL.md`.
 5. **Приоритет 5 (Эпистемический контур в шаблонах):** компактно закрепить `Evidence-First Triage`, расширенный `Circuit Breaker` (гипотезы + `Error-Path / Fallback-Masking`) и переносимую анти-угодливость в `templates/AGENTS.md` и `templates/team/system_prompt.md` с синхронизацией через `scripts/sync_templates.py`.
+
+---
+
+## 11. Дорожная карта волн T, Z1, Z2 и бэклог экосистемы хуков (2026-11-25)
+
+План сформирован по итогам перепроверки четырёх независимых аудитов против актуальной ревизии `dev` (`31090f3`, после закрытия Wave J, Wave K и Wave K.1) и эмпирического профилирования тестовой батареи (682 теста, 48 файлов). Порядок исполнения зафиксирован владельцем: **Wave T ➔ Wave Z1 ➔ Wave Z2 ➔ Волна хуков (Z3)**.
+
+### 11.0. Волна T (первая, перед Z1) — Модернизация, доменная консолидация и ускорение тестовой базы
+
+Цель: ликвидировать историческую фрагментацию `tests/` (35 разрозненных файлов `test_*wave_*.py` из 48), сократить время полного прогона на Windows с **~12–13 минут до ~35–55 секунд** без потери поведенческих и security-проверок и заменить одноразовые текстовые «гвозди» в doc-локах на динамические инварианты — чтобы уже Wave Z1 и Wave Z2 разрабатывались в чистых доменных тестах.
+
+- **Предусловие старта:** завершить/закоммитить текущие незакоммиченные изменения Wave L в ветке `dev`, чтобы не смешивать рефакторинг тестов с незавершённым кодом.
+- **Неприкосновенные инварианты:**
+  - `tests/test_integrity.py` (Red Zone) **не модифицируется**.
+  - `tests/test_audit_regressions.py` сохраняет имя файла (на него ссылается §8 и `docs/audit_38deed9_regressions_baseline.md`).
+  - Стандартный `python -m unittest discover -s tests -p "test_*.py"` (используемый в CI) остаётся полностью рабочим наряду с новым параллельным раннером; все новые вспомогательные файлы (`tests/run_parallel.py`, `tests/_git_fixtures.py`) — строго Python 3.10+ stdlib и не попадают в `templates/release_manifest.json`.
+  - **Санкция владельца (2026-11-25):** разрешена ревизия и удаление одноразовых текстовых ассертов прошлых патчей в 8 doc-lock файлах (`ewave_c`, `gwave_d`, `iwave_d`, `iwave_it`, `jwave_d`, `jwave_p`, `jwave_r`, `pwave_r`) с заменой на динамические инварианты в `tests/test_docs_invariants.py`. Поведенческие и security-тесты (SEC-1..SEC-4, fail-closed gates, parser honesty, triage gates) переносятся 1-в-1 без ослабления.
+
+#### Lane T1: Параллельный stdlib-раннер и быстрые `copytree`-фикстуры (`~12 мин ➔ ~35–55 с`)
+- **Эмпирическое основание (проверено на `31090f3`, 8 ядер):** последовательно `~710–773 с`; 8 воркеров по файлам — `132.7 с` (узкое горлышко: 1 файл `test_dwave_e2.py` = `130.7 с`); 4 файла `update_meta_project` (`dwave_e2`, `fwave_x`, `test_update_meta_project`, `dwave_e1`) съедают `355.8 с` = **50% всей батареи** из-за повторного создания одинаковых `origin`/`target` git-репозиториев в каждом `setUp()`.
+- **План:**
+  1. Создать `tests/run_parallel.py` (Python 3.10+ stdlib, `unittest.TestLoader` + `concurrent.futures` с дроблением по `TestCase`-классам и LPT-планированием, флагами `--workers`, `--pattern`, `--failfast`, прозрачным summary и корректным кодом возврата).
+  2. Вынести общие git-строители (`_git`, `_git_ok`, `_make_origin_repo`, `_make_target`, `_make_cache_dir`, манифесты v1–v3) в `tests/_git_fixtures.py` с кэшированием эталонного `origin`/`target` один раз в `setUpClass` (или session temp dir) и изоляцией каждого теста через `shutil.copytree()` в собственный `TemporaryDirectory` (100% реальный git, 100% изоляция, 0 моков).
+- **Критерий приёмки:** `python tests/run_parallel.py` проходит 100% GREEN на `dev` и на чистом дистрибутивном дереве (без `.agents/`), задокументирован реальный замер времени «до vs после».
+
+#### Lane T2: Доменная консолидация всех боевых и security-тестов скриптов (0 `test_*wave_*.py`)
+Слить 35 волновых файлов в ~15 самоочевидных доменных файлов (без потери поведенческих/security-проверок; перенести с матрицей соответствия `old -> new` для сверки Guardian):
+- `tests/test_update_engine.py` + `tests/test_update_engine_security.py` ← `test_update_meta_project`, `dwave_e1`, `dwave_e2`, `dwave_d6b`, `fwave_x`, `gwave_h`
+- `tests/test_manage_reports.py` ← `test_manage_reports`, `dwave_m`, `fwave_r`, `jwave_m`, `lwave_deconfliction`
+- `tests/test_check_boundaries.py` ← `test_check_boundaries`, `test_red_zone_sanction`, `dwave_b`, `iwave_g`
+- `tests/test_inspect_meta_project.py` ← `test_inspect_meta_project`, `gwave_i`, `jwave_q`, `lwave_topology`
+- `tests/test_verify_identity.py` ← `test_verify_identity`, `jwave_v`
+- `tests/test_triage_incident.py` ← `kwave_t`
+- `tests/test_compact_memory.py` ← `test_compact_memory` + `[>]` чекпоинты из `ewave_e`
+- `tests/test_record_obs.py` ← `test_record_obs`, `dwave_r`
+- `tests/test_common_and_envelopes.py` ← `fwave_c` + error envelopes из `ewave_e`
+- `tests/test_sync_and_resources.py` ← `test_sync_templates`, `ewave_p`, `gwave_s`
+- `tests/test_manifests_and_packaging.py` ← `dwave_k`, `pwave_p`, `pwave_f`
+- `tests/test_skills_and_templates_contracts.py` ← `kwave_p`, `ewave_t`, `jwave_o`
+- `tests/test_lifecycle_acceptance.py` ← `test_acceptance_scenarios`, `test_report_and_manage_cycle`
+
+#### Lane T3: Ревизия 8 хрупких doc-локов ➔ `tests/test_docs_invariants.py` (динамические инварианты)
+- Консолидировать `ewave_c`, `gwave_d`, `iwave_d`, `iwave_it`, `jwave_d`, `jwave_p`, `jwave_r`, `pwave_r` в единый чистый `tests/test_docs_invariants.py`.
+- **Сохранить как динамические инварианты:**
+  - целостность внутренних ссылок и якорей в `README.md` / `README.ru.md` / `CONTRIBUTING*.md`;
+  - построчный паритет `README.md == README.ru.md` и `CONTRIBUTING.md == CONTRIBUTING.ru.md`;
+  - политика версионирования и совместимость парсера заголовков релизов `CHANGELOG.md`;
+  - наличие базовых Green-корневых паттернов (`.gitattributes`, `.gitignore`, `LICENSE`) в `templates/project_knowledge/boundaries.md`;
+  - **динамическая** сверка числа скиллов с фактическим `skills/` и максимального номера ADR с `docs/decisions_and_roadmap.md` (без захардкоженных строк `"eight"` / `"ADR #14–#23"`).
+- **Убрать (санкционировано владельцем):** одноразовые дословные проверки исторических формулировок прошлых патчей (например, буквальных фраз в §9, статических счётчиков скиллов и замороженных диапазонов ADR).
+- **Обновить ссылки:** актуализировать список тестов в `.agents/project_knowledge/architecture.md` (и упомянуть `python tests/run_parallel.py` как быстрый локальный прогон).
+
+---
+
+### 11.1. Волна Z1 (после Wave T) — Подтверждённые P1-дефекты ядра, плагин-резолв скриптов и гигиена срезов
+
+Цель: закрыть 4 подтверждённых функциональных дефекта/риска в `scripts/` и `skills/` и устранить мелкий дрейф срезов знаний перед следующей публикацией. Все изменения — в рамках `Zero-Dependency Core` и RED-first TDD (`agent-dev-lead ➔ agent-quality-guardian ➔ agent-github-steward`).
+
+#### Lane Z1-A: Нормализация `input_fingerprints` (`list` vs `dict`) и актуализация эталона `update_report.json`
+- **Проблема (подтверждено на `31090f3`):** `scripts/update_meta_project.py` (`_build_update_report`, L1884–1889/1948) и эталоны `templates/reports/update_report.json` и `templates/reports/tune_report.json` записывают `input_fingerprints` как `list[{"path": ..., "sha256": ...}]`, тогда как `check_report_staleness()` в `scripts/manage_reports.py:1274` проверяет только `if isinstance(fingerprints, dict) and fingerprints:` и на списке проваливается в fallback для легаси-отчётов, игнорируя записанные SHA-256.
+- **План:**
+  1. Ввести в `scripts/manage_reports.py` единый хелпер нормализации `input_fingerprints` (поддержка и `dict[path, sha256]`, и `list[{"path": ..., "sha256": ...}]`, с fail-closed отбраковкой битых элементов) и подключить его в `check_report_staleness()` и смежных проверках свежести.
+  2. Актуализировать эталон `templates/reports/update_report.json`: привести `versions.after` к контракту волны F (объект `{"framework_version": ..., "commit_sha": ...}` или синхронно с валидатором) и исправить `affected_components[*].kind` с `"templates"` на каноническое `"template"`.
+- **Критерий приёмки:** RED-тесты, доказывающие, что `check_report_staleness()` обнаруживает изменение файла по `list`-формату `input_fingerprints` и признаёт неизменённый отчёт свежим; `python scripts/manage_reports.py verify --report templates/reports/update_report.json` проходит с `rc=0`.
+
+#### Lane Z1-B: Синхронизация `resources/*` в `sync_global_skills()` (`scripts/sync_templates.py`)
+- **Проблема (подтверждено на `31090f3`):** `sync_skill_mirroring()` зеркалирует и `SKILL.md`, и `resources/*`, тогда как `sync_global_skills()` (`--global-skills`, L185–230) проверяет и копирует только `skills/*/SKILL.md`. При обновлении канонических шаблонов в `templates/` глобальные кэши (`~/.gemini/config/skills`, `~/.agents/skills`) остаются со старыми `resources/*`, а `--global-skills --check` выдаёт ложный `0 drift`.
+- **План:**
+  1. Расширить `sync_global_skills()` до байт-точной проверки и копирования `resources/*` (по тому же LF raw-byte контракту `write_bytes`, что и `sync_skill_mirroring()`), включая создание отсутствующих файлов и детекцию дрейфа.
+  2. Прогнать `python scripts/sync_templates.py --global-skills --check` / `--write` на тестовой фикстуре.
+- **Критерий приёмки:** RED-тест на дрейф и отсутствие файла внутри `<global_dir>/init-meta-project/resources/` и `<global_dir>/manage-meta-project/resources/` (`--check` возвращает ненулевой rc и список дрейфа; `--write` устраняет дрейф побайтово).
+
+#### Lane Z1-C: Кросс-харнесный резолв `scripts/*.py` при нативной установке плагина в кэш
+- **Проблема (подтверждено на `31090f3`):** во всех `skills/*/SKILL.md` утилиты вызываются только как относительный `python scripts/<name>.py` из CWD проекта. При первом запуске `init-meta-project` или `scan-meta-project` в пустом/новом целевом репозитории из нативно установленного плагина (кэш `~/.claude/plugins/cache/...`, `~/.copilot/...`) локальной папки `scripts/` ещё нет — вызов падает с `No such file or directory`.
+- **План:**
+  1. Зафиксировать в точках входа (`skills/init-meta-project/SKILL.md`, `skills/scan-meta-project/SKILL.md`, и компактной ссылкой в остальных скиллах без превышения лимита `<= 240` строк у `skills/manage-meta-project/SKILL.md`) канонический порядок резолва корня скриптов (`SCRIPT_ROOT`):
+     - приоритет 1: `./scripts/<script>.py` в целевом репозитории (после `init`);
+     - приоритет 2: `${CLAUDE_PLUGIN_ROOT}/scripts/<script>.py` (если переменная задана харнессом);
+     - приоритет 3: `<dir_of_SKILL.md>/../../scripts/<script>.py` (sibling-корень установленного плагина).
+  2. Убедиться, что `init-meta-project` копирует runtime-скрипты из найденного корня плагина (или pinned source) в `<target_repo>/scripts/` до дальнейших шагов.
+  3. Провести живой smoke-тест из изолированного пустого каталога (CWD вне репозитория плагина, без `./scripts/`), вызывая `inspect_meta_project.py` и `manage_reports.py` по резолвленному пути плагина с `--repo-root <empty_target>`.
+- **Критерий приёмки:** контрактные тесты на наличие правила резолва в `init`/`scan` + живой smoke-тест CLI с `--repo-root` из пустого временного каталога + `sync_templates.py --check` 0 drift.
+
+#### Lane Z1-D: Авто-резолв единственной активной инсталляции при `--harness auto` (`scripts/inspect_meta_project.py`)
+- **Проблема (подтверждено живым запуском на `31090f3`):** `python scripts/inspect_meta_project.py --harness auto --read-only --json` определяет `target_harness: "antigravity"` и `state: "HEALTHY_REGISTERED"`, но оставляет `target_installation: null`, `orchestration: null` и `capabilities.roles.status: "untested"`, хотя для `antigravity` в `.agents/meta-project.json` ровно одна активная инсталляция (`ag-main`).
+- **План:**
+  1. В `inspect_meta_project.py` при разрешённом `target_harness` и не переданном `--installation` проверять список активных инсталляций с `harness_id == target_harness`:
+     - ровно 1 активная инсталляция → автоматически устанавливать `target_installation`, резолвить `orchestration`, `capabilities.roles` и `latest_init_report` строго в скоупе этой инсталляции;
+     - ≥2 активных инсталляций на один харнесс → fail-closed: оставлять `target_installation: null`, не подтягивать чужой `latest_init_report` и явно сообщать о необходимости `--installation`.
+  2. Сохранить без изменений верхнеуровневые ключи `--facts-digest` (лок `tests/test_kwave_p.py`).
+- **Критерий приёмки:** RED-тесты для 3 кейсов (1 активная ➔ авто-резолв + `roles: available` + `orchestration`; 2 активных на один харнесс ➔ `null` без чужого отчёта; 0 активных ➔ `HEALTHY_NEW_HARNESS`), живой прогон `--harness auto --read-only --json` в `dev` возвращает `target_installation: "ag-main"`.
+
+#### Lane Z1-E: Гигиена срезов знаний и документации
+- **Объём:**
+  - `.agents/project_knowledge/architecture.md`: удалить битый дубль строки `release.yml` (L48/L54), добавить `scripts/sync_dist_branch.py` и `.github/workflows/sync-dist.yml`.
+  - `.agents/project_knowledge/weak_spots.md`: обновить п. §2 (L15) — отметить, что агрегирующий job `all-checks` (`All Checks Green`) уже реализован в `.github/workflows/ci.yml:303`; открытым остаётся только ручное включение Branch Protection в настройках GitHub.
+  - `.agents/project_knowledge/tasks.md`: обновить `Active Objective` (снять устаревшую цель от 2026-11-06) и вычистить 5 дублирующихся блоков `> [!NOTE]` архива (оставить 1); отметить `[COMPLETED]` на закрытых делегированных строках Wave K.
+  - `AGENTS.md` (§5) и `templates/AGENTS.md` (§5): уточнить рабочие флаги для `inspect_meta_project.py` (`--harness auto --read-only --json`) и `manage_reports.py verify --report <path>`, синхронизировать ресурсы через `sync_templates.py --write`.
+- **Критерий приёмки:** полная батарея `unittest` GREEN, `sync_templates.py --check` 0 drift, `check_boundaries.py --audit-tree` 100%, `verify_identity.py --check` 0 errors, дистрибутивное дерево (без `.agents/`) GREEN.
+
+---
+
+### 11.2. Волна Z2 (после Z1) — Hardening `compact_tasks()`, Progressive Disclosure скиллов, вендорные маркетплейсы и подготовка к Beta
+
+Цель: закрыть структурный и масштабируемый долг фреймворка перед переходом к экосистеме хуков и бета-ветке.
+
+#### Lane Z2-A: Исправление и hardening `compact_tasks()` (`scripts/compact_memory.py`)
+- **Решение по истории:** восстановление исторических Steps 16–87 из `git log` в `tasks_archive.md` **отклонено** (история сохранена в Git и `decisions_and_roadmap.md`); требуется надёжная починка механизма ротации на будущее.
+- **План:**
+  1. Сделать вставку `> [!NOTE] Earlier completed tasks archived...` в `compact_tasks()` идемпотентной со схлопыванием уже существующих дублей (по аналогии с `compact_observations()`).
+  2. Добавить best-effort удаление `.lock`-файла после освобождения блокировки в `file_lock` (`compact_memory.py`), выровняв с `record_obs.py` и `triage_incident.py`.
+  3. Добавить состязательные регрессионные тесты: повторные запуски ротации оставляют ровно 1 `> [!NOTE]`; ни одна ротированная `[x]`-строка не теряется без записи в `tasks_archive.md`; активные `- [>]` чекпоинты и `- [?] PROBE` блоки не затрагиваются; `.lock` не остаётся на диске.
+
+#### Lane Z2-B: Progressive Disclosure для тяжёлых скиллов (`references/`)
+- **Проблема (подтверждено на `31090f3`):** три ключевых скилла весят 15–25 КБ (`manage-meta-project/SKILL.md` — 25.4 КБ / 237 строк, `init-meta-project/SKILL.md` — 20.1 КБ / 172 строки, `update-meta-project/SKILL.md` — 15.3 КБ / 121 строка), что повышает расход контекста и риск пропуска правил в середине текста на младших моделях.
+- **План:**
+  1. Вынести справочные таблицы, длинные сценарии и edge-case справочники (Open Competency Catalog, детали 7 сценариев `init`, диагностические таблицы `update`) в лениво-подгружаемые файлы `skills/<name>/references/*.md` с явной таблицей подгрузки по фазам и контрактом `MISSING_RESOURCE`.
+  2. Зарегистрировать `references/*.md` в `templates/release_manifest.json` и поддержать их зеркалирование в `scripts/sync_templates.py` (локально и `--global-skills`).
+  3. Обновить контрактные тесты (`test_gwave_s.py`, `test_ewave_p.py`, `test_jwave_o.py`, `test_kwave_p.py`) без ослабления проверяемых инвариантов.
+
+#### Lane Z2-C: Вендорные маркетплейс-манифесты и исключение в дистрибуции
+- **Предусловие:** закрытый Lane Z1-C (рабочий резолв `scripts/` из кэша плагина) и проверка актуальных спецификаций каждого харнесса перед реализацией.
+- **План:**
+  1. Добавить маркетплейс-манифесты для расширенной нативной установки:
+     - Codex CLI: `.agents/plugins/marketplace.json`;
+     - Cursor Marketplace: `.cursor-plugin/plugin.json` и `.cursor-plugin/marketplace.json`;
+     - Gemini CLI: `gemini-extension.json`.
+  2. Привязать поле `version` во всех новых манифестах к единому источнику `templates/release_manifest.json` (`framework_version`) и залочить контрактными тестами (аналог `tests/test_pwave_p.py`).
+  3. Проработать конфликт пути `.agents/plugins/marketplace.json` с исключением `.agents/**` в `scripts/sync_dist_branch.py` и `boundaries.md`: разрешить перенос `.agents/plugins/**` в дистрибутивную ветку `main` при сохранении полного исключения dogfooding-каталогов (`.agents/project_knowledge/**`, `.agents/team/**`, `.agents/reports/**`, `.agents/skills/**`, `.agents/meta-project.json`).
+
+#### Lane Z2-D: Декомпозиция монолитов (Beta Prep)
+- **План:**
+  1. Разбить крупные монолиты (`scripts/update_meta_project.py` ~114 КБ, `scripts/manage_reports.py` ~95 КБ, а также `inspect_repository()` из `weak_spots.md §3` ~333 строки + энумы состояний/capabilities) на читаемые stdlib-модули с прозрачным графом `requires` в `templates/release_manifest.json` и 100% обратной совместимостью CLI и публичных импортов.
+  *(Доменная консолидация и переименование `tests/test_*wave_*.py` вынесены вперёд в Wave T, §11.0.)*
+
+---
+
+### 11.3. Волна Z3 / Бэклог экосистемы хуков (старт после закрытия Z1 и Z2)
+
+Сводный бэклог экосистемы хуков, объединяющий **ADR #14** (`§7.1`), пункты **`P2.1–P2.3`** (`§7.3`), диспозицию аудита #4 (`§9`), рекомендации плагин-аудита и операционную эргономику локальных git-хуков.
+
+- **Архитектурный инвариант:** вся логика валидации и политики остаётся строго в Python stdlib-ядре (`scripts/check_boundaries.py`, `scripts/inspect_meta_project.py`, `scripts/compact_memory.py`, `scripts/triage_incident.py`). Из-за расхождения JSON-форматов хуков между Claude Code, Cursor, Copilot CLI, Codex и Gemini CLI файлы в `hooks/` проектируются исключительно как предельно тонкие адаптеры-маршрутизаторы (event JSON ➔ вызов `scripts/*.py` ➔ маппинг exit-кода/ответа).
+- **Состав работ (очередь после Z1 и Z2):**
+  1. **Единый установщик `hooks/install.py` (`P2.1`) + эргономика локального git `pre-commit` хука:**
+     - Команды `install`, `verify`, `uninstall` (неразрушающее слияние конфигов харнессов без перезаписи пользовательских хуков).
+     - Интеграция установки/проверки локального git `pre-commit` хука (`python scripts/check_boundaries.py --install-hook`, chain execution по ADR #17) в единый онбординг/верификацию хуков, чтобы закрыть повторяющуюся диагностику `capabilities.hooks: unavailable` на рабочих копиях операторов без коммита `.git/hooks/` в Git.
+  2. **Тонкий адаптер `PreToolUse` поверх `scripts/check_boundaries.py` (`P2.2`):**
+     - Перехват `Edit`/`Write` по матрице Green/Yellow/Red/Default Deny до записи файла.
+     - Второй сценарий (аудит #4, §4 вариант A): опциональный сессионный журнал чтений (`PostToolUse` на чтение, исключённый из Git) + проверка чтения safety-relevant срезов (`boundaries.md`, `weak_spots.md`) перед записью в Yellow/Red.
+  3. **Тонкий адаптер `SessionStart` поверх `scripts/inspect_meta_project.py` (`P2.3`):**
+     - Безопасная подача компактного стартового контекста (<1500 токенов, без Context Bloat) и интеграция с `--facts-digest` (кандидат варианта C из §9).
+  4. **Тонкий адаптер-напоминание поверх `scripts/compact_memory.py --dry-run`:**
+     - Мягкое уведомление о превышении лимитов `observations.md`/`tasks.md` без блокировки интерактивного события `Stop` (`framework_philosophy_and_vision.md §3.2`).
+  5. **Гигиена артефактов движка обновлений (`update-meta-project/SKILL.md` + `.gitignore`-шаблон):**
+     - Явно разделить постоянные артефакты, подлежащие коммиту в целевом репозитории (`.agents/framework-lock.json`, `.agents/reports/*/update/*.json`), и временные рабочие файлы сессии обновления (`.agents/update-engine.lock`, `.agents/update-plan.json`, `.agents/update-journal.json`), закрепив их в append-if-absent `.gitignore`-блоке (`init-meta-project`) и в closeout-шаге `update-meta-project/SKILL.md`, чтобы временные файлы не попадали в Git-историю целевых проектов.
+
 
 
