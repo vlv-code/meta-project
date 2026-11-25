@@ -27,9 +27,29 @@
       ]
     },
     {
+      "path": "scripts/_inspect_classifier.py",
+      "kind": "script",
+      "requires": []
+    },
+    {
       "path": "scripts/inspect_meta_project.py",
       "kind": "script",
       "requires": [
+        "scripts/_inspect_classifier.py",
+        "scripts/verify_identity.py",
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "scripts/_report_models.py",
+      "kind": "script",
+      "requires": []
+    },
+    {
+      "path": "scripts/_report_intake.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_report_models.py",
         "scripts/verify_identity.py",
         "scripts/_common.py"
       ]
@@ -38,6 +58,8 @@
       "path": "scripts/manage_reports.py",
       "kind": "script",
       "requires": [
+        "scripts/_report_intake.py",
+        "scripts/_report_models.py",
         "scripts/verify_identity.py",
         "scripts/_common.py"
       ]
@@ -62,9 +84,24 @@
       "requires": []
     },
     {
+      "path": "scripts/_update_bundle.py",
+      "kind": "script",
+      "requires": []
+    },
+    {
+      "path": "scripts/_update_merge.py",
+      "kind": "script",
+      "requires": [
+        "scripts/_update_bundle.py",
+        "scripts/_common.py"
+      ]
+    },
+    {
       "path": "scripts/update_meta_project.py",
       "kind": "script",
       "requires": [
+        "scripts/_update_merge.py",
+        "scripts/_update_bundle.py",
         "scripts/_common.py"
       ]
     },
@@ -79,13 +116,6 @@
       "path": "skills/init-meta-project/SKILL.md",
       "kind": "skill",
       "requires": []
-    },
-    {
-      "path": "skills/init-meta-project/references/scenarios.md",
-      "kind": "resource",
-      "requires": [
-        "skills/init-meta-project/SKILL.md"
-      ]
     },
     {
       "path": "skills/init-meta-project/resources/observations.md",
@@ -151,17 +181,17 @@
       ]
     },
     {
+      "path": "skills/init-meta-project/references/scenarios.md",
+      "kind": "resource",
+      "requires": [
+        "skills/init-meta-project/SKILL.md"
+      ]
+    },
+    {
       "path": "skills/manage-meta-project/SKILL.md",
       "kind": "skill",
       "requires": [
         "scripts/manage_reports.py"
-      ]
-    },
-    {
-      "path": "skills/manage-meta-project/references/competencies.md",
-      "kind": "resource",
-      "requires": [
-        "skills/manage-meta-project/SKILL.md"
       ]
     },
     {
@@ -180,6 +210,13 @@
     },
     {
       "path": "skills/manage-meta-project/resources/system_prompt.md",
+      "kind": "resource",
+      "requires": [
+        "skills/manage-meta-project/SKILL.md"
+      ]
+    },
+    {
+      "path": "skills/manage-meta-project/references/competencies.md",
       "kind": "resource",
       "requires": [
         "skills/manage-meta-project/SKILL.md"

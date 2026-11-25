@@ -2217,7 +2217,12 @@ class TestManifestReadabilityFallback(WaveE2TestCase):
         as an update source; the updater is a first-class component."""
         self.require_engine(resolve_source, load_bundle)
         head_sha = _git_ok(REPO_ROOT, "rev-parse", "HEAD").stdout.strip()
-        manifest_bytes = (REPO_ROOT / "templates" / "release_manifest.json").read_bytes()
+        try:
+            manifest_bytes = _git_ok(
+                REPO_ROOT, "cat-file", "blob", f"{head_sha}:templates/release_manifest.json"
+            ).stdout.encode("utf-8")
+        except Exception:
+            manifest_bytes = (REPO_ROOT / "templates" / "release_manifest.json").read_bytes()
         manifest = json.loads(manifest_bytes)
         component_paths = [
             str(c.get("path", "")).strip("/")

@@ -60,6 +60,51 @@ detect_host_harness, HOST_HARNESS_SIGNATURES = (
 )
 
 
+try:
+    from scripts._inspect_classifier import (
+        CapabilityStatus,
+        InspectionState,
+        CANONICAL_ACTIONS,
+        FOREIGN_RULE_FILES,
+        STATE_DESCRIPTIONS,
+        SUPPORTED_SCHEMA_VERSIONS,
+        classify_repository_state,
+        evaluate_capability_matrix,
+        find_latest_init_report,
+        resolve_installation_matching,
+    )
+except ImportError:
+    from _inspect_classifier import (
+        CapabilityStatus,
+        InspectionState,
+        CANONICAL_ACTIONS,
+        FOREIGN_RULE_FILES,
+        STATE_DESCRIPTIONS,
+        SUPPORTED_SCHEMA_VERSIONS,
+        classify_repository_state,
+        evaluate_capability_matrix,
+        find_latest_init_report,
+        resolve_installation_matching,
+    )
+
+
+__all__ = [
+    'CapabilityStatus',
+    'InspectionState',
+    'CANONICAL_ACTIONS',
+    'FOREIGN_RULE_FILES',
+    'STATE_DESCRIPTIONS',
+    'SUPPORTED_SCHEMA_VERSIONS',
+    'classify_repository_state',
+    'evaluate_capability_matrix',
+    'find_latest_init_report',
+    'resolve_installation_matching',
+    'inspect_repository',
+    'main',
+    'detect_host_harness',
+    'HOST_HARNESS_SIGNATURES',
+]
+
 def _registry_validation_errors(repo_root: Path) -> List[str]:
     """Returns registry validity errors, or [] when the validator is
     unavailable/external failure. HEALTHY states require an empty list."""
@@ -70,8 +115,6 @@ def _registry_validation_errors(repo_root: Path) -> List[str]:
         return [] if is_valid else list(errors)
     except Exception as exc:  # noqa: BLE001 - defensive: no tracebacks
         return [f"registry validation failed unexpectedly: {exc}"]
-
-SUPPORTED_SCHEMA_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1", "1"}
 
 
 def resolve_orchestration(
@@ -250,42 +293,6 @@ def compute_facts_digest(repo_root: Path, report: Dict[str, Any]) -> Dict[str, A
         "harness": runtime_context.get("target_harness"),
         "installation": runtime_context.get("target_installation"),
     }
-
-
-CANONICAL_ACTIONS = {
-    "NONE": "scaffold_clean",
-    "FOREIGN_RULES": "preserve_and_merge",
-    "HEALTHY_REGISTERED": "pass_through",
-    "HEALTHY_NEW_HARNESS": "bind_harness",
-    "CONTEXT_UNRESOLVED": "provide_runtime_context",
-    "LEGACY_UNREGISTERED": "adopt_legacy",
-    "PARTIAL_CORRUPTED": "diagnose_and_repair",
-    "INCOMPATIBLE_SCHEMA": "read_only_fallback",
-}
-
-STATE_DESCRIPTIONS = {
-    "NONE": "No agent scaffolding or instructions found.",
-    "FOREIGN_RULES": "Foreign instructions found without Meta-Project framework.",
-    "HEALTHY_REGISTERED": "Meta-Project intact and current harness installation is registered and active.",
-    "HEALTHY_NEW_HARNESS": "Meta-Project intact, but the active harness/installation is not registered or planned.",
-    "CONTEXT_UNRESOLVED": (
-        "Meta-Project structure is healthy, but no runtime context "
-        "(--harness/--installation) was provided: registered status for the "
-        "caller cannot be determined without silently adopting an arbitrary "
-        "active installation (audit §4)."
-    ),
-    "LEGACY_UNREGISTERED": "Legacy Meta-Project structure detected without multi-harness registry.",
-    "PARTIAL_CORRUPTED": "Meta-Project structure is incomplete, corrupted, or missing critical slices.",
-    "INCOMPATIBLE_SCHEMA": "Registry schema version is incompatible with current inspector tooling.",
-}
-
-FOREIGN_RULE_FILES = [
-    "CLAUDE.md",
-    ".cursorrules",
-    ".cursor/rules",
-    ".windsurfrules",
-    ".copilot-instructions.md",
-]
 
 
 def detect_git_worktree(repo_root: Path) -> Tuple[bool, Optional[Path]]:
@@ -525,216 +532,43 @@ def inspect_repository(
     if registry_file.is_file() and not registry_corrupted and registry_data is not None:
         registry_errors = _registry_validation_errors(repo_root)
 
-    # 4. State classification
-    state: str
-    if not has_agents_md and not agents_dir.exists() and not foreign_instructions:
-        state = "NONE"
-    elif foreign_instructions and not is_meta_agents and not agents_dir.exists():
-        state = "FOREIGN_RULES"
-    elif is_meta_agents or pk_dir.exists() or registry_file.exists():
-        # Candidate for Meta-Project
-        if registry_corrupted:
-            state = "PARTIAL_CORRUPTED"
-            missing_components.append(".agents/meta-project.json (malformed JSON)")
-        elif not registry_file.is_file():
-            state = "LEGACY_UNREGISTERED"
-            missing_components.append(".agents/meta-project.json")
-        elif schema_version and schema_version.split(".")[0] not in [v.split(".")[0] for v in SUPPORTED_SCHEMA_VERSIONS]:
-            state = "INCOMPATIBLE_SCHEMA"
-            conflicts.append(f"Unsupported schema_version: {schema_version}")
-        elif not boundaries_file.is_file():
-            state = "PARTIAL_CORRUPTED"
-            missing_components.append(".agents/project_knowledge/boundaries.md")
-        elif not (has_agents_md and is_meta_agents):
-            # Mandatory component: the project passport (audit §4: absence of
-            # mandatory components must never yield a HEALTHY state).
-            state = "PARTIAL_CORRUPTED"
-            missing_components.append(
-                "AGENTS.md (project passport missing or not a Meta-Project passport)"
-            )
-        elif registry_errors:
-            # Mandatory component: a structurally valid registry (audit §4).
-            state = "PARTIAL_CORRUPTED"
-            conflicts.extend(f"registry invalid: {e}" for e in registry_errors[:5])
-        else:
-            # We have a valid registry, boundaries, and passport
-            # Check installation match
-            harness = target_harness
-            inst_id = target_installation
+    # 4. State classification via _inspect_classifier
+    state_enum, target_installation, missing_components, conflicts = classify_repository_state(
+        has_agents_md=has_agents_md,
+        is_meta_agents=is_meta_agents,
+        agents_dir_exists=agents_dir.exists(),
+        pk_dir_exists=pk_dir.exists(),
+        registry_file_exists=registry_file.exists(),
+        registry_file_is_file=registry_file.is_file(),
+        boundaries_file_is_file=boundaries_file.is_file(),
+        foreign_instructions=foreign_instructions,
+        registry_corrupted=registry_corrupted,
+        schema_version=schema_version,
+        registry_errors=registry_errors,
+        installations=installations,
+        target_harness=target_harness,
+        target_installation=target_installation,
+    )
+    state = state_enum.value
 
-            if inst_id:
-                inst_info = installations.get(inst_id)
-                if not isinstance(inst_info, dict) or inst_info.get("status") != "active":
-                    state = "HEALTHY_NEW_HARNESS"
-                elif harness and inst_info.get("harness_id") != harness:
-                    state = "HEALTHY_NEW_HARNESS"
-                else:
-                    state = "HEALTHY_REGISTERED"
-            elif harness:
-                # Search installation matching harness (Lane Z1-D: auto-resolve single active)
-                active_matching = [
-                    iid
-                    for iid, info in installations.items()
-                    if isinstance(info, dict)
-                    and info.get("harness_id") == harness
-                    and info.get("status") == "active"
-                ]
-                if len(active_matching) == 1:
-                    target_installation = active_matching[0]
-                    state = "HEALTHY_REGISTERED"
-                elif len(active_matching) > 1:
-                    target_installation = None
-                    state = "HEALTHY_REGISTERED"
-                else:
-                    target_installation = None
-                    state = "HEALTHY_NEW_HARNESS"
-            else:
-                # Unknown runtime context (audit §4): report indeterminacy
-                # instead of silently adopting any active installation.
-                state = "CONTEXT_UNRESOLVED"
-    elif foreign_instructions:
-        state = "FOREIGN_RULES"
-    else:
-        state = "NONE"
+    # 5. Evaluate Capability Matrix via _inspect_classifier
+    capabilities = evaluate_capability_matrix(
+        repo_root=repo_root,
+        is_meta_agents=is_meta_agents,
+        pk_dir=pk_dir,
+        check_boundaries_script=check_boundaries_script,
+        verify_identity_script=verify_identity_script,
+        agents_dir=agents_dir,
+        roles=roles,
+        target_installation=target_installation,
+        common_hooks_dir=common_hooks_dir,
+    )
 
-    # 5. Evaluate Capability Matrix
-    # read_instructions
-    can_read_instructions = is_meta_agents and pk_dir.is_dir()
-    cap_read_instructions = {
-        "status": "available" if can_read_instructions else "unavailable",
-        "detail": (
-            "Root AGENTS.md and knowledge slices accessible"
-            if can_read_instructions
-            else "AGENTS.md or .agents/project_knowledge missing"
-        ),
-    }
-
-    # local_checks
-    can_local_checks = check_boundaries_script.is_file() and verify_identity_script.is_file()
-    cap_local_checks = {
-        "status": "available" if can_local_checks else "unavailable",
-        "detail": (
-            "check_boundaries.py and verify_identity.py present"
-            if can_local_checks
-            else "Local inspection and boundary scripts not deployed"
-        ),
-    }
-
-    # skills
-    local_skills_dir = agents_dir / "skills"
-    has_local_skills = False
-    if local_skills_dir.is_dir():
-        for item in local_skills_dir.iterdir():
-            if item.is_dir() and (item / "SKILL.md").is_file():
-                has_local_skills = True
-                break
-    cap_skills = {
-        "status": "available" if has_local_skills else "unavailable",
-        "detail": (
-            "Local procedural skills deployed in .agents/skills/"
-            if has_local_skills
-            else "No local skills found in .agents/skills/"
-        ),
-    }
-
-    # roles — scoped to the TARGET installation (audit §4): availability of
-    # another harness's profiles must not leak into the caller's matrix.
-    has_roles = False
-    if target_installation:
-        for r_name, r_info in roles.items():
-            if isinstance(r_info, dict):
-                b_info = r_info.get("bindings", {}).get(target_installation)
-                if (
-                    isinstance(b_info, dict)
-                    and b_info.get("status") == "active"
-                    and b_info.get("profile_path")
-                ):
-                    profile_path = repo_root / b_info["profile_path"]
-                    if profile_path.is_file():
-                        has_roles = True
-                        break
-        cap_roles = {
-            "status": "available" if has_roles else "unavailable",
-            "detail": (
-                f"Active role profiles located and verified for installation '{target_installation}'"
-                if has_roles
-                else f"No active role profiles bound to installation '{target_installation}'"
-            ),
-        }
-    else:
-        # Unknown runtime context: file presence proves nothing about the
-        # caller's installation — report untested, not available.
-        cap_roles = {
-            "status": "untested",
-            "detail": (
-                "Runtime context unknown (--installation not provided): "
-                "role availability for a specific installation is undetermined"
-            ),
-        }
-
-    # hooks — resolved via the shared hooks directory (works for linked
-    # worktrees whose hooks live in the main .git/hooks).
-    hook_file = (common_hooks_dir / "pre-commit") if common_hooks_dir else None
-    hook_available = False
-    if hook_file and hook_file.is_file():
-        try:
-            hook_text = hook_file.read_text(encoding="utf-8")
-            if "check_boundaries" in hook_text:
-                hook_available = True
-        except Exception:
-            pass
-    cap_hooks = {
-        "status": "available" if hook_available else "unavailable",
-        "detail": (
-            "Git pre-commit hook incorporates check_boundaries"
-            if hook_available
-            else "Git pre-commit hook with boundary check not installed"
-        ),
-    }
-
-    # 7. Check for latest init report
-    latest_init_report: Optional[Dict[str, Any]] = None
-    reports_base = agents_dir / "reports"
-    if reports_base.is_dir():
-        candidate_insts = [target_installation] if target_installation else []
-        for c_inst in candidate_insts:
-            if not c_inst:
-                continue
-            init_dir = reports_base / c_inst / "init"
-            if init_dir.is_dir():
-                ptr_file = init_dir / "latest.json"
-                if ptr_file.is_file():
-                    try:
-                        ptr_data = json.loads(ptr_file.read_text(encoding="utf-8"))
-                        latest_init_report = {
-                            "run_id": ptr_data.get("run_id"),
-                            "status": ptr_data.get("status"),
-                            "created_at": ptr_data.get("created_at"),
-                            "path": ptr_data.get("path"),
-                            "installation_id": c_inst,
-                        }
-                        break
-                    except Exception:
-                        pass
-                else:
-                    report_files = sorted(
-                        [p for p in init_dir.glob("*.json") if p.name != "latest.json"],
-                        key=lambda p: p.name,
-                        reverse=True,
-                    )
-                    if report_files:
-                        try:
-                            rf_data = json.loads(report_files[0].read_text(encoding="utf-8"))
-                            latest_init_report = {
-                                "run_id": rf_data.get("run_id"),
-                                "status": rf_data.get("status"),
-                                "created_at": rf_data.get("created_at"),
-                                "path": str(report_files[0].resolve()).replace("\\", "/"),
-                                "installation_id": c_inst,
-                            }
-                            break
-                        except Exception:
-                            pass
+    # 6. Check for latest init report via _inspect_classifier
+    latest_init_report = find_latest_init_report(
+        reports_base=agents_dir / "reports",
+        target_installation=target_installation,
+    )
 
     runtime_context: Dict[str, Any] = {
         "target_harness": target_harness,
@@ -767,13 +601,7 @@ def inspect_repository(
         "installations": installations,
         "cross_harness_divergence": divergence_info["divergence_detected"],
         "asymmetric_roles": divergence_info["asymmetric_roles"],
-        "capabilities": {
-            "read_instructions": cap_read_instructions,
-            "local_checks": cap_local_checks,
-            "skills": cap_skills,
-            "roles": cap_roles,
-            "hooks": cap_hooks,
-        },
+        "capabilities": capabilities,
         "missing_components": missing_components,
         "conflicts": conflicts,
         "foreign_instructions": foreign_instructions,
