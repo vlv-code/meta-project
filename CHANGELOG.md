@@ -10,7 +10,19 @@
 
 ## [Unreleased]
 
+### Planned / В планах
+- Интеграция обратной связи сообщества и эмпирические тесты на многоязычных репозиториях.
+- Разработка шаблонов адаптеров для альтернативных агентных сред.
+
+---
+
+## [1.0.0-beta.1] - 2026-11-25
+
 ### Added / Добавлено
+- **Волна Z4 — Финализация бэклога: Tier 0 Micro mode, канонический английский ADR-срез и протокол Decision-RTL (Backlog Closure, §7.3)**:
+  - Документирован режим Tier 0 (Micro) в `README.md` и `README.ru.md` (Solo и Duo) для компактных проектов (<3–5k LOC).
+  - Создан канонический английский документ решений `docs/decisions_and_roadmap.en.md` (ADR #14–#23, #25 и Lessons Learned) без плейсхолдеров.
+  - Протокол Decision-RTL (P2.4, ADR #16) внедрён в канонический шаблон `templates/AGENTS.md`, корневой `AGENTS.md`, `skills/init-meta-project/resources/AGENTS.md` и `skills/sync-architecture/SKILL.md`.
 - **Волна Z3 — Тонкая экосистема адаптеров хуков харнессов и гигиена артефактов (Harness Hooks Ecosystem, §11.3)**:
   - Добавлены модули `hooks/dispatch.py` (чистый stdout-диспетчер событий с маршрутизацией без Context Bloat для Claude Code, Cursor, Gemini CLI, Copilot, Codex, ZCode) и `hooks/install.py` (установка, верификация сухими пробами и удаление хуков харнессов и локального git pre-commit).
   - Добавлен нативный манифест хуков плагина `hooks/hooks.json` для Claude Code / ZCode.
@@ -25,10 +37,6 @@
 - **Волна Z3 — Разделение постоянных и транзиторных артефактов обновления (Update Hygiene, §11.3)**:
   - Изоляция транзиторных файлов `.agents/update.lock`, `.agents/update.journal.json` и временных бэкапов в `.gitignore` при сохранении постоянных аудируемых отчётов `.agents/reports/*/update/*.json`.
   - Выравнивание процедурных закрытий в `skills/init-meta-project/SKILL.md` и `skills/update-meta-project/SKILL.md`.
-
-### Planned / В планах
-- Интеграция обратной связи сообщества и эмпирические тесты на многоязычных репозиториях.
-- Разработка шаблонов адаптеров для альтернативных агентных сред.
 
 ---
 
