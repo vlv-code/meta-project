@@ -1,6 +1,6 @@
 {
   "name": "meta-project",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Agentic environment and context organization framework: project passport (AGENTS.md), dynamic knowledge slices, and procedural skills for any repository.",
   "author": {
     "name": "vlv-code"
