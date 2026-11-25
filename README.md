@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
-[![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--alpha.9-orange.svg)](CHANGELOG.md)
+[![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--beta.1-orange.svg)](CHANGELOG.md)
 [![CI](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml/badge.svg)](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml)
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#support-the-project)
@@ -210,6 +210,10 @@ Anything unmapped is Red (Default Deny).
   - `scripts/manage_reports.py` — Zero-dependency report engine for init/manage/update/tune scenario reports: canonical schemas (`templates/reports/`), deterministic run IDs, staleness and intake admission checks (`latest`/`verify` accept `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — Managed update engine (SHA-pinned, atomic, journaled): read-only `check`/`plan`, atomic `apply` with rollback journal, approved-plan integrity and update report, offline cache fallback (dead origin + exact SHA + integral cache), runtime-layout target mapping, manifest `resource` component mapping, `--adopt-existing` sha-match adoption, and `restore` of the engine's own changes.
   - `scripts/triage_incident.py` — Zero-dependency epistemic triage CLI implementing deterministic subcommands: `probe`, `record-evidence`, `promote` (fail-closed gate preventing premature fix tasks), `check-tasks`, and `artifact` comparison.
+- **`hooks/`**:
+  - `hooks/install.py` — Zero-dependency multi-harness hook installer (`install`/`verify`/`uninstall` for Claude Code, Cursor, Gemini CLI, Copilot, Codex, ZCode, and local Git `pre-commit`).
+  - `hooks/dispatch.py` — Zero-dependency event dispatcher mapping `pre-tool-use` (Green/Yellow/Red boundary check) and `session-start` (<1500 tokens context injection) to Python core scripts with strict stdout purity.
+  - `hooks/hooks.json` — Native plugin hooks manifest for Claude Code / ZCode registering `PreToolUse` and `SessionStart` events.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — Architecture Decision Records (canonical range ADR #14–#23, Polyglot Monorepo Incident, and Split-Runtime Silent-Failure Incident §10) and roadmap.
   - `docs/test_report_alpha_skill.md` — Empirical test report from test cycles (Tests 1–6) on a sample bot service.
@@ -256,6 +260,11 @@ To safely archive or resize agent roles without data loss:
 Decommission agent team using decommission-meta-project skill
 ```
 
+#### Tier 0 (Micro) Mode (<3–5k LOC)
+For compact repositories, avoid multi-role overhead using two lightweight options via `manage-meta-project`:
+- **Solo (No Team):** Operate directly with your primary agent under machine-enforced boundary gates.
+- **Tier 0 Duo:** Minimal pairing of `Developer` (implementation) ➔ `Inspector/Guardian` (integrity audit & git commit).
+
 ### 5. Context Recovery & Drift Diagnosis
 If an agent loses its goal, state, identity, or authority after a session change, repository move, update, or memory compaction — or drifts, loops across speculative fixes, or breaches role boundaries:
 ```text
@@ -297,6 +306,7 @@ Tests have zero external dependencies and run on any platform with Python 3.10+.
 ## Documentation and Research
 
 - [Architecture Decision Records and Roadmap (ADR)](docs/decisions_and_roadmap.md)
+- [Canonical Architecture Decisions & Lessons Learned (EN)](docs/decisions_and_roadmap.en.md)
 - [Framework Philosophy and Vision](docs/framework_philosophy_and_vision.md)
 - [Empirical Skill Test Report (Tests 1–6)](docs/test_report_alpha_skill.md)
 - [Orchestration Team Empirical Report](docs/test_report_orchestration_team.md)

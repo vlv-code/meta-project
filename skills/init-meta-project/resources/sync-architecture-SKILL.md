@@ -33,6 +33,7 @@ This skill performs a black-box structural analysis of the repository and produc
 
 4. **Update `architecture.md` (with Local Adaptation Preservation):**  
    Before overwriting `.agents/project_knowledge/architecture.md`, read the existing file and extract all local adaptation blocks marked with `<!-- local_repo_data:TAG -->...<!-- /local_repo_data:TAG -->` or `# local_repo_data:TAG...# /local_repo_data:TAG`.
+   Check that any architecturally significant changes (North Stars, dependencies, contracts) include a valid Decision-RTL record (`Goal`, `Affected North Stars`, `Rationale`, `Risks & Trade-offs`, `Verification Result & Impact`).
    Write the result to `.agents/project_knowledge/architecture.md`, preserving the canonical section structure and seamlessly restoring any extracted `local_repo_data` blocks into their respective sections:
    - High-level overview (stack, application type).
    - Core components and data flows (preserving customized flows and single source of truth).

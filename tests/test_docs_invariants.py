@@ -80,6 +80,32 @@ class TestReadmeParityAndIntegrity(unittest.TestCase):
                 f"Missing Glossary section in {name}",
             )
 
+    def test_tier_0_micro_mode_documented_in_both_readmes(self):
+        """P1.3: Tier 0 Micro mode must be documented in both README.md and README.ru.md."""
+        for text, name in [(self.en_readme, "README.md"), (self.ru_readme, "README.ru.md")]:
+            self.assertTrue(
+                re.search(r"Tier 0.*(?:Micro|микро)", text, re.IGNORECASE),
+                f"Missing Tier 0 (Micro) mention in {name}",
+            )
+            self.assertTrue(
+                re.search(r"(?:Developer|разработчик)\s*.*(?:Inspector|Guardian|инспектор)", text, re.IGNORECASE),
+                f"Missing Developer -> Inspector/Guardian duo mention in {name}",
+            )
+            self.assertIn(
+                "manage-meta-project",
+                text,
+                f"Missing manage-meta-project reference in {name}",
+            )
+
+    def test_readme_links_to_english_decisions_canonical(self):
+        """P1.4: Both READMEs must reference docs/decisions_and_roadmap.en.md in documentation section."""
+        for text, name in [(self.en_readme, "README.md"), (self.ru_readme, "README.ru.md")]:
+            self.assertIn(
+                "docs/decisions_and_roadmap.en.md",
+                text,
+                f"Missing link to docs/decisions_and_roadmap.en.md in {name}",
+            )
+
 
 class TestContributingParityAndPolicy(unittest.TestCase):
     """Verify CONTRIBUTING.md and CONTRIBUTING.ru.md parity and SemVer policy."""
@@ -213,6 +239,71 @@ class TestCodeownersAndAuditTree(unittest.TestCase):
         self.assertTrue(ci_path.is_file(), "Missing .github/workflows/ci.yml")
         content = ci_path.read_text(encoding="utf-8")
         self.assertIn("pyflakes", content)
+
+
+class TestEnglishDecisionsAndRoadmapCanon(unittest.TestCase):
+    """P1.4: Canonical English reference for ADRs and Lessons Learned."""
+
+    def setUp(self):
+        self.en_doc_path = REPO_ROOT / "docs" / "decisions_and_roadmap.en.md"
+
+    def test_english_decisions_file_exists_and_has_content(self):
+        self.assertTrue(
+            self.en_doc_path.is_file(),
+            f"Missing canonical English documentation: {self.en_doc_path}",
+        )
+        content = self.en_doc_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        self.assertGreaterEqual(
+            len(lines),
+            50,
+            f"docs/decisions_and_roadmap.en.md is too short: {len(lines)} lines",
+        )
+
+    def test_english_decisions_contains_key_adrs(self):
+        self.assertTrue(self.en_doc_path.is_file(), "docs/decisions_and_roadmap.en.md does not exist")
+        content = self.en_doc_path.read_text(encoding="utf-8")
+        required_adrs = [
+            "ADR #14", "ADR #15", "ADR #16", "ADR #17", "ADR #18",
+            "ADR #19", "ADR #20", "ADR #21", "ADR #22", "ADR #23",
+            "ADR #25",
+        ]
+        for adr in required_adrs:
+            self.assertIn(adr, content, f"Missing {adr} in docs/decisions_and_roadmap.en.md")
+
+    def test_english_decisions_contains_key_lessons_learned(self):
+        self.assertTrue(self.en_doc_path.is_file(), "docs/decisions_and_roadmap.en.md does not exist")
+        content = self.en_doc_path.read_text(encoding="utf-8")
+        required_lessons = [
+            "Polyglot Monorepo Incident",
+            "External Audit",
+            "Split-Runtime",
+        ]
+        for lesson in required_lessons:
+            self.assertTrue(
+                re.search(lesson, content, re.IGNORECASE),
+                f"Missing lesson '{lesson}' in docs/decisions_and_roadmap.en.md",
+            )
+
+    def test_english_decisions_cross_links_to_russian_provenance(self):
+        self.assertTrue(self.en_doc_path.is_file(), "docs/decisions_and_roadmap.en.md does not exist")
+        content = self.en_doc_path.read_text(encoding="utf-8")
+        self.assertIn(
+            "decisions_and_roadmap.md",
+            content,
+            "docs/decisions_and_roadmap.en.md must link to decisions_and_roadmap.md for provenance",
+        )
+
+    def test_weak_spots_reflects_english_adr_canon(self):
+        weak_spots_path = REPO_ROOT / ".agents" / "project_knowledge" / "weak_spots.md"
+        if not weak_spots_path.is_file():
+            self.skipTest("dogfood-branch contract: requires live weak_spots.md")
+        content = weak_spots_path.read_text(encoding="utf-8")
+        self.assertIn(
+            "decisions_and_roadmap.en.md",
+            content,
+            "weak_spots.md must reference docs/decisions_and_roadmap.en.md",
+        )
 
 
 if __name__ == "__main__":

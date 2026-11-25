@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "framework_version": "1.0.0-alpha.9",
+  "framework_version": "1.0.0-beta.1",
   "channel": "preview",
   "supported_registry_schemas": [
     "1.0",
@@ -110,6 +110,40 @@
       "kind": "script",
       "requires": [
         "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "hooks/dispatch.py",
+      "kind": "script",
+      "requires": [
+        "scripts/check_boundaries.py",
+        "scripts/inspect_meta_project.py",
+        "scripts/compact_memory.py",
+        "scripts/triage_incident.py",
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "hooks/install.py",
+      "kind": "script",
+      "requires": [
+        "hooks/dispatch.py",
+        "scripts/check_boundaries.py",
+        "scripts/_common.py"
+      ]
+    },
+    {
+      "path": "hooks/hooks.json",
+      "kind": "resource",
+      "requires": [
+        "hooks/dispatch.py"
+      ]
+    },
+    {
+      "path": "hooks/README.md",
+      "kind": "resource",
+      "requires": [
+        "hooks/install.py"
       ]
     },
     {

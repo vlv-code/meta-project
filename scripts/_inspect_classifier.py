@@ -272,7 +272,7 @@ def evaluate_capability_matrix(
             ),
         }
 
-    # 5. hooks — resolved via the shared hooks directory
+    # 5. hooks — resolved via the shared hooks directory and installed harness hook adapters
     hook_file = (common_hooks_dir / "pre-commit") if common_hooks_dir else None
     hook_available = False
     if hook_file and hook_file.is_file():
@@ -282,13 +282,45 @@ def evaluate_capability_matrix(
                 hook_available = True
         except Exception:
             pass
+
+    # Detect harness hook adapters installed in repo_root referencing hooks/dispatch.py
+    harness_configs = [
+        ("claude-code", repo_root / ".claude" / "settings.json"),
+        ("cursor", repo_root / ".cursor" / "hooks.json"),
+        ("gemini", repo_root / ".gemini" / "settings.json"),
+        ("codex", repo_root / ".codex" / "hooks.json"),
+        ("copilot", repo_root / ".github" / "hooks" / "meta-project.json"),
+    ]
+    active_harnesses = []
+    for h_name, h_conf in harness_configs:
+        if h_conf.is_file():
+            try:
+                conf_text = h_conf.read_text(encoding="utf-8")
+                if "hooks/dispatch.py" in conf_text:
+                    active_harnesses.append(h_name)
+            except Exception:
+                pass
+    active_harnesses.sort()
+
+    has_harness_hooks = len(active_harnesses) > 0
+    hooks_status = (
+        CapabilityStatus.AVAILABLE.value
+        if (hook_available or has_harness_hooks)
+        else CapabilityStatus.UNAVAILABLE.value
+    )
+
+    if hook_available and has_harness_hooks:
+        detail = f"Git pre-commit + harness hooks active ({', '.join(active_harnesses)})"
+    elif hook_available:
+        detail = "Git pre-commit hook incorporates check_boundaries"
+    elif has_harness_hooks:
+        detail = f"Harness hooks active ({', '.join(active_harnesses)}); git pre-commit not installed (recommended for Bash-write backstop)"
+    else:
+        detail = "Git pre-commit hook with boundary check not installed"
+
     cap_hooks = {
-        "status": CapabilityStatus.AVAILABLE.value if hook_available else CapabilityStatus.UNAVAILABLE.value,
-        "detail": (
-            "Git pre-commit hook incorporates check_boundaries"
-            if hook_available
-            else "Git pre-commit hook with boundary check not installed"
-        ),
+        "status": hooks_status,
+        "detail": detail,
     }
 
     return {

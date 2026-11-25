@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
-[![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--alpha.9-orange.svg)](CHANGELOG.md)
+[![Status: Alpha](https://img.shields.io/badge/Status-1.0.0--beta.1-orange.svg)](CHANGELOG.md)
 [![CI](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml/badge.svg)](https://github.com/vlv-code/meta-project/actions/workflows/ci.yml)
 [![Boosty](https://img.shields.io/badge/Donate-Boosty-F15F2C.svg)](https://boosty.to/oovlvoo)
 [![USDT TON](https://img.shields.io/badge/Donate-USDT%20TON-26A17B.svg)](#поддержать-проект)
@@ -210,6 +210,10 @@ Red: .env*, migrations/**, src/auth/** — только с явным разре
   - `scripts/manage_reports.py` — автономный движок отчётов сценариев init/manage/update/tune: канонические схемы (`templates/reports/`), детерминированные run ID, проверка свежести и допуска (`latest`/`verify` принимают `--type {init,manage,update,tune}`).
   - `scripts/update_meta_project.py` — движок управляемого обновления (SHA-пиннинг, атомарность, журнал): чтение `check`/`plan`, атомарный `apply` с журналом отката, целостностью согласованного плана и update-отчётом, офлайн-фоллбэком кеша (мёртвый origin + точный SHA + интегральный кеш), маппингом на runtime-layout, маппингом `resource`-компонентов манифеста, `--adopt-existing` усыновлением по sha-match и `restore` собственных изменений движка.
   - `scripts/triage_incident.py` — автономная CLI-утилита эпистемического триажа на Python stdlib с детерминированными подкомандами: `probe`, `record-evidence`, `promote` (fail-closed гейт против преждевременных задач на исправление), `check-tasks` и сравнение `artifact`.
+- **`hooks/`**:
+  - `hooks/install.py` — автономный установщик хуков харнессов (`install`/`verify`/`uninstall` для Claude Code, Cursor, Gemini CLI, Copilot, Codex, ZCode и локального Git `pre-commit`).
+  - `hooks/dispatch.py` — диспетчер событий без зависимостей, транслирующий события `pre-tool-use` (проверка Green/Yellow/Red зон) и `session-start` (контекст <1500 токенов) в скрипты ядра с чистым stdout.
+  - `hooks/hooks.json` — нативный манифест хуков плагина для Claude Code / ZCode для регистрации событий `PreToolUse` и `SessionStart`.
 - **`docs/`**:
   - `docs/decisions_and_roadmap.md` — журнал архитектурных решений (канонический диапазон ADR #14–#23, Polyglot Monorepo Incident и Split-Runtime Silent-Failure Incident §10) и перспективный роадмап.
   - `docs/test_report_alpha_skill.md` — эмпирический отчет по итогам серии тестирований (Тесты 1–6) на тестовом бот-сервисе.
@@ -256,6 +260,11 @@ Red: .env*, migrations/**, src/auth/** — только с явным разре
 Законсервируй команду агентов с помощью навыка decommission-meta-project
 ```
 
+#### Режим Tier 0 (Micro) (<3–5k строк кода)
+Для компактных проектов избыточную бюрократию снимают два сценария через `manage-meta-project`:
+- **Solo (без команды):** работа напрямую с основным агентом под контролем машинных гейтов границ.
+- **Tier 0 Duo:** минимальный дуэт `Developer` (разработка) ➔ `Inspector/Guardian` (аудит целостности и коммит).
+
 ### 5. Восстановление контекста и диагностика дрейфа
 Если агент потерял цель, состояние, идентичность или полномочия после смены сессии, переноса репозитория, обновления или компакции памяти — либо дрейфует, циклится на спекулятивных правках или выходит за рамки роли:
 ```text
@@ -297,6 +306,7 @@ python tests/run_parallel.py
 ## Документация и исследования
 
 - [Журнал архитектурных решений и роадмап (ADR)](docs/decisions_and_roadmap.md)
+- [Канонические архитектурные решения и Lessons Learned (EN)](docs/decisions_and_roadmap.en.md)
 - [Философия и видение фреймворка](docs/framework_philosophy_and_vision.md)
 - [Эмпирический отчет по тестированию навыков (Тесты 1–6)](docs/test_report_alpha_skill.md)
 - [Эмпирический отчет по команде оркестрации](docs/test_report_orchestration_team.md)

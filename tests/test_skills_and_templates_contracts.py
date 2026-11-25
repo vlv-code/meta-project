@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -749,6 +750,76 @@ class TestProgressiveDisclosureSkillContracts(unittest.TestCase):
         manage_path = REPO_ROOT / "skills/manage-meta-project/SKILL.md"
         lines = manage_path.read_text(encoding="utf-8").splitlines()
         self.assertLessEqual(len(lines), 240, f"manage-meta-project/SKILL.md has {len(lines)} lines > 240")
+
+
+class TestUpdateEngineArtifactHygieneContracts(unittest.TestCase):
+    """Contracts for Wave Z3: Update Engine artifact hygiene in skills and gitignore."""
+
+    def test_init_skill_and_scenarios_gitignore_hygiene(self):
+        init_skill = (REPO_ROOT / "skills/init-meta-project/SKILL.md").read_text(encoding="utf-8")
+        scenarios = (REPO_ROOT / "skills/init-meta-project/references/scenarios.md").read_text(encoding="utf-8")
+
+        for artifact in [
+            ".agents/update-engine.lock",
+            ".agents/update-plan.json",
+            ".agents/update-journal.json",
+        ]:
+            self.assertIn(artifact, init_skill, f"Missing {artifact} in init-meta-project/SKILL.md")
+            self.assertIn(artifact, scenarios, f"Missing {artifact} in init-meta-project/references/scenarios.md")
+
+    def test_update_skill_closeout_separates_persistent_and_transient_artifacts(self):
+        update_skill = (REPO_ROOT / "skills/update-meta-project/SKILL.md").read_text(encoding="utf-8")
+
+        # Persistent audit/lock state to commit
+        self.assertIn(".agents/framework-lock.json", update_skill)
+        self.assertIn(".agents/reports/*/update/*.json", update_skill)
+
+        # Transient session files NOT to commit
+        self.assertIn(".agents/update-engine.lock", update_skill)
+        self.assertIn(".agents/update-plan.json", update_skill)
+        self.assertIn(".agents/update-journal.json", update_skill)
+
+
+class TestDecisionRtlContracts(unittest.TestCase):
+    """Contracts for Wave Z4 (P2.4): Decision-RTL in AGENTS.md templates, root, and sync-architecture."""
+
+    def test_decision_rtl_in_templates_and_root_agents(self):
+        targets = [
+            REPO_ROOT / "templates/AGENTS.md",
+            REPO_ROOT / "AGENTS.md",
+            REPO_ROOT / "skills/init-meta-project/resources/AGENTS.md",
+        ]
+        for p in targets:
+            self.assertTrue(p.is_file(), f"Missing target passport: {p}")
+            content = p.read_text(encoding="utf-8")
+            self.assertTrue(
+                re.search(r"Decision[- ]RTL", content),
+                f"Missing Decision-RTL section in {p}",
+            )
+            for field in [
+                "Goal",
+                "Affected North Stars",
+                "Rationale",
+                "Risks & Trade-offs",
+                "Verification Result & Impact",
+            ]:
+                self.assertIn(
+                    field,
+                    content,
+                    f"Missing Decision-RTL field '{field}' in {p}",
+                )
+            # Must state scope: architecturally significant changes
+            self.assertTrue(
+                re.search(r"architecturally significant", content, re.IGNORECASE),
+                f"Missing architectural significance scope in {p}",
+            )
+
+    def test_sync_architecture_checks_decision_rtl(self):
+        sync_skill = (REPO_ROOT / "skills/sync-architecture/SKILL.md").read_text(encoding="utf-8")
+        self.assertTrue(
+            re.search(r"Decision[- ]RTL", sync_skill),
+            "Missing Decision-RTL audit step in skills/sync-architecture/SKILL.md",
+        )
 
 
 if __name__ == '__main__':

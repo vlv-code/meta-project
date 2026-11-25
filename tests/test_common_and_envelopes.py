@@ -65,7 +65,8 @@ def _scan_importers():
     ``_common.py`` itself is the definition site, not an importer (its
     docstring merely SHOWS the import convention)."""
     importers = set()
-    for py in sorted(SCRIPTS_DIR.glob("*.py")):
+    script_candidates = sorted([*SCRIPTS_DIR.glob("*.py"), *(REPO_ROOT / "hooks").glob("*.py")])
+    for py in script_candidates:
         if py.name == "_common.py":
             continue
         text = py.read_text(encoding="utf-8")

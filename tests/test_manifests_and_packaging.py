@@ -522,5 +522,64 @@ class TestSyncDistBranchFiltering(unittest.TestCase):
             self.assertFalse(_is_dist_allowed(path), f"Expected {path} to be excluded from dist")
 
 
+class TestWaveZ3HooksManifestAndPackaging(unittest.TestCase):
+    """Contracts for Wave Z3: hooks/ distribution and release_manifest.json registration."""
+
+    def test_hooks_registered_in_release_manifest(self):
+        manifest_path = REPO_ROOT / "templates" / "release_manifest.json"
+        self.assertTrue(manifest_path.is_file(), "templates/release_manifest.json must exist")
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        components = {c["path"]: c for c in data.get("components", [])}
+
+        # 1. hooks/dispatch.py (script)
+        self.assertIn("hooks/dispatch.py", components)
+        disp = components["hooks/dispatch.py"]
+        self.assertEqual(disp.get("kind"), "script")
+        self.assertEqual(
+            disp.get("requires"),
+            [
+                "scripts/check_boundaries.py",
+                "scripts/inspect_meta_project.py",
+                "scripts/compact_memory.py",
+                "scripts/triage_incident.py",
+                "scripts/_common.py",
+            ],
+        )
+
+        # 2. hooks/install.py (script)
+        self.assertIn("hooks/install.py", components)
+        inst = components["hooks/install.py"]
+        self.assertEqual(inst.get("kind"), "script")
+        self.assertEqual(
+            inst.get("requires"),
+            [
+                "hooks/dispatch.py",
+                "scripts/check_boundaries.py",
+                "scripts/_common.py",
+            ],
+        )
+
+        # 3. hooks/hooks.json (resource)
+        self.assertIn("hooks/hooks.json", components)
+        hjson = components["hooks/hooks.json"]
+        self.assertEqual(hjson.get("kind"), "resource")
+        self.assertEqual(hjson.get("requires"), ["hooks/dispatch.py"])
+
+        # 4. hooks/README.md (resource)
+        self.assertIn("hooks/README.md", components)
+        readme = components["hooks/README.md"]
+        self.assertEqual(readme.get("kind"), "resource")
+        self.assertEqual(readme.get("requires"), ["hooks/install.py"])
+
+    def test_hooks_in_dist_paths_and_allowed(self):
+        from scripts.sync_dist_branch import DIST_PATHS, _is_dist_allowed
+
+        self.assertIn("hooks", DIST_PATHS)
+        self.assertTrue(_is_dist_allowed("hooks/dispatch.py"))
+        self.assertTrue(_is_dist_allowed("hooks/install.py"))
+        self.assertTrue(_is_dist_allowed("hooks/hooks.json"))
+        self.assertTrue(_is_dist_allowed("hooks/README.md"))
+
+
 if __name__ == '__main__':
     unittest.main()
