@@ -28,6 +28,10 @@ Areas requiring elevated caution and mandatory local test execution (`python -m 
 - `.agents/reports/**` — initialization and team management audit reports.
 - `.github/*.yml`, `.github/*.yaml` — repository-level GitHub configurations (e.g., `FUNDING.yml`).
 - `.claude-plugin/**`, `plugin.json` — plugin packaging manifests (declarative metadata, version-locked by tests).
+- `.agents/plugins/**` — Codex CLI plugin marketplace manifest.
+- `.cursor-plugin/**` — Cursor Marketplace plugin manifests.
+- `gemini-extension.json` — Gemini CLI extension manifest.
+- `hooks/**` — thin harness hook adapters & installer (reserved for Wave Z3).
 
 ---
 

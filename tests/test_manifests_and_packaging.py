@@ -22,6 +22,10 @@ RELEASE_MANIFEST = MANIFEST_PATH
 CLAUDE_PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
 MARKETPLACE_MANIFEST = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 AGENT_PLUGIN_MANIFEST = REPO_ROOT / "plugin.json"
+CODEX_MARKETPLACE_MANIFEST = REPO_ROOT / ".agents" / "plugins" / "marketplace.json"
+CURSOR_PLUGIN_MANIFEST = REPO_ROOT / ".cursor-plugin" / "plugin.json"
+CURSOR_MARKETPLACE_MANIFEST = REPO_ROOT / ".cursor-plugin" / "marketplace.json"
+GEMINI_EXTENSION_MANIFEST = REPO_ROOT / "gemini-extension.json"
 UPDATER_PATH = "scripts/update_meta_project.py"
 SKILLS_DIR = ROOT_DIR / "skills"
 EXPECTED_SKILL_COUNT = 10
@@ -403,6 +407,120 @@ class TestPackagingFrontmatter(unittest.TestCase):
                     "Wave PF must add packaging keys without touching "
                     "descriptions",
                 )
+
+class TestVendorMarketplaceManifests(unittest.TestCase):
+    """Lane Z2-C: Vendor marketplace manifests for Codex, Cursor, and Gemini."""
+
+    def _framework_version(self) -> str:
+        return _load_json(RELEASE_MANIFEST)["framework_version"]
+
+    def test_codex_marketplace_manifest_contract(self):
+        self.assertTrue(
+            CODEX_MARKETPLACE_MANIFEST.is_file(),
+            f"Missing Codex marketplace manifest: {CODEX_MARKETPLACE_MANIFEST}",
+        )
+        data = _load_json(CODEX_MARKETPLACE_MANIFEST)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("name"), "meta-project")
+        self.assertIn("interface", data)
+        self.assertIsInstance(data["interface"], dict)
+        self.assertTrue(data["interface"].get("displayName"))
+        self.assertIn("plugins", data)
+        self.assertIsInstance(data["plugins"], list)
+        self.assertTrue(len(data["plugins"]) >= 1)
+        plugin = data["plugins"][0]
+        self.assertEqual(plugin.get("name"), "meta-project")
+        self.assertIsInstance(plugin.get("source"), dict)
+        self.assertEqual(plugin["source"].get("source"), "local")
+        self.assertEqual(plugin["source"].get("path"), "./")
+        self.assertIsInstance(plugin.get("policy"), dict)
+        self.assertEqual(plugin["policy"].get("installation"), "AVAILABLE")
+        self.assertEqual(plugin["policy"].get("authentication"), "ON_INSTALL")
+        self.assertEqual(plugin.get("category"), "Developer Tools")
+
+    def test_cursor_plugin_manifest_contract(self):
+        self.assertTrue(
+            CURSOR_PLUGIN_MANIFEST.is_file(),
+            f"Missing Cursor plugin manifest: {CURSOR_PLUGIN_MANIFEST}",
+        )
+        data = _load_json(CURSOR_PLUGIN_MANIFEST)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("name"), "meta-project")
+        self.assertEqual(data.get("version"), self._framework_version())
+        for field in ("description", "author", "homepage", "repository", "license", "keywords"):
+            self.assertIn(field, data, f"Missing field '{field}' in Cursor plugin manifest")
+        self.assertEqual(data.get("license"), "MIT")
+
+    def test_cursor_marketplace_manifest_contract(self):
+        self.assertTrue(
+            CURSOR_MARKETPLACE_MANIFEST.is_file(),
+            f"Missing Cursor marketplace manifest: {CURSOR_MARKETPLACE_MANIFEST}",
+        )
+        data = _load_json(CURSOR_MARKETPLACE_MANIFEST)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("name"), "meta-project")
+        self.assertIsInstance(data.get("owner"), dict)
+        self.assertTrue(data["owner"].get("name"))
+        self.assertIsInstance(data.get("plugins"), list)
+        self.assertTrue(len(data["plugins"]) >= 1)
+        self.assertEqual(data["plugins"][0].get("name"), "meta-project")
+        self.assertEqual(data["plugins"][0].get("source"), "./")
+
+    def test_gemini_extension_manifest_contract(self):
+        self.assertTrue(
+            GEMINI_EXTENSION_MANIFEST.is_file(),
+            f"Missing Gemini extension manifest: {GEMINI_EXTENSION_MANIFEST}",
+        )
+        data = _load_json(GEMINI_EXTENSION_MANIFEST)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("name"), "meta-project")
+        self.assertEqual(data.get("version"), self._framework_version())
+        self.assertTrue(data.get("description"))
+
+
+class TestSyncDistBranchFiltering(unittest.TestCase):
+    """Lane Z2-C: Distribution sync branch path filtering."""
+
+    def test_dist_paths_include_vendor_manifests(self):
+        from scripts.sync_dist_branch import DIST_PATHS
+        self.assertIn(".agents/plugins", DIST_PATHS)
+        self.assertIn(".cursor-plugin", DIST_PATHS)
+        self.assertIn("gemini-extension.json", DIST_PATHS)
+
+    def test_dist_filtering_allows_plugins_and_excludes_all_dogfooding(self):
+        from scripts.sync_dist_branch import _is_dist_allowed
+        # Allowed files
+        allowed = [
+            ".agents/plugins/marketplace.json",
+            ".cursor-plugin/plugin.json",
+            ".cursor-plugin/marketplace.json",
+            "gemini-extension.json",
+            "skills/init-meta-project/SKILL.md",
+            "README.md",
+            "scripts/inspect_meta_project.py",
+        ]
+        for path in allowed:
+            self.assertTrue(_is_dist_allowed(path), f"Expected {path} to be allowed in dist")
+
+        # Excluded dogfooding files
+        excluded = [
+            ".agents/project_knowledge/boundaries.md",
+            ".agents/project_knowledge/tasks.md",
+            ".agents/team/agent-dev-lead/profile.md",
+            ".agents/reports/ag-main/init/init-1.json",
+            ".agents/skills/init-meta-project/SKILL.md",
+            ".agents/meta-project.json",
+            ".agents/framework-lock.json",
+            ".agents/update-engine.lock",
+            ".agents/random-file.txt",
+            ".agents/foo/bar.json",
+            "docs/superpowers/plan.md",
+            "docs/archive/old.md",
+            "download/binary.bin",
+        ]
+        for path in excluded:
+            self.assertFalse(_is_dist_allowed(path), f"Expected {path} to be excluded from dist")
+
 
 if __name__ == '__main__':
     unittest.main()

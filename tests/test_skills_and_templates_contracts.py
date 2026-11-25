@@ -85,7 +85,7 @@ class TestSystemPromptAndProfileContracts(unittest.TestCase):
             res_path.read_bytes(),
             "skills/manage-meta-project/resources/system_prompt.md drifted from template",
         )
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             self.assertTrue(ag_path.is_file(), "missing .agents mirror for system_prompt.md")
             self.assertEqual(
                 tpl_bytes,
@@ -119,7 +119,7 @@ class TestSystemPromptAndProfileContracts(unittest.TestCase):
 
         tpl_bytes = tpl_path.read_bytes()
         self.assertEqual(tpl_bytes, res_path.read_bytes())
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             self.assertTrue(ag_path.is_file())
             self.assertEqual(tpl_bytes, ag_path.read_bytes())
 
@@ -215,7 +215,7 @@ class TestManageSkillParityAndBudget(unittest.TestCase):
         ):
             self.assertIn(token, text, f"Missing {token!r} in manage-meta-project/SKILL.md")
 
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             ag_skill = REPO_ROOT / ".agents/skills/manage-meta-project/SKILL.md"
             self.assertTrue(ag_skill.is_file())
             self.assertEqual(skill_path.read_bytes(), ag_skill.read_bytes())
@@ -255,7 +255,7 @@ class TestTasksAndGroundContracts(unittest.TestCase):
         text = tpl_path.read_text(encoding="utf-8")
 
         self.assertEqual(tpl_path.read_bytes(), res_path.read_bytes())
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             ag_res = REPO_ROOT / ".agents/skills/init-meta-project/resources/tasks.md"
             self.assertTrue(ag_res.is_file())
             self.assertEqual(tpl_path.read_bytes(), ag_res.read_bytes())
@@ -300,7 +300,7 @@ class TestTasksAndGroundContracts(unittest.TestCase):
         ):
             self.assertIn(token, text, f"Missing {token!r} in skills/ground-meta-project/SKILL.md")
 
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             ag_skill = REPO_ROOT / ".agents/skills/ground-meta-project/SKILL.md"
             self.assertTrue(ag_skill.is_file())
             self.assertEqual(skill_path.read_bytes(), ag_skill.read_bytes())
@@ -323,7 +323,7 @@ class TestManifestAndInspectorInvariance(unittest.TestCase):
             ["scripts/triage_incident.py"],
         )
 
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             src_skill = REPO_ROOT / "skills/triage-incident/SKILL.md"
             mir_skill = REPO_ROOT / ".agents/skills/triage-incident/SKILL.md"
             self.assertTrue(mir_skill.is_file())
@@ -376,7 +376,7 @@ class TestManifestAndInspectorInvariance(unittest.TestCase):
             msg="ground-meta-project Phase 2 must state manual fallback when triage_incident.py is absent",
         )
         self.assertEqual(ground_path.read_bytes(), res_ground_path.read_bytes())
-        if (REPO_ROOT / ".agents").is_dir():
+        if (REPO_ROOT / ".agents/skills").is_dir():
             ag_ground = REPO_ROOT / ".agents/skills/ground-meta-project/SKILL.md"
             self.assertEqual(ground_path.read_bytes(), ag_ground.read_bytes())
 

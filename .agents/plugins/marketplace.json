@@ -1,0 +1,20 @@
+{
+  "name": "meta-project",
+  "interface": {
+    "displayName": "Meta-Project"
+  },
+  "plugins": [
+    {
+      "name": "meta-project",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
