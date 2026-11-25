@@ -1,17 +1,15 @@
 {
   "schema_version": "1.0.0",
   "kind": "red_zone_sanction",
-  "base_sha": "ea2b74d690f3f5f1f5ef1896bd1f231264ca1d8b",
+  "base_sha": "31090f39445319252b2a230c6e0304b20ea2b985",
   "authorized_by": "vlv-code",
   "paths": [
-    "scripts/check_boundaries.py",
-    "scripts/sync_templates.py",
-    ".github/workflows/ci.yml",
-    ".github/workflows/release.yml",
-    "tests/test_integrity.py",
-    ".github/red-zone-sanction.json",
+    ".agents/plugins/marketplace.json",
     ".agents/project_knowledge/boundaries.md",
-    ".gitattributes"
+    ".cursor-plugin/marketplace.json",
+    ".cursor-plugin/plugin.json",
+    ".github/red-zone-sanction.json",
+    "gemini-extension.json"
   ],
-  "reason": "Wave H + Release Automation wave: SHA-bound maintainer sanction (roadmap 7.2.2 item 4). Legacy entries carried over from the Wave H sanction (expired with its bound revision); release.yml adds the tag-parity release pipeline (parity hardening item 3). Sanctioned by the repo owner in-session; expires with the bound revision."
+  "reason": "Wave Z2 Lane Z2-C: vendor marketplace packaging manifests and hooks boundary reservation sanctioned by repository owner."
 }
