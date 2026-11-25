@@ -21,7 +21,7 @@
   - `skills/tune-meta-project/` — git friction diagnostics, role topology tuning, and non-bloating North Star crystallization.
   - `skills/update-meta-project/` — non-destructive upstream updating from GitHub or local cache with local_repo_data preservation and progressive disclosure troubleshooting reference in `references/troubleshooting.md`.
   - `skills/record-observation/` — standardized logging of quirks and solutions into `observations.md` via `record_obs.py`.
-  - `skills/sync-architecture/` — structural analysis and generation of the architectural slice.
+  - skills/sync-architecture/ — structural analysis, Decision-RTL audit (P2.4), and generation of the architectural slice.
   - `skills/triage-incident/` — split-runtime epistemic triage, probe discipline, and evidence-gated handoff (Wave K).
 - **Automation Scripts (`scripts/`):**
   - `scripts/check_boundaries.py` — zero-dependency CLI enforcing Default Deny and responsibility zones via Git diff (bilingual Russian/English zone headers, `--audit-tree` for 100% path coverage, `--diff` for base revision comparison). Fail-closed git queries (unresolvable revisions abort with an error, never an empty 'Clean'), `--no-renames` so renamed Red Zone paths are still checked, `--repo-root` scoping for all git operations, and `--install-hook` deploying a dispatcher pre-commit hook (legacy hook preserved as `pre-commit.legacy-meta` and executed as a separate process; worktree/core.hooksPath support; explicit conflict reporting for external hook managers).
@@ -77,6 +77,7 @@
 - **Security Policy Invariant:** Security gate scripts (`scripts/check_boundaries.py`), boundary policy definitions (`*boundaries.md`), and CI/CD configurations are strictly enforced in Red Zone and guarded via `.github/CODEOWNERS`.
 
 ## 4. End-to-End Data Flows (Pre-Flight Flow Tracing)
+- **Primary Data Flow 0 (Decision-RTL Protocol — P2.4, ADR #16):** Architecturally significant change (North Stars, contracts, scope) ➔ formulate 5-field Decision-RTL record (Goal, Affected North Stars, Rationale, Risks & Trade-offs, Verification Result & Impact) ➔ commit context & task log ➔ sync-architecture verifies compliance during audit.
 Every multi-tier feature or modification touching agent orchestration, templates, or skills must map the lifecycle across framework layers:
 
 ```
