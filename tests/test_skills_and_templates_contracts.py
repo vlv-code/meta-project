@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -777,6 +778,48 @@ class TestUpdateEngineArtifactHygieneContracts(unittest.TestCase):
         self.assertIn(".agents/update-engine.lock", update_skill)
         self.assertIn(".agents/update-plan.json", update_skill)
         self.assertIn(".agents/update-journal.json", update_skill)
+
+
+class TestDecisionRtlContracts(unittest.TestCase):
+    """Contracts for Wave Z4 (P2.4): Decision-RTL in AGENTS.md templates, root, and sync-architecture."""
+
+    def test_decision_rtl_in_templates_and_root_agents(self):
+        targets = [
+            REPO_ROOT / "templates/AGENTS.md",
+            REPO_ROOT / "AGENTS.md",
+            REPO_ROOT / "skills/init-meta-project/resources/AGENTS.md",
+        ]
+        for p in targets:
+            self.assertTrue(p.is_file(), f"Missing target passport: {p}")
+            content = p.read_text(encoding="utf-8")
+            self.assertTrue(
+                re.search(r"Decision[- ]RTL", content),
+                f"Missing Decision-RTL section in {p}",
+            )
+            for field in [
+                "Goal",
+                "Affected North Stars",
+                "Rationale",
+                "Risks & Trade-offs",
+                "Verification Result & Impact",
+            ]:
+                self.assertIn(
+                    field,
+                    content,
+                    f"Missing Decision-RTL field '{field}' in {p}",
+                )
+            # Must state scope: architecturally significant changes
+            self.assertTrue(
+                re.search(r"architecturally significant", content, re.IGNORECASE),
+                f"Missing architectural significance scope in {p}",
+            )
+
+    def test_sync_architecture_checks_decision_rtl(self):
+        sync_skill = (REPO_ROOT / "skills/sync-architecture/SKILL.md").read_text(encoding="utf-8")
+        self.assertTrue(
+            re.search(r"Decision[- ]RTL", sync_skill),
+            "Missing Decision-RTL audit step in skills/sync-architecture/SKILL.md",
+        )
 
 
 if __name__ == '__main__':

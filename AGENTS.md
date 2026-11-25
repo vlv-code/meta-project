@@ -106,6 +106,14 @@ When tasked with code exploration, repository assessment, or architecture review
 4. Changes must be minimally sufficient; refactoring of unrelated areas is prohibited; changes must be minimal in diff width, but maximal in root-cause depth.
 5. When encountering hidden environment quirks, record the fact via `record-observation` (or `scripts/record_obs.py`).
 
+**Decision-RTL (Architecturally Significant Changes Only):**
+When modifying project goals, North Stars, external dependencies, or component contracts (never for routine bugfixes), record a 5-field Decision-RTL in task/commit context:
+- `Goal:` Technical or architectural problem addressed.
+- `Affected North Stars:` Project invariants impacted.
+- `Rationale:` Why this solution was chosen over alternatives.
+- `Risks & Trade-offs:` New compromises or constraints introduced.
+- `Verification Result & Impact:` Verified empirical outcome and test evidence.
+
 **Execution Routes** (mode chosen by consequences and uncertainty; checks mandated by the agreed scenario are always preserved):
 - **short** — unambiguous local task: action → needed check → result (Read-Only Exploration Mode above is the canonical short route).
 - **normal** — several related changes with known contracts.
