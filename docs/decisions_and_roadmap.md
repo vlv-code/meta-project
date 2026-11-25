@@ -660,6 +660,8 @@
      - Безопасная подача компактного стартового контекста (<1500 токенов, без Context Bloat) и интеграция с `--facts-digest` (кандидат варианта C из §9).
   4. **Тонкий адаптер-напоминание поверх `scripts/compact_memory.py --dry-run`:**
      - Мягкое уведомление о превышении лимитов `observations.md`/`tasks.md` без блокировки интерактивного события `Stop` (`framework_philosophy_and_vision.md §3.2`).
+  5. **Гигиена артефактов движка обновлений (`update-meta-project/SKILL.md` + `.gitignore`-шаблон):**
+     - Явно разделить постоянные артефакты, подлежащие коммиту в целевом репозитории (`.agents/framework-lock.json`, `.agents/reports/*/update/*.json`), и временные рабочие файлы сессии обновления (`.agents/update-engine.lock`, `.agents/update-plan.json`, `.agents/update-journal.json`), закрепив их в append-if-absent `.gitignore`-блоке (`init-meta-project`) и в closeout-шаге `update-meta-project/SKILL.md`, чтобы временные файлы не попадали в Git-историю целевых проектов.
 
 
 

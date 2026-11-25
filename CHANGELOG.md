@@ -11,6 +11,10 @@
 ## [Unreleased]
 
 ### Added / Добавлено
+- **Волна Z2 — Progressive Disclosure процедурных навыков (Scalability & Token Optimization, §11.2)**:
+  - Вынесение объёмных каталогов сценариев, матриц компетенций и справочников устранения неполадок в лениво подгружаемые файлы `references/` (`skills/init-meta-project/references/scenarios.md`, `skills/manage-meta-project/references/competencies.md`, `skills/update-meta-project/references/troubleshooting.md`).
+  - Сохранение лимита контекста ключевого навыка `manage-meta-project/SKILL.md` (230 строк при ограничении <= 240) с контрактом `MISSING_RESOURCE`.
+  - Регистрация компонентов `references/` в `templates/release_manifest.json` и их автоматическое зеркалирование в `scripts/sync_templates.py` (включая флаг `--global-skills`).
 - **Волна T — Доменная консолидация тестов и параллельный тестовый раннер (Test Optimization & Modernization, §11.0)**:
   - Высокопроизводительный параллельный тестовый раннер `tests/run_parallel.py` на базе Python stdlib (`concurrent.futures.ProcessPoolExecutor`) с планировщиком LPT (Longest Processing Time first) и ускорением прогона батареи более чем в 7 раз (с ~12–13 мин до ~55–60 с).
   - Консолидация разрозненных исторических волновых файлов (`test_*wave_*.py`) в стабильные доменные модули (`test_manifests_and_packaging.py`, `test_update_engine.py`, `test_update_engine_security.py`, `test_skills_and_templates_contracts.py`, `test_sync_and_resources.py`, `test_triage_incident.py`, `test_lifecycle_acceptance.py`, `test_common_and_envelopes.py`, `test_docs_invariants.py`).
@@ -21,6 +25,11 @@
   - Эпистемические инварианты `Evidence-First Triage`, расширенный `Circuit Breaker` (опровергнутые гипотезы + аудит `Error-Path / Fallback-Masking`), `Toolchain Handoff Tripwire` и переносимая анти-угодливость в `templates/AGENTS.md`, `templates/team/system_prompt.md`, `skills/manage-meta-project` и `skills/ground-meta-project`.
 
 ### Fixed / Исправлено
+- **Волна Z2 — Hardening ротации задач и декомпозиция монолитов (Memory Compaction & Monolith Decomposition, §11.2)**:
+  - Идемпотентная вставка блока `> [!NOTE]` об архивации задач в `scripts/compact_memory.py` с автоматическим схлопыванием дубликатов.
+  - Гарантированное best-effort удаление `.lock`-файла после освобождения файловой блокировки в `compact_memory.py` (выравнивание с `record_obs.py` и `triage_incident.py`).
+  - Защита активных чекпоинтов `- [>]` и диагностических блоков `- [?] PROBE` от случайной архивации при ротации `tasks.md`.
+  - Декомпозиция крупноблочных монолитов ядра (ADR #22): разделение `scripts/inspect_meta_project.py`, `scripts/manage_reports.py` и `scripts/update_meta_project.py` на компактные модули (`_inspect_classifier.py`, `_report_models.py`, `_report_intake.py`, `_update_bundle.py`, `_update_merge.py`) с сохранением 100% обратной совместимости CLI и публичных импортов.
 - **Волна Z1 — Устранение дефектов ядра, резолв плагинов и гигиена срезов (Core P1 Defects & Slice Hygiene, §11.1)**:
   - Нормализация форматов `input_fingerprints` (поддержка `list` и `dict`) в проверке устаревания отчётов `scripts/manage_reports.py` и синхронизация схемы `templates/reports/update_report.json`.
   - Зеркалирование ресурсов навыков (`resources/`) при глобальной синхронизации `scripts/sync_templates.py --global-skills`.
