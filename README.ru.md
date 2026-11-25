@@ -45,7 +45,7 @@ Agent instructions: [AGENTS.md](AGENTS.md) | Policy: [.agents/project_knowledge/
 
 ## Установка
 
-Установите Meta-Project как плагин или пакет — без ручного копирования. Поддерживаются три канала:
+Установите Meta-Project как плагин или пакет для Claude Code, Cursor, Codex, Gemini CLI или Agent Plugins:
 
 ### Claude Code (маркетплейс плагинов)
 
@@ -61,7 +61,7 @@ claude plugin marketplace add vlv-code/meta-project
 npx plugins add vlv-code/meta-project
 ```
 
-Устанавливает пакет Agent Plugins 1.0.0 для совместимых хостов.
+Установка через Agent Plugins, Cursor (`.cursor-plugin`), Codex (`.agents/plugins`) или Gemini CLI (`gemini-extension.json`).
 
 ### skills.sh (установка отдельных навыков)
 

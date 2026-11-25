@@ -11,6 +11,10 @@
 ## [Unreleased]
 
 ### Added / Добавлено
+- **Волна Z2 — Нативные маркетплейс-манифесты и фильтрация дистрибуции (Vendor Packaging, §11.2)**:
+  - Добавлены нативные манифесты для Codex CLI (`.agents/plugins/marketplace.json`), Cursor (`.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json`) и Gemini CLI (`gemini-extension.json`) с единым версионированием из `templates/release_manifest.json`.
+  - Реализована строгая fail-closed фильтрация в `scripts/sync_dist_branch.py`, допускающая перенос `.agents/plugins/**` в дистрибутивную ветку `main` с полной изоляцией dogfooding-файлов (`.agents/team/**`, `.agents/project_knowledge/**`, `.agents/reports/**`).
+  - Резервирование каталога адаптеров хуков `hooks/**` в `boundaries.md` для Wave Z3.
 - **Волна Z2 — Progressive Disclosure процедурных навыков (Scalability & Token Optimization, §11.2)**:
   - Вынесение объёмных каталогов сценариев, матриц компетенций и справочников устранения неполадок в лениво подгружаемые файлы `references/` (`skills/init-meta-project/references/scenarios.md`, `skills/manage-meta-project/references/competencies.md`, `skills/update-meta-project/references/troubleshooting.md`).
   - Сохранение лимита контекста ключевого навыка `manage-meta-project/SKILL.md` (230 строк при ограничении <= 240) с контрактом `MISSING_RESOURCE`.
