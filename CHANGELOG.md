@@ -11,6 +11,10 @@
 ## [Unreleased]
 
 ### Added / Добавлено
+- **Волна T — Доменная консолидация тестов и параллельный тестовый раннер (Test Optimization & Modernization, §11.0)**:
+  - Высокопроизводительный параллельный тестовый раннер `tests/run_parallel.py` на базе Python stdlib (`concurrent.futures.ProcessPoolExecutor`) с планировщиком LPT (Longest Processing Time first) и ускорением прогона батареи более чем в 7 раз (с ~12–13 мин до ~55–60 с).
+  - Консолидация разрозненных исторических волновых файлов (`test_*wave_*.py`) в стабильные доменные модули (`test_manifests_and_packaging.py`, `test_update_engine.py`, `test_update_engine_security.py`, `test_skills_and_templates_contracts.py`, `test_sync_and_resources.py`, `test_triage_incident.py`, `test_lifecycle_acceptance.py`, `test_common_and_envelopes.py`, `test_docs_invariants.py`).
+  - Оптимизация тестовых фикстур git через шаблонное клонирование (`tests/_git_fixtures.py`), устранившая узкие места ввода-вывода при генерации тестовых репозиториев на Windows.
 - **Волна K — Эпистемический триаж и дисциплина доказательств (Split-Runtime Silent-Failure Remediation, §10)**:
   - Процедурный навык `skills/triage-incident/SKILL.md` и детерминированная CLI-утилита `scripts/triage_incident.py` на Python stdlib (`probe`, `record-evidence`, `promote`, `check-tasks`, `artifact`).
   - Двухфазная структура `tasks.md` с разделением диагностических проб (`- [?] PROBE`), обязательного поля доказательства (`evidence:`) и задач на исправление (`- [ ] FIX`).

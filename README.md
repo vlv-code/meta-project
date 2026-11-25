@@ -283,7 +283,11 @@ To indicate that a project is designed or maintained with an agentic environment
 The project includes automated integrity tests for skills, YAML frontmatter, templates, and canonical structure:
 
 ```bash
+# Standard single-process test discovery:
 python -m unittest discover -s tests -p "test_*.py" -v
+
+# Fast parallel execution across all available CPU cores:
+python tests/run_parallel.py
 ```
 
 Tests have zero external dependencies and run on any platform with Python 3.10+.
