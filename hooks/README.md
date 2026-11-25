@@ -33,7 +33,8 @@ The `hooks/` layer provides a **zero-dependency** (Python 3.10+ standard library
    - Shell-driven mutations are caught prior to commit by the Git `pre-commit` hook (`check_boundaries.py`).
    - CI boundary gates provide the final immutable backstop.
 2. **Codex CLI Trust:** Codex requires an interactive one-time `/hooks` command approval in its TUI before hooks in `.codex/hooks.json` are activated.
-3. **ZCode Live Verification:** Verified live using dry-run probes against `settings.json` hook schemas.
+3. **ZCode Verification:** Verified using synthetic dry-run probes against `.claude/settings.json` hook schemas; live execution should be confirmed inside an active ZCode Desktop session.
+4. **ADR #15 Read Permissions Invariant:** Read-only inspection tools (`Read`, `read_file`, `grep`, `glob`, `list_dir`) are never restricted by boundary gates even when targeting Red Zone files. This ensures agents can read boundaries and weak spots without deadlocking.
 
 ---
 
@@ -45,7 +46,7 @@ The `hooks/` layer provides a **zero-dependency** (Python 3.10+ standard library
 # Install hooks for a specific harness (chains git pre-commit by default)
 python hooks/install.py install --harness claude-code
 
-# Install hooks for all supported harnesses without git hook
+# Install hooks for all supported harnesses without git hook (deduplicates claude-code / zcode settings)
 python hooks/install.py install --harness all --no-git-hook
 
 # Install with interactive confirmation for Red Zone files
@@ -57,7 +58,7 @@ python hooks/install.py install --harness claude-code --with-read-gate
 
 ### Verification (`hooks/install.py verify`)
 
-Runs syntax checks, marker validation, and 3 live dry-run probes (`session-start`, `pre-tool-use` green allow, `pre-tool-use` red deny/ask):
+Runs syntax checks, marker validation, and 4 live dry-run probes (`session-start`, `pre-tool-use` green allow, `pre-tool-use` red deny/ask, and `pre-tool-use` read on Red Zone per ADR #15):
 
 ```bash
 python hooks/install.py verify --harness claude-code

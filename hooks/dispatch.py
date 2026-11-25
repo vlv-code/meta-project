@@ -249,8 +249,7 @@ def _handle_post_tool_use(
         sys.exit(0)
 
     tool_name = str(payload.get("tool_name", "")).strip().lower()
-    read_tools = {"read", "read_file", "view_file", "getfile", "view"}
-    if tool_name in read_tools:
+    if tool_name in READ_TOOLS:
         paths = _extract_paths_from_payload(payload)
         if paths:
             target_path = paths[0]
@@ -283,6 +282,22 @@ def _handle_post_tool_use(
     sys.exit(0)
 
 
+READ_TOOLS = {
+    "read",
+    "read_file",
+    "view_file",
+    "getfile",
+    "view",
+    "grep",
+    "grep_search",
+    "glob",
+    "find_by_name",
+    "list_dir",
+    "ls",
+    "search",
+}
+
+
 def _handle_pre_tool_use(
     repo_root: Optional[Path],
     harness: str,
@@ -293,6 +308,16 @@ def _handle_pre_tool_use(
     """Handle pre-tool-use event: boundary gate + optional read-journal gate."""
     if repo_root is None:
         _emit_response(harness, "pre-tool-use", decision="allow")
+        sys.exit(0)
+
+    tool_name = str(payload.get("tool_name", "")).strip().lower()
+
+    # ADR #15 (Read Permissions vs Write Restrictions):
+    # Read-only and non-mutating inspection tools are NEVER restricted by boundary gates,
+    # even when targeting Red Zone files (boundaries.md, check_boundaries.py, test_integrity.py).
+    # This guarantees that agents can freely read boundaries and weak spots without deadlocking.
+    if tool_name in READ_TOOLS:
+        _emit_response(harness, "pre-tool-use", decision="allow", reason="Read-only operation allowed (ADR #15)")
         sys.exit(0)
 
     raw_paths = _extract_paths_from_payload(payload)
