@@ -260,6 +260,11 @@ To safely archive or resize agent roles without data loss:
 Decommission agent team using decommission-meta-project skill
 ```
 
+#### Tier 0 (Micro) Mode (<3–5k LOC)
+For compact repositories, avoid multi-role overhead using two lightweight options via `manage-meta-project`:
+- **Solo (No Team):** Operate directly with your primary agent under machine-enforced boundary gates.
+- **Tier 0 Duo:** Minimal pairing of `Developer` (implementation) ➔ `Inspector/Guardian` (integrity audit & git commit).
+
 ### 5. Context Recovery & Drift Diagnosis
 If an agent loses its goal, state, identity, or authority after a session change, repository move, update, or memory compaction — or drifts, loops across speculative fixes, or breaches role boundaries:
 ```text
@@ -301,6 +306,7 @@ Tests have zero external dependencies and run on any platform with Python 3.10+.
 ## Documentation and Research
 
 - [Architecture Decision Records and Roadmap (ADR)](docs/decisions_and_roadmap.md)
+- [Canonical Architecture Decisions & Lessons Learned (EN)](docs/decisions_and_roadmap.en.md)
 - [Framework Philosophy and Vision](docs/framework_philosophy_and_vision.md)
 - [Empirical Skill Test Report (Tests 1–6)](docs/test_report_alpha_skill.md)
 - [Orchestration Team Empirical Report](docs/test_report_orchestration_team.md)
