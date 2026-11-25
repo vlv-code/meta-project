@@ -841,12 +841,12 @@ class TestManifestManageResourceComponents(unittest.TestCase):
                 f"manage resource component path absent from repo tree: {path}",
             )
 
-    def test_resource_component_count_is_fifteen(self):
-        """Edge: 9 init resources (Wave E P2) + 3 manage resources (Wave G) + 3 references (Wave Z2-B)."""
+    def test_resource_component_count_is_seventeen(self):
+        """Edge: 9 init resources (Wave E P2) + 3 manage resources (Wave G) + 3 references (Wave Z2-B) + 2 hooks resources (Wave Z3)."""
         resources = self._resource_components()
         self.assertEqual(
-            len(resources), 15,
-            f"resource components must be exactly the 9 init + 3 manage + 3 references set; got {sorted(resources)}",
+            len(resources), 17,
+            f"resource components must be exactly the 9 init + 3 manage + 3 references + 2 hooks set; got {sorted(resources)}",
         )
 
     def test_references_resource_components_declared(self):

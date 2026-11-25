@@ -1641,5 +1641,89 @@ class TestAutoResolveActiveInstallation(unittest.TestCase):
         self.assertEqual(digest["capabilities"]["roles"], "available")
 
 
+class TestCapabilitiesHooksOption2B(unittest.TestCase):
+    """Option 2B test suite for capabilities.hooks in evaluate_capability_matrix."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.root = Path(self.tmp)
+        self.agents_dir = self.root / ".agents"
+        self.pk_dir = self.agents_dir / "project_knowledge"
+        self.pk_dir.mkdir(parents=True, exist_ok=True)
+        (self.root / "AGENTS.md").write_text("# Passport\n", encoding="utf-8")
+        self.check_boundaries = self.root / "scripts" / "check_boundaries.py"
+        self.verify_identity = self.root / "scripts" / "verify_identity.py"
+        self.check_boundaries.parent.mkdir(parents=True, exist_ok=True)
+        self.check_boundaries.write_text("# check_boundaries\n", encoding="utf-8")
+        self.verify_identity.write_text("# verify_identity\n", encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _eval(self, common_hooks_dir=None):
+        from scripts._inspect_classifier import evaluate_capability_matrix
+        return evaluate_capability_matrix(
+            repo_root=self.root,
+            is_meta_agents=True,
+            pk_dir=self.pk_dir,
+            check_boundaries_script=self.check_boundaries,
+            verify_identity_script=self.verify_identity,
+            agents_dir=self.agents_dir,
+            roles={},
+            target_installation=None,
+            common_hooks_dir=common_hooks_dir,
+        )
+
+    def test_hooks_unavailable_when_neither_git_nor_harness_installed(self):
+        caps = self._eval(common_hooks_dir=None)
+        self.assertEqual(caps["hooks"]["status"], "unavailable")
+        self.assertIn("not installed", caps["hooks"]["detail"])
+
+    def test_hooks_available_with_git_precommit_only(self):
+        git_hooks = self.root / ".git" / "hooks"
+        git_hooks.mkdir(parents=True, exist_ok=True)
+        (git_hooks / "pre-commit").write_text("#!/bin/sh\npython scripts/check_boundaries.py\n", encoding="utf-8")
+
+        caps = self._eval(common_hooks_dir=git_hooks)
+        self.assertEqual(caps["hooks"]["status"], "available")
+        self.assertEqual(caps["hooks"]["detail"], "Git pre-commit hook incorporates check_boundaries")
+
+    def test_hooks_available_with_harness_adapter_only(self):
+        claude_dir = self.root / ".claude"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+        (claude_dir / "settings.json").write_text(
+            json.dumps({"hooks": {"PreToolUse": [{"command": "python hooks/dispatch.py --harness claude-code"}]}}),
+            encoding="utf-8",
+        )
+
+        caps = self._eval(common_hooks_dir=None)
+        self.assertEqual(caps["hooks"]["status"], "available")
+        self.assertIn("Harness hooks active (claude-code)", caps["hooks"]["detail"])
+        self.assertIn("git pre-commit not installed", caps["hooks"]["detail"])
+
+    def test_hooks_available_with_both_git_and_multiple_harness_adapters(self):
+        git_hooks = self.root / ".git" / "hooks"
+        git_hooks.mkdir(parents=True, exist_ok=True)
+        (git_hooks / "pre-commit").write_text("#!/bin/sh\ncheck_boundaries\n", encoding="utf-8")
+
+        cursor_dir = self.root / ".cursor"
+        cursor_dir.mkdir(parents=True, exist_ok=True)
+        (cursor_dir / "hooks.json").write_text(
+            json.dumps({"hooks": {"preToolUse": [{"command": "python hooks/dispatch.py --harness cursor"}]}}),
+            encoding="utf-8",
+        )
+
+        claude_dir = self.root / ".claude"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+        (claude_dir / "settings.json").write_text(
+            json.dumps({"hooks": {"PreToolUse": [{"command": "python hooks/dispatch.py --harness claude-code"}]}}),
+            encoding="utf-8",
+        )
+
+        caps = self._eval(common_hooks_dir=git_hooks)
+        self.assertEqual(caps["hooks"]["status"], "available")
+        self.assertEqual(caps["hooks"]["detail"], "Git pre-commit + harness hooks active (claude-code, cursor)")
+
+
 if __name__ == "__main__":
     unittest.main()

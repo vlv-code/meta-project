@@ -42,6 +42,7 @@ DIST_PATHS = [
     "CONTRIBUTING.ru.md",
     "docs",
     "gemini-extension.json",
+    "hooks",
     "LICENSE",
     "plugin.json",
     "README.md",
