@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -629,6 +630,50 @@ class TestMandatoryDispatcherRulePreserved(unittest.TestCase):
             "isolated roles without a single point of entry.",
             self.text,
         )
+
+
+class TestScriptRootCanonicalResolution(unittest.TestCase):
+    """Canonical SCRIPT_ROOT resolution rules across skills and external repo smoke test."""
+
+    def test_init_and_scan_skills_formalize_script_root_resolution(self) -> None:
+        init_skill = (REPO_ROOT / "skills" / "init-meta-project" / "SKILL.md").read_text(encoding="utf-8")
+        scan_skill = (REPO_ROOT / "skills" / "scan-meta-project" / "SKILL.md").read_text(encoding="utf-8")
+
+        for skill_name, text in (("init-meta-project", init_skill), ("scan-meta-project", scan_skill)):
+            self.assertIn("SCRIPT_ROOT", text, f"{skill_name} missing SCRIPT_ROOT formalization")
+            self.assertIn("./scripts/", text, f"{skill_name} missing local ./scripts/ order 1")
+            self.assertIn("${CLAUDE_PLUGIN_ROOT}", text, f"{skill_name} missing CLAUDE_PLUGIN_ROOT order 2")
+            self.assertTrue(
+                "../../scripts" in text or "dir of SKILL.md" in text or "<dir_of_SKILL.md>" in text,
+                f"{skill_name} missing sibling / plugin root order 3",
+            )
+
+    def test_inspect_meta_project_external_empty_repo_smoke(self) -> None:
+        script_path = REPO_ROOT / "scripts" / "inspect_meta_project.py"
+        with tempfile.TemporaryDirectory() as temp_empty:
+            cmd = [
+                sys.executable,
+                str(script_path),
+                "--repo-root",
+                str(temp_empty),
+                "--read-only",
+                "--json",
+            ]
+            res = subprocess.run(cmd, cwd=str(temp_empty), capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"Expected rc=0, got {res.returncode}: stderr={res.stderr}")
+            data = json.loads(res.stdout)
+            self.assertEqual(data.get("state"), "NONE", f"Expected state NONE, got {data.get('state')}")
+
+    def test_manage_skill_references_script_root_and_stays_within_budget(self) -> None:
+        manage_skill = (REPO_ROOT / "skills" / "manage-meta-project" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("SCRIPT_ROOT", manage_skill)
+        lines = manage_skill.splitlines()
+        self.assertLessEqual(
+            len(lines),
+            240,
+            f"skills/manage-meta-project/SKILL.md exceeded 240 lines ({len(lines)})",
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

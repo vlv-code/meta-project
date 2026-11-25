@@ -66,7 +66,7 @@ Identity-less repositories — `.agents/meta-project.json` with `roles: {}` — 
 
 Before defining or modifying roles, inspect initialization results and repository markers:
 
-0. **Deterministic Survey & Init Report Intake:** run `python scripts/inspect_meta_project.py --json`; ingest the latest init report for the target installation (`python scripts/manage_reports.py latest --installation <installation_id> --type init --json`).
+0. **Deterministic Survey & Init Report Intake:** runtime scripts resolve via SCRIPT_ROOT precedence (see `init-meta-project`); run `python <SCRIPT_ROOT>/inspect_meta_project.py --json`; ingest the latest init report for the target installation (`python <SCRIPT_ROOT>/manage_reports.py latest --installation <installation_id> --type init --json`).
    - Validate schema version compatibility, matching `project_id` and target `installation_id`.
    - **Fail-Closed Block:** if the init report is missing, or its status is `awaiting_decision` or `blocked`, **HALT**. Do not plan or deploy the team; report the pending decisions or blockers to the user.
    - **Machine-Enforced Intake:** admission is executed by the engine, not by agent judgment. Team changes are recorded via `python scripts/manage_reports.py manage --action create ...`, which runs fail-closed intake (`evaluate_manage_intake`: local-registry project/installation/harness match, admitted actor, existing init run, completed + ready status, fresh input fingerprints). Hand-assembled manage reports are prohibited; a refused intake must be resolved (fresh init run), never bypassed.
